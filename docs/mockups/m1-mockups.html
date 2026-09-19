@@ -3,10 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>dsh-termfleet · M1 低保真 B 版 v2（dsh 真实肤对齐）</title>
+<title>dsh-termfleet · M1 低保真 v4（远程/任务/审计 三页）</title>
 <style>
-/* 色值全部取自 dsh ui-theme design-platform.css 实测（docs/design-baseline.md ②节）
-   暗=宿主默认(neutral-950 底)。落码时替换为 --dsw-alias-* 令牌引用。 */
+/* 色值=dsh ui-theme design-platform.css 实测；落码替换为 --dsw-alias-* 令牌（docs/design-baseline.md） */
 :root{
   --n00:#ffffff; --n50:#f9fafb; --n60:#f5f6f7; --n100:#ebeef2; --n150:#e9ecf2;
   --n300:#cfd3d6; --n400:#adb2b8; --n600:#81858c; --n700:#61666b;
@@ -37,12 +36,13 @@ body[data-light]{
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB',sans-serif;font-size:14px;line-height:1.55;transition:background .2s,color .2s}
-.wrap{max-width:1360px;margin:0 auto;padding:0 20px 40px}
-
-/* 顶栏 */
-.topbar{display:flex;align-items:center;gap:10px;padding:14px 0 16px}
-.logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;letter-spacing:.2px}
-.logo .mark{width:22px;height:22px;border-radius:7px;background:var(--brand);color:var(--brand-fg);display:grid;place-items:center;font-size:12px;font-weight:800}
+.wrap{max-width:1380px;margin:0 auto;padding:0 20px 46px}
+.topbar{display:flex;align-items:center;gap:12px;padding:13px 0 15px}
+.logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px}
+.logo .mark{width:22px;height:22px;border-radius:7px;background:var(--brand);color:var(--brand-fg);display:grid;place-items:center;font-size:11px;font-weight:800}
+.nav{display:flex;gap:2px;margin-left:10px}
+.nav span{padding:7px 16px;border-radius:999px;font-size:13.5px;color:var(--label3);cursor:pointer;font-weight:500}
+.nav span.on{background:var(--brand);color:var(--brand-fg);font-weight:600}
 .pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:600;color:var(--label2);border:1px solid var(--border2);white-space:nowrap}
 .pill.g{color:var(--green);background:var(--green-t);border-color:transparent}
 .pill.a{color:var(--amber);background:var(--amber-t);border-color:transparent}
@@ -57,37 +57,52 @@ button:active{opacity:.75}
 .spacer{flex:1}
 .dot{width:8px;height:8px;border-radius:50%;flex:none}
 .dot.on{background:var(--green)}.dot.busy{background:var(--amber)}.dot.off{background:var(--n600)}
-
-/* 主体两栏 */
-.main{display:grid;grid-template-columns:296px 1fr;gap:16px;align-items:start}
 .panel{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden}
 .panel h5{font-size:12px;font-weight:600;color:var(--caption);padding:12px 14px 8px;letter-spacing:.3px}
+.page{display:none}
+.page.on{display:block}
+.note{font-size:12px;color:var(--caption);margin-top:10px}
+.mono{font-family:'SF Mono',Consolas,monospace}
 
-/* Fleet 列 */
-.member{display:flex;align-items:center;gap:9px;padding:9px 14px;border-top:1px solid var(--border);cursor:pointer}
-.member:hover{background:var(--hover)}
-.member .nm{font-weight:600;font-size:13.5px}
-.member .sub{font-size:12px;color:var(--label3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
-.member .ops{margin-left:auto;display:flex;gap:6px;opacity:0;transition:opacity .12s}
-.member:hover .ops{opacity:1}
-.iconbtn{width:26px;height:26px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--label2);font-size:12px;display:grid;place-items:center}
-.iconbtn:hover{color:var(--label1);border-color:var(--label3)}
-
-/* 工作区 tabs */
-.tabs{display:flex;gap:2px;padding:0 12px;border-bottom:1px solid var(--border);overflow-x:auto}
-{padding:12px 13px;font-size:13.5px;color:var(--label3);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
-.tabs span.on{color:var(--label1);font-weight:600;border-bottom-color:var(--label1)}
-.tabc{display:none;padding:14px 16px 18px}
-.tabc.on{display:block}
-
-/* ── 任务管理 ── */
+/* ════════ 页1 · 远程（远程桌面软件心智） ════════ */
+.rem{display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start}
+.dev{display:flex;gap:10px;padding:11px 14px;border-top:1px solid var(--border);cursor:pointer;align-items:center}
+.dev:hover{background:var(--hover)}
+.dev.sel{background:var(--hover);box-shadow:inset 3px 0 0 var(--brand)}
+.dev .av{width:34px;height:34px;border-radius:10px;background:var(--card2);display:grid;place-items:center;font-weight:700;font-size:13px;flex:none;border:1px solid var(--border)}
+.dev .nm{font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:7px}
+.dev .mach{font-size:11.5px;color:var(--caption);font-family:'SF Mono',Consolas,monospace}
+.dev .sessn{font-size:12px;color:var(--label3);margin-top:2px}
+/* 会话条（远程窗口顶） */
+.sessbar{display:flex;gap:6px;align-items:center;padding:10px 14px 0;flex-wrap:wrap}
+.sess{display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:10px 10px 0 0;border:1px solid var(--border);border-bottom:0;background:var(--card2);font-size:12.5px;color:var(--label3);cursor:pointer}
+.sess.on{background:var(--card);color:var(--label1);font-weight:600;border-color:var(--border2)}
+.sess .tag{font-size:10.5px;padding:1px 7px;border-radius:6px;border:1px solid var(--border2)}
+.tag.dsh{color:var(--blue);border-color:transparent;background:var(--blue-t)}
+.tag.cli{color:var(--amber);border-color:transparent;background:var(--amber-t)}
+.newcli{font-size:12.5px;color:var(--label3);border:1px dashed var(--border2);border-radius:10px;padding:6px 12px;cursor:pointer;background:transparent}
+.newcli:hover{color:var(--label1)}
+/* 远程窗口 */
+.rwin{background:var(--card);border:1px solid var(--border2);border-radius:0 14px 14px 14px;overflow:hidden}
+.rtoolbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)}
+.term{background:var(--n950);border:1px solid var(--border);color:var(--n300);font-family:'SF Mono','JetBrains Mono',Consolas,monospace;font-size:12.5px;border-radius:10px;padding:14px 16px;white-space:pre-wrap;line-height:1.6;margin:12px}
+body[data-light] .term{background:var(--n1000)}
+.term .p{color:var(--green)}
+.term .cur{opacity:.45}
+.rview{display:none;padding:0}
+.rview.on{display:block}
+.screen{margin:12px;height:300px;border:1px solid var(--border2);border-radius:10px;background:linear-gradient(135deg,var(--n900),var(--n750));position:relative;overflow:hidden}
+.screen .fakebar{position:absolute;top:0;left:0;right:0;height:26px;background:var(--n1000);opacity:.8;display:flex;align-items:center;gap:6px;padding:0 10px;font-size:11px;color:var(--n300);font-family:'SF Mono',Consolas,monospace}
+.screen .fakewin{position:absolute;top:44px;left:26px;width:58%;height:180px;border-radius:8px;background:var(--n950);border:1px solid var(--n750);box-shadow:0 8px 30px rgba(0,0,0,.4);padding:10px;font-family:'SF Mono',Consolas,monospace;font-size:11px;color:var(--n300)}
+.screen .wm{position:absolute;right:12px;bottom:10px;font-size:11px;color:var(--n300);background:rgba(0,0,0,.35);border-radius:8px;padding:3px 10px}
+/* ════════ 页2 · 任务 ════════ */
 .tbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 .seg{display:flex;background:var(--card2);border:1px solid var(--border);border-radius:999px;padding:2px}
 .seg button{border:0;background:transparent;color:var(--label2);padding:4px 12px;border-radius:999px;font-size:12.5px}
 .seg button.on{background:var(--brand);color:var(--brand-fg);font-weight:600}
 .search{display:flex;align-items:center;gap:6px;background:var(--card2);border:1px solid var(--border);border-radius:999px;padding:0 12px;height:30px;color:var(--caption);font-size:12.5px;min-width:170px}
 .thead{display:grid;grid-template-columns:26px 44px 88px 1fr 100px 92px 96px 118px;gap:8px;align-items:center;padding:6px 10px;font-size:11.5px;color:var(--caption);font-weight:600}
-.trow{display:grid;grid-template-columns:26px 44px 86px 1fr 108px 92px 96px 84px;gap:8px;align-items:center;padding:9px 10px;border-top:1px solid var(--border);font-size:13px}
+.trow{display:grid;grid-template-columns:26px 44px 88px 1fr 100px 92px 96px 118px;gap:8px;align-items:center;padding:9px 10px;border-top:1px solid var(--border);font-size:13px}
 .trow:hover{background:var(--hover)}
 .trow .title{color:var(--label1);font-weight:500}
 .trow .title .desc{display:block;font-weight:400;font-size:12px;color:var(--label3)}
@@ -100,38 +115,15 @@ button:active{opacity:.75}
 .prio.P0{color:var(--red)}.prio.P1{color:var(--amber)}.prio.P2{color:var(--label3)}
 .rowops{display:flex;gap:6px;justify-content:flex-end}
 .rowops .iconbtn{width:auto;padding:0 10px;font-size:12px;height:26px;white-space:nowrap}
-/* 展开详情行 */
-.tdetail{grid-template-columns:1fr;padding:12px 14px;border-top:1px solid var(--border);background:var(--card2);display:none;box-shadow:inset 3px 0 0 var(--label3)}
-.tdetail.on{display:grid}
-.tdetail .cols{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}
-.tdetail h6{font-size:12px;color:var(--caption);margin-bottom:6px;font-weight:600}
-.tl{font-size:12.5px;color:var(--label2)}
-.tl div{padding:3px 0;border-bottom:1px dashed var(--border)}
-.tl .ts{font-family:'SF Mono',Consolas,monospace;color:var(--caption);margin-right:8px}
-.batch{display:none;align-items:center;gap:10px;background:var(--brand);color:var(--brand-fg);border-radius:12px;padding:8px 14px;font-size:13px;margin-bottom:10px;font-weight:500}
-.batch.on{display:flex;margin-top:2px}
+.iconbtn{width:26px;height:26px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--label2);font-size:12px;display:grid;place-items:center}
+.iconbtn:hover{color:var(--label1);border-color:var(--label3)}
+.batch{display:none;align-items:center;gap:10px;background:var(--brand);color:var(--brand-fg);border-radius:12px;padding:8px 14px;font-size:13px;margin:2px 0 10px;font-weight:500}
+.batch.on{display:flex}
 .batch button{border:0;background:rgba(127,127,127,.18);color:inherit;border-radius:999px;padding:4px 12px;font-size:12.5px}
-
-/* ── 接管终端 ── */
-.termhead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.term{background:var(--n950);border:1px solid var(--border);color:var(--n300);font-family:'SF Mono','JetBrains Mono',Consolas,monospace;font-size:12.5px;border-radius:10px;padding:14px 16px;white-space:pre-wrap;line-height:1.6}
-body[data-light] .term{background:var(--n1000);color:var(--n300)}
-.term .p{color:var(--green)}
-.term .cur{opacity:.45}
-/* ── 审计 ── */
+/* ════════ 页3 · 审计 ════════ */
 .aud{display:flex;gap:10px;font-size:12.5px;padding:8px 2px;border-bottom:1px dashed var(--border);color:var(--label2)}
 .aud .ts{font-family:'SF Mono',Consolas,monospace;color:var(--caption);flex:none}
-
-/* 握手卡（成员侧） */
-.consent{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
-.consent .panel{padding:16px}
-.ccard h4{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:8px}
-.ccard .who{font-size:13px;color:var(--label2);margin-bottom:12px}
-.ccard .acts{display:flex;gap:9px;flex-wrap:wrap}
-.note{font-size:12px;color:var(--caption);margin-top:10px}
-.switcher{position:sticky;top:0;z-index:9;display:flex;gap:8px;align-items:center;background:var(--bg);border-bottom:1px solid var(--border);padding:9px 20px;font-size:12.5px;color:var(--caption)}
-.switcher .seg button.on{background:var(--brand);color:var(--brand-fg)}
-/* ── 任务详情抽屉 ── */
+/* 任务详情抽屉 */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;display:none}
 .overlay.on{display:block}
 .drawer{position:fixed;top:3vh;left:50%;transform:translateX(-50%);width:min(1180px,94vw);height:92vh;background:var(--bg);border:1px solid var(--border2);border-radius:16px;z-index:100;display:none;flex-direction:column;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5)}
@@ -141,6 +133,9 @@ body[data-light] .term{background:var(--n1000);color:var(--n300)}
 .dbody{flex:1;overflow-y:auto}
 .dtab{display:none;padding:16px 20px 26px}
 .dtab.on{display:block}
+.dtabs{display:flex;gap:2px;padding:0 16px;border-bottom:1px solid var(--border)}
+.dtabs span{padding:11px 13px;font-size:13.5px;color:var(--label3);cursor:pointer;border-bottom:2px solid transparent}
+.dtabs span.on{color:var(--label1);font-weight:600;border-bottom-color:var(--label1)}
 .flow{position:relative;padding-left:18px}
 .flow::before{content:'';position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--border2)}
 .fe{position:relative;padding:0 0 13px}
@@ -165,190 +160,194 @@ body[data-light] .term{background:var(--n1000);color:var(--n300)}
 .wfstep.open .wc{display:block}
 .wf-io{font-family:'SF Mono',Consolas,monospace;font-size:11.5px;background:var(--n950);color:var(--n300);border-radius:8px;padding:8px 10px;margin-top:6px;white-space:pre-wrap}
 body[data-light] .wf-io{background:var(--n1000)}
+.consent{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+.consent .panel{padding:16px}
+.ccard h4{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:8px}
+.ccard .who{font-size:13px;color:var(--label2);margin-bottom:12px}
+.ccard .acts{display:flex;gap:9px;flex-wrap:wrap}
+.switcher{position:sticky;top:0;z-index:9;display:flex;gap:8px;align-items:center;background:var(--bg);border-bottom:1px solid var(--border);padding:9px 20px;font-size:12.5px;color:var(--caption)}
 </style>
 </head>
 <body>
 <div class="switcher">
-  <b style="color:var(--label1)">B 版 v2</b>（dsh 真实黑白肤 · 宿主默认暗色）
+  <b style="color:var(--label1)">v4</b>（远程/任务/审计 三页 · dsh 真实黑白肤）
   <div class="seg" style="margin-left:auto"><button class="on" onclick="document.body.removeAttribute('data-light');this.parentNode.querySelectorAll('button').forEach(b=>b.classList.remove('on'));this.classList.add('on')">暗（宿主默认）</button><button onclick="document.body.setAttribute('data-light','');this.parentNode.querySelectorAll('button').forEach(b=>b.classList.remove('on'));this.classList.add('on')">亮</button></div>
 </div>
 <div class="wrap">
 
   <div class="topbar">
     <div class="logo"><span class="mark">TF</span>TermFleet</div>
+    <div class="nav">
+      <span class="on" onclick="pg(this,'pg-remote')">远程</span>
+      <span onclick="pg(this,'pg-task')">任务</span>
+      <span onclick="pg(this,'pg-audit')">审计</span>
+    </div>
+    <span class="spacer"></span>
     <span class="pill">lead · 张三</span>
     <span class="pill g">在线 4/5</span>
-    <span class="spacer"></span>
-    <button class="btn" onclick="newTask()">＋ 新建任务</button>
-    <button class="btn danger">紧急熔断</button>
+    <button class="btn danger sm">紧急熔断</button>
   </div>
 
-  <div class="main">
-    <!-- 左：Fleet -->
-    <div class="panel">
-      <h5>FLEET · 成员</h5>
-      <div class="member"><span class="dot on"></span><div><div class="nm">李四</div><div class="sub">爬虫修复 · kimi 等审批 2m</div></div><div class="ops"><button class="iconbtn" title="围观">👁</button><button class="iconbtn" title="接管">⌨</button></div></div>
-      <div class="member" style="background:var(--hover)"><span class="dot busy"></span><div><div class="nm">王五</div><div class="sub">支付对账 · dsh 改 bill/*.ts</div></div><div class="ops"><button class="iconbtn">👁</button><button class="iconbtn">⌨</button></div></div>
-      <div class="member"><span class="dot busy"></span><div><div class="nm">赵六</div><div class="sub">文档补全 · codex 输出中</div></div><div class="ops"><button class="iconbtn">👁</button><button class="iconbtn">⌨</button></div></div>
-      <div class="member"><span class="dot on"></span><div><div class="nm">钱七</div><div class="sub">空闲 · 上次 14:02</div></div><div class="ops"><button class="iconbtn" title="派活">＋</button></div></div>
-      <div class="member"><span class="dot off"></span><div><div class="nm">孙八</div><div class="sub">卡住 12m · 离线</div></div></div>
-      <h5 style="border-top:1px solid var(--border)">今日成本</h5>
-      <div style="padding:0 14px 12px;font-size:12.5px;color:var(--label2)">¥41.6 · 王五 22.1 / 赵六 13.4 / 李四 6.1</div>
-    </div>
-
-    <!-- 右：工作区 -->
-    <div class="panel">
-      <div class="tabs">
-        <span class="on" onclick="tab(this,'t-task')">任务管理</span>
-        <span onclick="tab(this,'t-take')">接管终端 · 王五 <span class="pill" style="margin-left:4px">29:41</span></span>
-        <span onclick="tab(this,'t-aud')">审计时间线</span>
-        <span onclick="tab(this,'t-diff')">成果 diff</span>
+  <!-- ════════ 页1 · 远程 ════════ -->
+  <div class="page on" id="pg-remote">
+    <div class="rem">
+      <div class="panel">
+        <h5>设备 · 成员</h5>
+        <div class="dev"><span class="dot on"></span><div class="av">李</div><div><div class="nm">李四 <span class="pill a">等审批</span></div><div class="mach">WIN-DEV-02</div><div class="sessn">dsh×1 · kimi 等权限 2m</div></div></div>
+        <div class="dev sel"><span class="dot busy"></span><div class="av">王</div><div><div class="nm">王五 <span class="pill g">已连接</span></div><div class="mach">WIN-DEV-03</div><div class="sessn">dsh×1 · pwsh×1</div></div></div>
+        <div class="dev"><span class="dot busy"></span><div class="av">赵</div><div><div class="nm">赵六 <span class="pill">干活中</span></div><div class="mach">MAC-M1</div><div class="sessn">codex×1 · 输出中</div></div></div>
+        <div class="dev"><span class="dot on"></span><div class="av">钱</div><div><div class="nm">钱七</div><div class="mach">WIN-DEV-05</div><div class="sessn">空闲 · 无会话</div></div></div>
+        <div class="dev"><span class="dot off"></span><div class="av">孙</div><div><div class="nm">孙八 <span class="pill r">离线</span></div><div class="mach">WIN-DEV-06</div><div class="sessn">pwsh×1 · 卡住 12m</div></div></div>
+        <h5 style="border-top:1px solid var(--border)">今日成本</h5>
+        <div style="padding:0 14px 12px;font-size:12.5px;color:var(--label2)">¥41.6 · 王 22.1 / 赵 13.4 / 李 6.1</div>
       </div>
 
-      <!-- 任务管理 -->
-      <div class="tabc on" id="t-task">
-        <div class="tbar">
-          <div class="seg">
-            <button class="on">全部 12</button><button>待派 3</button><button>进行中 4</button><button>待验收 2</button><button>阻塞 1</button><button>已完成 25</button>
-          </div>
-          <div class="seg"><button class="on">全部成员</button><button>王五</button><button>李四</button><button>赵六</button></div>
-          <div class="search">🔍 搜索任务 / 仓库…</div>
+      <div>
+        <!-- 会话条：dsh 会话 + 其他 CLI 混排，可新开 -->
+        <div class="sessbar">
+          <div class="sess on"><span class="tag dsh">dsh</span>支付对账重构</div>
+          <div class="sess"><span class="tag cli">pwsh</span>环境治理</div>
+          <div class="sess"><span class="tag cli">cmd</span>构建脚本</div>
+          <button class="newcli" onclick="alert('新开终端（经成员同意）：pwsh7 / cmd / git-bash / 自定义命令…')">＋ 新开 CLI</button>
           <span class="spacer"></span>
-          <button class="btn ghost sm">⇅ 优先级排序</button>
-          <button class="btn ghost sm">列表 / 看板</button>
+          <span class="pill">王五 · WIN-DEV-03</span>
         </div>
-
-        <div class="batch on" id="batch">已选 2 项 <button>批量派活…</button><button>批量验收</button><button>改优先级</button><button style="background:transparent;border:1px solid rgba(127,127,127,.4)">归档</button><span style="margin-left:auto;cursor:pointer" onclick="document.getElementById('batch').classList.remove('on')">✕</span></div>
-
-        <div class="thead"><span></span><span>优先级</span><span>状态</span><span>任务</span><span>指派</span><span>截止</span><span>关联</span><span style="text-align:right">操作</span></div>
-        <div class="trow">
-          <button class="ck on" onclick="this.classList.toggle('on')">✓</button><span class="prio P0">P0</span>
-          <span class="pill a stpill" title="点击流转：待验收→完成/打回">待验收 ⌄</span>
-          <span class="title">支付对账重构<span class="desc">recon/merge 双模块 · 打开详情看会话轨迹</span></span>
-          <span class="who">王五</span><span class="due">今天 18:00</span>
-          <span class="pill" style="border-style:dashed">dsh 会话</span>
-          <span class="rowops"><button class="iconbtn" onclick="openTask()">详情</button><button class="iconbtn">验收</button><button class="iconbtn">⋯</button></span>
-        </div>
-        <div class="tdetail on" id="d1"><div class="cols">
-          <div>
-            <h6>描述</h6>
-            <div class="tl">对账差异 3 类根因修复；完成后跑双机验收，卡点蒸馏进团队记忆（验收时自动）。</div>
-            <h6 style="margin-top:10px">子任务</h6>
-            <div class="tl"><div>✓ recon 差异合并</div><div>✓ merge 幂等</div><div>◻ 回归测试补全</div></div>
+        <div class="rwin">
+          <div class="rtoolbar">
+            <span class="pill g">● 已连接 · 可操作</span>
+            <span style="font-size:12.5px;color:var(--label3)">剩余 <b style="color:var(--label1)" class="mono">29:41</b> · 断开需成员随时可断</span>
+            <span class="spacer"></span>
+            <button class="btn sm" onclick="rvFix(this,'rvt')">⌨ 终端</button>
+            <button class="btn ghost sm" onclick="rvFix(this,'rvs')">🖥 屏幕围观</button>
+            <button class="btn ghost sm" onclick="alert('切换只读：lead 侧输入被禁，仅观看')">切只读</button>
+            <button class="btn danger sm">断开</button>
           </div>
-          <div>
-            <h6>轨迹</h6>
-            <div class="tl">
-              <div><span class="ts">09:12</span>张三 创建并派给王五（P1→P0）</div>
-              <div><span class="ts">11:40</span>王五 请求协助 → 张三 接管 12min（已留痕）</div>
-              <div><span class="ts">15:02</span>王五 提交验收 · diff +412/-38</div>
-              <div><span class="ts">—</span>待 张三 验收 → 完成则蒸馏卡点进团队仓</div>
-            </div>
-          </div>
-        </div></div>
-        <div class="trow">
-          <button class="ck on" onclick="this.classList.toggle('on')">✓</button><span class="prio P1">P1</span>
-          <span class="pill a stpill">待验收 ⌄</span>
-          <span class="title">文档补全</span>
-          <span class="who">赵六</span><span class="due">明天</span>
-          <span class="pill" style="border-style:dashed">codex 会话</span>
-          <span class="rowops"><button class="iconbtn">验收</button><button class="iconbtn">看 diff</button></span>
-        </div>
-        <div class="trow">
-          <button class="ck" onclick="this.classList.toggle('on')">✓</button><span class="prio P0">P0</span>
-          <span class="pill b stpill">进行中 ⌄</span>
-          <span class="title">爬虫脚本修复<span class="desc">kimi 等待权限确认——IM 审批卡已推送</span></span>
-          <span class="who">李四</span><span class="due">今天 20:00</span>
-          <span class="pill" style="border-style:dashed">kimi 会话</span>
-          <span class="rowops"><button class="iconbtn">围观</button><button class="iconbtn">接管</button><button class="iconbtn">催办</button></span>
-        </div>
-        <div class="trow">
-          <button class="ck" onclick="this.classList.toggle('on')">✓</button><span class="prio P1">P1</span>
-          <span class="pill stpill">待派 ⌄</span>
-          <span class="title">回归测试补全</span>
-          <span class="who" style="color:var(--caption)">未指派</span><span class="due">周五</span>
-          <span class="pill" style="border-style:dashed">—</span>
-          <span class="rowops"><button class="iconbtn">派给…</button></span>
-        </div>
-        <div class="trow">
-          <button class="ck" onclick="this.classList.toggle('on')">✓</button><span class="prio P2">P2</span>
-          <span class="pill r stpill">阻塞 ⌄</span>
-          <span class="title">环境治理<span class="desc">依赖：孙八机器离线 · 卡住 12m</span></span>
-          <span class="who">孙八</span><span class="due">—</span>
-          <span class="pill" style="border-style:dashed">pwsh</span>
-          <span class="rowops"><button class="iconbtn">推 IM</button><button class="iconbtn">改派</button></span>
-        </div>
-        <div class="trow" style="color:var(--caption)">
-          <button class="ck" onclick="this.classList.toggle('on')">✓</button><span class="prio P2">P2</span>
-          <span class="pill" style="opacity:.6">已完成</span>
-          <span class="title" style="color:var(--label3)">登录态刷新失效修复 ✓ 已蒸馏教训</span>
-          <span class="who">李四</span><span class="due">昨天</span>
-          <span class="pill" style="border-style:dashed;opacity:.6">dsh</span>
-          <span class="rowops"><button class="iconbtn">回放</button></span>
-        </div>
-      </div>
-
-      <!-- 接管终端 -->
-      <div class="tabc" id="t-take">
-        <div class="termhead">
-          <span class="pill g">● 接管中 · 可操作</span>
-          <span style="font-size:12.5px;color:var(--label3)">王五 · WIN-DEV-03 · 支付对账 · 剩余 <b class="prio" style="color:var(--label1)">29:41</b></span>
-          <span class="spacer"></span>
-          <button class="btn ghost sm">切只读</button><button class="btn danger sm">断开</button>
-        </div>
-        <div class="term">PS D:\proj\pay&gt; <span class="p">git diff --stat</span>
+          <div class="rview on" id="rvt">
+            <div class="term">PS D:\proj\pay&gt; <span class="p">git diff --stat</span>
  src/bill/recon.ts   | 84 ++++++++--
  src/bill/merge.ts   | 41 ++++-
  2 files changed, 125 insertions(+)
 
 PS D:\proj\pay&gt; <span class="p">npm test -- recon</span>
  ✓ recon.spec.ts (14)  ✓ merge.spec.ts (9)
- Tests  23 passed · 0 failed   <span style="color:var(--n600)">— 王五此刻也在看这屏</span>
+ Tests  23 passed · 0 failed
 
 PS D:\proj\pay&gt; <span class="cur">▊</span></div>
-        <div class="note">接管期间全量留痕（可回放）；成员侧一键断开随时生效。</div>
-      </div>
+            <div class="note" style="margin:0 14px 12px">终端流=成员机实时回显（dsh 会话走宿主 listener，CLI 走插件 PTY）；接管写入带 actor 标记、全量留痕；王五此刻同屏可见。</div>
+          </div>
+          <div class="rview" id="rvs">
+            <div class="screen">
+              <div class="fakebar">● ● ●  D:\proj\pay — Windows PowerShell 7</div>
+              <div class="fakewin">npm test -- recon<br>✓ recon.spec.ts (14)<br>✓ merge.spec.ts (9)<br>Tests 23 passed · 0 failed<br><span style="opacity:.4">▊</span></div>
+              <div class="wm">围观中 · 王五可见 · 留痕中</div>
+            </div>
+            <div class="note" style="margin:0 14px 12px">屏幕围观=独立通道（默认只读，可操作需二次授权）；水印+全程留痕；锁屏自动断开。</div>
+          </div>
+        </div>
 
-      <!-- 审计 -->
-      <div class="tabc" id="t-aud">
-        <div class="tbar"><div class="seg"><button class="on">全部</button><button>接管</button><button>审批</button><button>任务</button></div><div class="search">🔍 谁/何时/什么…</div><span class="spacer"></span><button class="btn ghost sm">导出</button></div>
-        <div class="aud"><span class="ts">15:44:07</span><span><b>张三</b> 接管写入 3 条命令 · 王五/支付对账 · <u style="cursor:pointer">回放</u></span></div>
-        <div class="aud"><span class="ts">15:42:31</span><span><b>王五</b> 同意接管（可操作 · 30min）</span></div>
-        <div class="aud"><span class="ts">15:42:02</span><span><b>张三</b> 请求接管 · 王五/支付对账</span></div>
-        <div class="aud"><span class="ts">14:02:11</span><span><b>李四</b> 拒绝围观请求（无需理由）</span></div>
-        <div class="aud"><span class="ts">11:40:55</span><span><b>王五</b> 呼叫协助 → 张三接手 12min（已回放）</span></div>
-        <div class="aud"><span class="ts">09:12:03</span><span><b>张三</b> 创建任务「支付对账重构」并派给王五</span></div>
-      </div>
-
-      <!-- diff -->
-      <div class="tabc" id="t-diff">
-        <div class="tbar"><div class="seg"><button class="on">支付对账重构</button><button>文档补全</button></div><span class="spacer"></span><button class="btn ghost sm">+412 / −38</button><button class="btn sm">验收并蒸馏</button></div>
-        <div class="term" style="font-size:12px">src/bill/recon.ts
-<span style="color:var(--green)">+ if (diff.kind === 'fx') return mergeFx(a,b)</span>
-<span style="color:var(--red)">- if (diff.kind === 'fx') throw new Error('unsupported')</span>
-<span style="color:var(--green)">+ // 团队记忆 #118: fx 差异走 mergeFx，勿抛异常（2026-09-12 教训）</span></div>
-        <div class="note">验收 → 自动蒸馏卡点/解法进团队记忆仓（git + hippo federation）。</div>
+        <!-- 成员侧握手卡（远程页专属） -->
+        <div class="consent">
+          <div class="panel ccard">
+            <h4>⚑ 连接请求（成员侧看到） <span class="pill a" style="margin-left:auto">限时 30 分钟</span></h4>
+            <div class="who"><b>张三</b>（WIN-MAIN）请求连接你的设备：<b>王五 · WIN-DEV-03</b><br>对象：dsh 会话「支付对账重构」/ 屏幕</div>
+            <div class="acts"><button class="btn">允许（可操作）</button><button class="btn ghost">仅只读</button><button class="btn danger">拒绝</button></div>
+            <div class="note">拒绝无需理由 · 随时一键断开 · 全程留痕；桌面/终端/CLI 同一张卡。</div>
+          </div>
+          <div class="panel ccard">
+            <h4>IM 审批卡 · 人在外</h4>
+            <div class="who" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px">飞书 · TermFleet 频道<br><span style="color:var(--label3);font-size:12.5px">[审批卡] 张三请求连接「王五 · WIN-DEV-03」</span>
+            <div style="display:flex;gap:8px;margin-top:8px"><button class="btn ghost sm">✓ 允许</button><button class="btn ghost sm">👁 只读</button><button class="btn ghost sm">✗ 拒绝</button></div></div>
+            <div class="note">同一张卡、同一条总线：软件内与 IM 答复等效。</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- 成员侧：同一张握手卡的两个入口 -->
-  <div class="consent">
-    <div class="panel ccard">
-      <h4>⚑ 接管请求 <span class="pill a" style="margin-left:auto">限时 30 分钟</span></h4>
-      <div class="who"><b>张三</b>（WIN-MAIN）请求接管你的会话：<b>支付对账重构</b> · dsh</div>
-      <div class="acts"><button class="btn">允许（可操作）</button><button class="btn ghost">仅只读</button><button class="btn danger">拒绝</button></div>
-      <div class="note">拒绝无需理由 · 随时一键断开 · 全程留痕</div>
+  <!-- ════════ 页2 · 任务（纯任务管理） ════════ -->
+  <div class="page" id="pg-task">
+    <div class="panel" style="padding:14px 16px 18px">
+      <div class="tbar">
+        <div class="seg">
+          <button class="on">全部 12</button><button>待派 3</button><button>进行中 4</button><button>待验收 2</button><button>阻塞 1</button><button>已完成 25</button>
+        </div>
+        <div class="seg"><button class="on">全部成员</button><button>王五</button><button>李四</button><button>赵六</button></div>
+        <div class="search">🔍 搜索任务 / 仓库…</div>
+        <span class="spacer"></span>
+        <button class="btn ghost sm">⇅ 优先级排序</button>
+        <button class="btn ghost sm">列表 / 看板</button>
+        <button class="btn sm" onclick="newTask()">＋ 新建任务</button>
+      </div>
+
+      <div class="batch on" id="batch">已选 2 项 <button>批量派活…</button><button>批量验收</button><button>改优先级</button><button style="background:transparent;border:1px solid rgba(127,127,127,.4)">归档</button><span style="margin-left:auto;cursor:pointer" onclick="document.getElementById('batch').classList.remove('on')">✕</span></div>
+
+      <div class="thead"><span></span><span>优先级</span><span>状态</span><span>任务</span><span>指派</span><span>截止</span><span>关联</span><span style="text-align:right">操作</span></div>
+      <div class="trow">
+        <button class="ck on" onclick="this.classList.toggle('on')">✓</button><span class="prio P0">P0</span>
+        <span class="pill a stpill" title="点击流转：待验收→完成/打回">待验收 ⌄</span>
+        <span class="title">支付对账重构<span class="desc">recon/merge 双模块 · 点详情看全流程/笔记/工作流</span></span>
+        <span class="who">王五</span><span class="due">今天 18:00</span>
+        <span class="pill" style="border-style:dashed">dsh + pwsh</span>
+        <span class="rowops"><button class="iconbtn" onclick="openTask()">详情</button><button class="iconbtn">验收</button><button class="iconbtn">⋯</button></span>
+      </div>
+      <div class="trow">
+        <button class="ck on" onclick="this.classList.toggle('on')">✓</button><span class="prio P1">P1</span>
+        <span class="pill a stpill">待验收 ⌄</span>
+        <span class="title">文档补全</span>
+        <span class="who">赵六</span><span class="due">明天</span>
+        <span class="pill" style="border-style:dashed">codex</span>
+        <span class="rowops"><button class="iconbtn" onclick="openTask()">详情</button><button class="iconbtn">看 diff</button></span>
+      </div>
+      <div class="trow">
+        <button class="ck" onclick="this.classList.toggle('on')">✓</button><span class="prio P0">P0</span>
+        <span class="pill b stpill">进行中 ⌄</span>
+        <span class="title">爬虫脚本修复<span class="desc">kimi 等待权限确认——IM 审批卡已推送（远程页可围观）</span></span>
+        <span class="who">李四</span><span class="due">今天 20:00</span>
+        <span class="pill" style="border-style:dashed">kimi</span>
+        <span class="rowops"><button class="iconbtn" onclick="pg(document.querySelectorAll('.nav span')[0],'pg-remote')">去远程</button><button class="iconbtn">催办</button></span>
+      </div>
+      <div class="trow">
+        <button class="ck" onclick="this.classList.toggle('on')">✓</button><span class="prio P1">P1</span>
+        <span class="pill stpill">待派 ⌄</span>
+        <span class="title">回归测试补全</span>
+        <span class="who" style="color:var(--caption)">未指派</span><span class="due">周五</span>
+        <span class="pill" style="border-style:dashed">—</span>
+        <span class="rowops"><button class="iconbtn">派给…</button></span>
+      </div>
+      <div class="trow">
+        <button class="ck" onclick="this.classList.toggle('on')">✓</button><span class="prio P2">P2</span>
+        <span class="pill r stpill">阻塞 ⌄</span>
+        <span class="title">环境治理<span class="desc">依赖：孙八机器离线 · pwsh 卡住 12m（远程页可见）</span></span>
+        <span class="who">孙八</span><span class="due">—</span>
+        <span class="pill" style="border-style:dashed">pwsh</span>
+        <span class="rowops"><button class="iconbtn">推 IM</button><button class="iconbtn">改派</button></span>
+      </div>
+      <div class="trow" style="color:var(--caption)">
+        <button class="ck" onclick="this.classList.toggle('on')">✓</button><span class="prio P2">P2</span>
+        <span class="pill" style="opacity:.6">已完成</span>
+        <span class="title" style="color:var(--label3)">登录态刷新失效修复 ✓ 已蒸馏教训</span>
+        <span class="who">李四</span><span class="due">昨天</span>
+        <span class="pill" style="border-style:dashed;opacity:.6">dsh</span>
+        <span class="rowops"><button class="iconbtn">回放</button></span>
+      </div>
     </div>
-    <div class="panel ccard">
-      <h4>IM 审批卡 · 人在外</h4>
-      <div class="who" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px">飞书 · TermFleet 频道<br><span style="color:var(--label3);font-size:12.5px">[审批卡] 张三请求接管「支付对账重构」</span>
-      <div style="display:flex;gap:8px;margin-top:8px"><button class="btn ghost sm">✓ 允许</button><button class="btn ghost sm">👁 只读</button><button class="btn ghost sm">✗ 拒绝</button></div></div>
-      <div class="note">同一张卡、同一条总线：软件内（左）与 IM（右）答复等效。</div>
+  </div>
+
+  <!-- ════════ 页3 · 审计 ════════ -->
+  <div class="page" id="pg-audit">
+    <div class="panel" style="padding:14px 16px 18px">
+      <div class="tbar"><div class="seg"><button class="on">全部</button><button>连接/接管</button><button>审批</button><button>任务</button></div><div class="search">🔍 谁/何时/什么…</div><span class="spacer"></span><button class="btn ghost sm">导出</button></div>
+      <div class="aud"><span class="ts">15:44:07</span><span><b>张三</b> 接管写入 3 条命令 · 王五/支付对账 · <u style="cursor:pointer">回放</u></span></div>
+      <div class="aud"><span class="ts">15:42:31</span><span><b>王五</b> 允许连接（可操作 · 30min）——对象：dsh 会话+屏幕</span></div>
+      <div class="aud"><span class="ts">15:42:02</span><span><b>张三</b> 请求连接 · 王五/WIN-DEV-03</span></div>
+      <div class="aud"><span class="ts">14:02:11</span><span><b>李四</b> 拒绝围观请求（无需理由）</span></div>
+      <div class="aud"><span class="ts">11:40:55</span><span><b>王五</b> 呼叫协助 → 张三接管 12min（已回放）</span></div>
+      <div class="aud"><span class="ts">09:12:03</span><span><b>张三</b> 创建任务「支付对账重构」并派给王五</span></div>
     </div>
   </div>
 </div>
-<!-- ═══ 任务详情抽屉：钻到任务内每一个细节 ═══ -->
+
+<!-- ═══ 任务详情抽屉（任务页点详情打开） ═══ -->
 <div class="overlay" id="ovl" onclick="closeTask()"></div>
 <div class="drawer" id="drawer">
   <div class="dhead">
@@ -356,97 +355,105 @@ PS D:\proj\pay&gt; <span class="cur">▊</span></div>
     <span class="pill a">待验收</span><span class="prio P0">P0</span>
     <span style="font-size:12.5px;color:var(--label3)">王五 · D:\proj\pay · 今天 18:00 截止</span>
     <span class="spacer"></span>
-    <button class="btn ghost sm">围观会话</button><button class="btn sm" onclick="alert('验收 → 自动登记 implemented 笔记 + 蒸馏卡点进团队仓')">验收并蒸馏</button>
+    <button class="btn ghost sm" onclick="closeTask();pg(document.querySelectorAll('.nav span')[0],'pg-remote')">去远程围观</button>
+    <button class="btn sm" onclick="alert('验收 → 自动登记 implemented 笔记 + 蒸馏卡点进团队仓')">验收并蒸馏</button>
     <button class="btn ghost sm" onclick="closeTask()">✕</button>
   </div>
-  <div class="tabs" style="padding:0 16px">
+  <div class="dtabs">
     <span class="on" onclick="dtab(this,'dt-flow')">全流程</span>
     <span onclick="dtab(this,'dt-sess')">会话细节</span>
     <span onclick="dtab(this,'dt-notes')">决策笔记 <span class="pill" style="margin-left:4px">3</span></span>
     <span onclick="dtab(this,'dt-wf')">工作流</span>
+    <span onclick="dtab(this,'dt-diff')">diff</span>
     <span onclick="dtab(this,'dt-ov')">概览</span>
   </div>
   <div class="dbody">
-
     <div class="dtab on" id="dt-flow">
-      <div class="note" style="margin-bottom:12px">时间线=任务全生命周期，每个事件可「定位」跳到原始细节（会话 seq / 回放帧 / diff 行 / 笔记）。</div>
+      <div class="note" style="margin-bottom:12px">任务全生命周期，每事件可「定位」到原始细节（会话 seq / 回放帧 / diff 行 / 笔记）。</div>
       <div class="flow">
-        <div class="fe"><span class="ft">09:12</span><span class="fx"><b>张三</b> 创建任务 · 派给王五 · P1<span class="loc" onclick="dtab(document.querySelector('.drawer .tabs span:nth-child(5)'),'dt-ov')">→ 概览</span></span></div>
-        <div class="fe"><span class="ft">09:14</span><span class="fx">工作流启动 <b>pay-recon-fix@v3</b>（5 步）<span class="loc" onclick="dtab(document.querySelector('.drawer .tabs span:nth-child(4)'),'dt-wf')">→ 工作流</span></span></div>
-        <div class="fe"><span class="ft">09:15</span><span class="fx">dsh 会话开始 · cwd D:\proj\pay<span class="loc" onclick="dtab(document.querySelector('.drawer .tabs span:nth-child(2)'),'dt-sess')">→ 会话 seq#0</span></span></div>
-        <div class="fe"><span class="ft">10:02</span><span class="fx">决策笔记提案：<b>「fx 差异走 mergeFx 而非抛异常」</b>（proposed）<span class="loc" onclick="dtab(document.querySelector('.drawer .tabs span:nth-child(3)'),'dt-notes')">→ 笔记 #118</span></span></div>
-        <div class="fe"><span class="ft">11:40</span><span class="fx"><b>王五</b> 呼叫协助 → <b>张三</b> 接管 12min（同意卡 · 全程留痕）<span class="loc">→ 回放 11:42:07</span></span></div>
-        <div class="fe"><span class="ft">11:52</span><span class="fx">张三 写入 3 条命令 · 定位到 recon.ts#L42 修复<span class="loc" onclick="dtab(document.querySelector('.drawer .tabs span:nth-child(2)'),'dt-sess')">→ 会话 seq#128</span><span class="loc">→ diff recon.ts#L42</span></span></div>
-        <div class="fe"><span class="ft">14:20</span><span class="fx">方案 B「全量重写对账引擎」被否决（rejected 笔记 · 防重犯）<span class="loc" onclick="dtab(document.querySelector('.drawer .tabs span:nth-child(3)'),'dt-notes')">→ 笔记 #119</span></span></div>
-        <div class="fe"><span class="ft">15:02</span><span class="fx"><b>王五</b> 提交验收 · diff +412/−38 · 测试 23 通过<span class="loc">→ diff 全览</span></span></div>
-        <div class="fe"><span class="ft">15:44</span><span class="fx">张三 复核中（当前）——验收将自动：登记 implemented 笔记 + 蒸馏卡点进团队仓</span></div>
+        <div class="fe"><span class="ft">09:12</span><span class="fx"><b>张三</b> 创建任务 · 派给王五 · P1<span class="loc" onclick="dtab(document.querySelectorAll('.dtabs span')[5],'dt-ov')">→ 概览</span></span></div>
+        <div class="fe"><span class="ft">09:14</span><span class="fx">工作流启动 <b>pay-recon-fix@v3</b>（5 步）<span class="loc" onclick="dtab(document.querySelectorAll('.dtabs span')[3],'dt-wf')">→ 工作流</span></span></div>
+        <div class="fe"><span class="ft">09:15</span><span class="fx">dsh 会话开始 · cwd D:\proj\pay<span class="loc" onclick="dtab(document.querySelectorAll('.dtabs span')[1],'dt-sess')">→ 会话 seq#0</span></span></div>
+        <div class="fe"><span class="ft">10:02</span><span class="fx">决策笔记提案：<b>「fx 差异走 mergeFx」</b>（proposed）<span class="loc" onclick="dtab(document.querySelectorAll('.dtabs span')[2],'dt-notes')">→ 笔记 #118</span></span></div>
+        <div class="fe"><span class="ft">11:40</span><span class="fx"><b>王五</b> 呼叫协助 → <b>张三</b> 接管 12min（同意卡 · 留痕）<span class="loc">→ 回放 11:42:07</span></span></div>
+        <div class="fe"><span class="ft">11:52</span><span class="fx">张三 写入 3 条命令 · recon.ts#L42 修复<span class="loc" onclick="dtab(document.querySelectorAll('.dtabs span')[1],'dt-sess')">→ 会话 seq#128</span><span class="loc" onclick="dtab(document.querySelectorAll('.dtabs span')[4],'dt-diff')">→ diff recon.ts#L42</span></span></div>
+        <div class="fe"><span class="ft">14:20</span><span class="fx">方案 B「全量重写引擎」否决（rejected · 防重犯）<span class="loc" onclick="dtab(document.querySelectorAll('.dtabs span')[2],'dt-notes')">→ 笔记 #119</span></span></div>
+        <div class="fe"><span class="ft">15:02</span><span class="fx"><b>王五</b> 提交验收 · diff +412/−38 · 测试 23✓<span class="loc" onclick="dtab(document.querySelectorAll('.dtabs span')[4],'dt-diff')">→ diff 全览</span></span></div>
+        <div class="fe"><span class="ft">15:44</span><span class="fx">张三 复核中（当前）——验收将自动：登记 implemented 笔记 + 蒸馏进团队仓</span></div>
       </div>
     </div>
-
     <div class="dtab" id="dt-sess">
       <div class="seqbar"><span style="font-size:12px;color:var(--caption)">seq 跳转：</span><span class="seq">0-15 开场</span><span class="seq">96 工具调用</span><span class="seq hit" onclick="alert('定位：接管期间张三写入的命令就在 seq#128')">#128 接管写入 ⚑</span><span class="seq">142 测试</span><span class="seq">156 提交</span><span style="flex:1"></span><div class="search" style="min-width:200px">🔍 在会话内搜：mergeFx…</div></div>
-      <div class="evrow"><span class="seqn">#126</span><span class="type" style="color:var(--label3)">assistant-stream</span><span>…fx 差异当前抛 unsupported，我建议改为 mergeFx 分支…</span></div>
+      <div class="evrow"><span class="seqn">#126</span><span class="type" style="color:var(--label3)">assistant-stream</span><span>…fx 差异当前抛 unsupported，建议改 mergeFx 分支…</span></div>
       <div class="evrow" style="background:var(--hover)"><span class="seqn">#128</span><span class="type" style="color:var(--blue)">user/message ⚑</span><span><b>张三（接管写入）</b>：if (diff.kind === 'fx') return mergeFx(a,b) ——注意幂等<br><span style="font-size:12px;color:var(--caption)">11:52:31 · 接管通道 · 已留痕，可回放该时刻</span></span></div>
       <div class="evrow"><span class="seqn">#130</span><span class="type" style="color:var(--label3)">tool/bash</span><span class="mono" style="font-size:12px">npm test -- recon · 23 passed 0 failed</span></div>
       <div class="evrow"><span class="seqn">#156</span><span class="type" style="color:var(--green)">deliverable</span><span>src/bill/recon.ts +84 · src/bill/merge.ts +41</span></div>
-      <div class="note">会话事件=宿主内 listener 实时流（M0 已验）；接管期间写入带 actor 标记，回放按 seq 定位帧。</div>
+      <div class="note">dsh 会话=宿主 listener 实时流（M0 已验）；CLI 终端=插件 PTY 流，同一详情页分栏展示。</div>
     </div>
-
     <div class="dtab" id="dt-notes">
-      <div class="note" style="margin-bottom:12px">write-notes-like-deepseek 治理：目录即状态（proposed→implemented / rejected），非平凡改动必留笔记，验收/打回自动登记，代码与笔记同次提交。</div>
+      <div class="note" style="margin-bottom:12px">write-notes-like-deepseek 治理：目录即状态（proposed→implemented / rejected），验收/打回自动登记，代码与笔记同次提交。</div>
       <div class="note-card">
         <h6>#118 fx 差异走 mergeFx 分支 <span class="pill a">proposed → 待随验收转 implemented</span></h6>
         <div class="meta">proposed/architecture/2026-09-19-fx-mergefx.md · 王五 · 10:02</div>
-        <div class="body"><b>Problem</b>：fx 类差异抛异常导致夜间批任务中断 3 次。<b>Decision</b>：走 mergeFx(a,b) 幂等合并。<b>Alternatives</b>：①全量重写引擎（否，见 #119）②维持抛异常+人工值守（否，成本不可接受）。</div>
+        <div class="body"><b>Problem</b>：fx 类差异抛异常致夜间批任务中断 3 次。<b>Decision</b>：走 mergeFx(a,b) 幂等合并。<b>Alternatives</b>：①全量重写引擎（否，见 #119）②维持抛异常+人工值守（否，成本不可接受）。</div>
       </div>
       <div class="note-card" style="opacity:.62">
         <h6>#119 全量重写对账引擎 <span class="pill r">rejected</span></h6>
         <div class="meta">rejected/architecture/2026-09-19-recon-full-rewrite.md · 张三 · 14:20</div>
-        <div class="body"><b>否决原因</b>：改动面 27 文件、回归成本 2 周，收益与 #118 局部修复无差。留档防重犯。</div>
+        <div class="body"><b>否决原因</b>：改动面 27 文件、回归 2 周，收益与局部修复无差。留档防重犯。</div>
       </div>
       <div class="note-card">
-        <h6>#117 接管期间命令必须走留痕通道 <span class="pill g">implemented</span></h6>
+        <h6>#117 接管写入必须走留痕通道 <span class="pill g">implemented</span></h6>
         <div class="meta">implemented/process/2026-09-12-takeover-audit.md · 团队</div>
         <div class="body">护栏（guardrail digest）：接管写入一律标 actor——seq#128 已按此执行 ✓。本任务派活时已注入该护栏。</div>
       </div>
     </div>
-
     <div class="dtab" id="dt-wf">
-      <div class="note" style="margin-bottom:12px">任务由 dsh workflow 驱动（durable run）：每步状态/耗时/输入输出可展开，失败步可直接定位到会话与日志。</div>
-      <div class="wfstep open"><div class="wh" onclick="this.parentNode.classList.toggle('open')"><span class="pill g">✓</span><b>1 · 定位差异根因</b><span style="color:var(--caption);font-size:12px">09:15–09:58 · 43m</span></div>
-        <div class="wc">输入：recon_fail.log（3 类差异）· 输出：根因表 fx/rounding/latency<br><div class="wf-io">fx: 62%  rounding: 31%  latency: 7%</div></div></div>
+      <div class="note" style="margin-bottom:12px">任务由 dsh workflow 驱动（durable run）：每步状态/耗时/IO 可展开，人类介入点标注并回链时间线。</div>
+      <div class="wfstep open"><div class="wh" onclick="this.parentNode.classList.toggle('open')"><span class="pill g">✓</span><b>1 · 定位差异根因</b><span style="color:var(--caption);font-size:12px">09:15–09:58</span></div>
+        <div class="wc">输入：recon_fail.log（3 类差异）<div class="wf-io">fx: 62%  rounding: 31%  latency: 7%</div></div></div>
       <div class="wfstep open"><div class="wh" onclick="this.parentNode.classList.toggle('open')"><span class="pill g">✓</span><b>2 · 修复 recon.ts + merge.ts</b><span style="color:var(--caption);font-size:12px">09:58–13:40</span></div>
-        <div class="wc">含 11:40 王五呼叫 → 张三接管 12min（人类介入点，见全流程）<span class="loc" onclick="dtab(document.querySelector('.drawer .tabs span:nth-child(1)'),'dt-flow')">→ 时间线 11:40</span></div></div>
-      <div class="wfstep"><div class="wh" onclick="this.parentNode.classList.toggle('open')"><span class="pill g">✓</span><b>3 · 回归测试</b><span style="color:var(--caption);font-size:12px">13:40–14:18</span></div><div class="wc">23 passed / 0 failed（新增 9 例）</div></div>
-      <div class="wfstep"><div class="wh" onclick="this.parentNode.classList.toggle('open')"><span class="pill a">●</span><b>4 · 提交验收（当前）</b><span style="color:var(--caption);font-size:12px">15:02–</span></div><div class="wc">等待 lead 验收 → 触发第 5 步</div></div>
-      <div class="wfstep"><div class="wh" onclick="this.parentNode.classList.toggle('open')"><span class="pill">○</span><b>5 · 蒸馏进团队记忆</b></div><div class="wc">验收后自动：笔记转 implemented + 卡点/解法进团队仓（git + hippo federation）</div></div>
+        <div class="wc">含 11:40 王五呼叫 → 张三接管 12min（人类介入点）<span class="loc" onclick="dtab(document.querySelectorAll('.dtabs span')[0],'dt-flow')">→ 时间线 11:40</span></div></div>
+      <div class="wfstep"><div class="wh" onclick="this.parentNode.classList.toggle('open')"><span class="pill g">✓</span><b>3 · 回归测试</b></div><div class="wc">23 passed / 0 failed（新增 9 例）</div></div>
+      <div class="wfstep"><div class="wh" onclick="this.parentNode.classList.toggle('open')"><span class="pill a">●</span><b>4 · 提交验收（当前）</b></div><div class="wc">等待 lead 验收 → 触发第 5 步</div></div>
+      <div class="wfstep"><div class="wh" onclick="this.parentNode.classList.toggle('open')"><span class="pill">○</span><b>5 · 蒸馏进团队记忆</b></div><div class="wc">验收后自动：笔记转 implemented + 卡点/解法进团队仓</div></div>
     </div>
+    <div class="dtab" id="dt-diff">
+      <div class="tbar"><span class="pill">+412 / −38 · 2 文件</span><span class="spacer"></span><button class="btn sm">验收并蒸馏</button></div>
+      <div class="term" style="margin:0;font-size:12px">src/bill/recon.ts
+<span style="color:var(--green)">+ if (diff.kind === 'fx') return mergeFx(a,b)   <span style="opacity:.5">// ← seq#128 张三接管写入</span></span>
+<span style="color:var(--red)">- if (diff.kind === 'fx') throw new Error('unsupported')</span>
+<span style="color:var(--green)">+ // 团队记忆 #118: fx 差异走 mergeFx，勿抛异常</span>
 
+src/bill/merge.ts
+<span style="color:var(--green)">+ export function mergeFx(a,b): Money { /* 幂等 */ }</span></div>
+    </div>
     <div class="dtab" id="dt-ov">
-      <div class="tdetail on" style="display:grid;box-shadow:none;border:0;background:transparent;padding:0"><div class="cols">
+      <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px">
         <div>
-          <h6>描述</h6>
-          <div class="tl">对账差异 3 类根因修复；完成后跑双机验收。</div>
-          <h6 style="margin-top:10px">子任务</h6>
-          <div class="tl"><div>✓ recon 差异合并（fx/rounding）</div><div>✓ merge 幂等</div><div>◻ 回归测试补全 9 例已过 · 文档未更</div></div>
-          <h6 style="margin-top:10px">关联</h6>
-          <div class="tl"><div>仓库 D:\proj\pay · 分支 fix/recon-fx</div><div>dsh 会话 ×1 · 接管 ×1（12min）· 笔记 ×3</div></div>
+          <h6 style="font-size:12px;color:var(--caption);margin-bottom:6px">描述</h6>
+          <div style="font-size:12.5px;color:var(--label2)">对账差异 3 类根因修复；完成后跑双机验收。</div>
+          <h6 style="font-size:12px;color:var(--caption);margin:10px 0 6px">子任务</h6>
+          <div style="font-size:12.5px;color:var(--label2)"><div>✓ recon 差异合并（fx/rounding）</div><div>✓ merge 幂等</div><div>◻ 文档未更</div></div>
+          <h6 style="font-size:12px;color:var(--caption);margin:10px 0 6px">关联</h6>
+          <div style="font-size:12.5px;color:var(--label2)"><div>D:\proj\pay · fix/recon-fx</div><div>dsh×1 + pwsh×1 · 接管×1（12min）· 笔记×3</div></div>
         </div>
         <div>
-          <h6>关键数字</h6>
-          <div class="tl"><div>diff +412 / −38 · 测试 23✓ · 成本 ¥22.1</div><div>历时 5h50m · 人类介入 1 次（接管 12min）</div></div>
+          <h6 style="font-size:12px;color:var(--caption);margin-bottom:6px">关键数字</h6>
+          <div style="font-size:12.5px;color:var(--label2)"><div>diff +412/−38 · 测试 23✓ · ¥22.1</div><div>历时 5h50m · 人类介入 1 次</div></div>
         </div>
-      </div></div>
+      </div>
     </div>
-
   </div>
 </div>
 <script>
-function tab(el,id){document.querySelectorAll('.tabs span').forEach(t=>t.classList.remove('on'));el.classList.add('on');document.querySelectorAll('.tabc').forEach(c=>c.classList.remove('on'));document.getElementById(id).classList.add('on')}
-function newTask(){alert('新建任务：标题/指派/优先级/截止/指定CLI/描述（下一版出表单）')}
+function pg(el,id){document.querySelectorAll('.nav span').forEach(t=>t.classList.remove('on'));el.classList.add('on');document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.getElementById(id).classList.add('on')}
+function rvFix(el,id){document.querySelectorAll('.rview').forEach(v=>v.classList.remove('on'));document.getElementById(id).classList.add('on');
+  el.parentNode.querySelectorAll('button').forEach(b=>b.className='btn ghost sm');el.className='btn sm'}
+function newTask(){alert('新建任务：标题/指派/优先级/截止/指定CLI(dsh或任意终端)/描述')}
 function openTask(){document.getElementById('ovl').classList.add('on');document.getElementById('drawer').classList.add('on')}
 function closeTask(){document.getElementById('ovl').classList.remove('on');document.getElementById('drawer').classList.remove('on')}
-function dtab(el,id){if(!el)return;var d=document.getElementById('drawer');d.querySelectorAll('.tabs span').forEach(t=>t.classList.remove('on'));el.classList.add('on');d.querySelectorAll('.dtab').forEach(c=>c.classList.remove('on'));document.getElementById(id).classList.add('on')}
+function dtab(el,id){if(!el)return;var d=document.getElementById('drawer');d.querySelectorAll('.dtabs span').forEach(t=>t.classList.remove('on'));el.classList.add('on');d.querySelectorAll('.dtab').forEach(c=>c.classList.remove('on'));document.getElementById(id).classList.add('on')}
 </script>
 </body>
 </html>
