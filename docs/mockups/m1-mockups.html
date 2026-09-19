@@ -131,6 +131,40 @@ body[data-light] .term{background:var(--n1000);color:var(--n300)}
 .note{font-size:12px;color:var(--caption);margin-top:10px}
 .switcher{position:sticky;top:0;z-index:9;display:flex;gap:8px;align-items:center;background:var(--bg);border-bottom:1px solid var(--border);padding:9px 20px;font-size:12.5px;color:var(--caption)}
 .switcher .seg button.on{background:var(--brand);color:var(--brand-fg)}
+/* ── 任务详情抽屉 ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;display:none}
+.overlay.on{display:block}
+.drawer{position:fixed;top:3vh;left:50%;transform:translateX(-50%);width:min(1180px,94vw);height:92vh;background:var(--bg);border:1px solid var(--border2);border-radius:16px;z-index:100;display:none;flex-direction:column;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.drawer.on{display:flex}
+.dhead{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--border)}
+.dhead h3{font-size:15.5px}
+.dbody{flex:1;overflow-y:auto}
+.dtab{display:none;padding:16px 20px 26px}
+.dtab.on{display:block}
+.flow{position:relative;padding-left:18px}
+.flow::before{content:'';position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--border2)}
+.fe{position:relative;padding:0 0 13px}
+.fe::before{content:'';position:absolute;left:-17.5px;top:5px;width:9px;height:9px;border-radius:50%;background:var(--brand);border:2px solid var(--bg)}
+.fe .ft{font-family:'SF Mono',Consolas,monospace;font-size:11.5px;color:var(--caption);margin-right:8px}
+.fe .fx{font-size:13px;color:var(--label2)}
+.loc{display:inline-flex;align-items:center;gap:3px;font-size:12px;color:var(--blue);cursor:pointer;border-bottom:1px dashed var(--blue);margin-left:8px}
+.seqbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.seq{font-family:'SF Mono',Consolas,monospace;font-size:11.5px;padding:2px 9px;border-radius:8px;border:1px solid var(--border2);color:var(--label3);cursor:pointer}
+.seq.hit{border-color:var(--blue);color:var(--blue)}
+.evrow{display:flex;gap:10px;padding:7px 2px;border-bottom:1px dashed var(--border);font-size:13px;align-items:baseline}
+.evrow .seqn{font-family:'SF Mono',Consolas,monospace;color:var(--caption);flex:none;width:44px}
+.evrow .type{flex:none;width:118px;font-size:12px}
+.note-card{border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:12px;background:var(--card)}
+.note-card h6{font-size:13px;display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.note-card .meta{font-size:11.5px;color:var(--caption);font-family:'SF Mono',Consolas,monospace;margin-bottom:6px}
+.note-card .body{font-size:12.5px;color:var(--label2)}
+.note-card .body b{color:var(--label1)}
+.wfstep{border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--card)}
+.wfstep .wh{display:flex;align-items:center;gap:9px;padding:9px 13px;cursor:pointer;font-size:13px}
+.wfstep .wc{display:none;padding:2px 13px 10px;border-top:1px dashed var(--border);font-size:12.5px;color:var(--label2)}
+.wfstep.open .wc{display:block}
+.wf-io{font-family:'SF Mono',Consolas,monospace;font-size:11.5px;background:var(--n950);color:var(--n300);border-radius:8px;padding:8px 10px;margin-top:6px;white-space:pre-wrap}
+body[data-light] .wf-io{background:var(--n1000)}
 </style>
 </head>
 <body>
@@ -193,7 +227,7 @@ body[data-light] .term{background:var(--n1000);color:var(--n300)}
           <span class="title">支付对账重构<span class="desc">recon/merge 双模块 · 打开详情看会话轨迹</span></span>
           <span class="who">王五</span><span class="due">今天 18:00</span>
           <span class="pill" style="border-style:dashed">dsh 会话</span>
-          <span class="rowops"><button class="iconbtn" onclick="document.getElementById('d1').classList.toggle('on')">详情</button><button class="iconbtn">验收</button><button class="iconbtn">⋯</button></span>
+          <span class="rowops"><button class="iconbtn" onclick="openTask()">详情</button><button class="iconbtn">验收</button><button class="iconbtn">⋯</button></span>
         </div>
         <div class="tdetail on" id="d1"><div class="cols">
           <div>
@@ -314,9 +348,105 @@ PS D:\proj\pay&gt; <span class="cur">▊</span></div>
     </div>
   </div>
 </div>
+<!-- ═══ 任务详情抽屉：钻到任务内每一个细节 ═══ -->
+<div class="overlay" id="ovl" onclick="closeTask()"></div>
+<div class="drawer" id="drawer">
+  <div class="dhead">
+    <h3>支付对账重构</h3>
+    <span class="pill a">待验收</span><span class="prio P0">P0</span>
+    <span style="font-size:12.5px;color:var(--label3)">王五 · D:\proj\pay · 今天 18:00 截止</span>
+    <span class="spacer"></span>
+    <button class="btn ghost sm">围观会话</button><button class="btn sm" onclick="alert('验收 → 自动登记 implemented 笔记 + 蒸馏卡点进团队仓')">验收并蒸馏</button>
+    <button class="btn ghost sm" onclick="closeTask()">✕</button>
+  </div>
+  <div class="tabs" style="padding:0 16px">
+    <span class="on" onclick="dtab(this,'dt-flow')">全流程</span>
+    <span onclick="dtab(this,'dt-sess')">会话细节</span>
+    <span onclick="dtab(this,'dt-notes')">决策笔记 <span class="pill" style="margin-left:4px">3</span></span>
+    <span onclick="dtab(this,'dt-wf')">工作流</span>
+    <span onclick="dtab(this,'dt-ov')">概览</span>
+  </div>
+  <div class="dbody">
+
+    <div class="dtab on" id="dt-flow">
+      <div class="note" style="margin-bottom:12px">时间线=任务全生命周期，每个事件可「定位」跳到原始细节（会话 seq / 回放帧 / diff 行 / 笔记）。</div>
+      <div class="flow">
+        <div class="fe"><span class="ft">09:12</span><span class="fx"><b>张三</b> 创建任务 · 派给王五 · P1<span class="loc" onclick="dtab(document.querySelector('.drawer .tabs span:nth-child(5)'),'dt-ov')">→ 概览</span></span></div>
+        <div class="fe"><span class="ft">09:14</span><span class="fx">工作流启动 <b>pay-recon-fix@v3</b>（5 步）<span class="loc" onclick="dtab(document.querySelector('.drawer .tabs span:nth-child(4)'),'dt-wf')">→ 工作流</span></span></div>
+        <div class="fe"><span class="ft">09:15</span><span class="fx">dsh 会话开始 · cwd D:\proj\pay<span class="loc" onclick="dtab(document.querySelector('.drawer .tabs span:nth-child(2)'),'dt-sess')">→ 会话 seq#0</span></span></div>
+        <div class="fe"><span class="ft">10:02</span><span class="fx">决策笔记提案：<b>「fx 差异走 mergeFx 而非抛异常」</b>（proposed）<span class="loc" onclick="dtab(document.querySelector('.drawer .tabs span:nth-child(3)'),'dt-notes')">→ 笔记 #118</span></span></div>
+        <div class="fe"><span class="ft">11:40</span><span class="fx"><b>王五</b> 呼叫协助 → <b>张三</b> 接管 12min（同意卡 · 全程留痕）<span class="loc">→ 回放 11:42:07</span></span></div>
+        <div class="fe"><span class="ft">11:52</span><span class="fx">张三 写入 3 条命令 · 定位到 recon.ts#L42 修复<span class="loc" onclick="dtab(document.querySelector('.drawer .tabs span:nth-child(2)'),'dt-sess')">→ 会话 seq#128</span><span class="loc">→ diff recon.ts#L42</span></span></div>
+        <div class="fe"><span class="ft">14:20</span><span class="fx">方案 B「全量重写对账引擎」被否决（rejected 笔记 · 防重犯）<span class="loc" onclick="dtab(document.querySelector('.drawer .tabs span:nth-child(3)'),'dt-notes')">→ 笔记 #119</span></span></div>
+        <div class="fe"><span class="ft">15:02</span><span class="fx"><b>王五</b> 提交验收 · diff +412/−38 · 测试 23 通过<span class="loc">→ diff 全览</span></span></div>
+        <div class="fe"><span class="ft">15:44</span><span class="fx">张三 复核中（当前）——验收将自动：登记 implemented 笔记 + 蒸馏卡点进团队仓</span></div>
+      </div>
+    </div>
+
+    <div class="dtab" id="dt-sess">
+      <div class="seqbar"><span style="font-size:12px;color:var(--caption)">seq 跳转：</span><span class="seq">0-15 开场</span><span class="seq">96 工具调用</span><span class="seq hit" onclick="alert('定位：接管期间张三写入的命令就在 seq#128')">#128 接管写入 ⚑</span><span class="seq">142 测试</span><span class="seq">156 提交</span><span style="flex:1"></span><div class="search" style="min-width:200px">🔍 在会话内搜：mergeFx…</div></div>
+      <div class="evrow"><span class="seqn">#126</span><span class="type" style="color:var(--label3)">assistant-stream</span><span>…fx 差异当前抛 unsupported，我建议改为 mergeFx 分支…</span></div>
+      <div class="evrow" style="background:var(--hover)"><span class="seqn">#128</span><span class="type" style="color:var(--blue)">user/message ⚑</span><span><b>张三（接管写入）</b>：if (diff.kind === 'fx') return mergeFx(a,b) ——注意幂等<br><span style="font-size:12px;color:var(--caption)">11:52:31 · 接管通道 · 已留痕，可回放该时刻</span></span></div>
+      <div class="evrow"><span class="seqn">#130</span><span class="type" style="color:var(--label3)">tool/bash</span><span class="mono" style="font-size:12px">npm test -- recon · 23 passed 0 failed</span></div>
+      <div class="evrow"><span class="seqn">#156</span><span class="type" style="color:var(--green)">deliverable</span><span>src/bill/recon.ts +84 · src/bill/merge.ts +41</span></div>
+      <div class="note">会话事件=宿主内 listener 实时流（M0 已验）；接管期间写入带 actor 标记，回放按 seq 定位帧。</div>
+    </div>
+
+    <div class="dtab" id="dt-notes">
+      <div class="note" style="margin-bottom:12px">write-notes-like-deepseek 治理：目录即状态（proposed→implemented / rejected），非平凡改动必留笔记，验收/打回自动登记，代码与笔记同次提交。</div>
+      <div class="note-card">
+        <h6>#118 fx 差异走 mergeFx 分支 <span class="pill a">proposed → 待随验收转 implemented</span></h6>
+        <div class="meta">proposed/architecture/2026-09-19-fx-mergefx.md · 王五 · 10:02</div>
+        <div class="body"><b>Problem</b>：fx 类差异抛异常导致夜间批任务中断 3 次。<b>Decision</b>：走 mergeFx(a,b) 幂等合并。<b>Alternatives</b>：①全量重写引擎（否，见 #119）②维持抛异常+人工值守（否，成本不可接受）。</div>
+      </div>
+      <div class="note-card" style="opacity:.62">
+        <h6>#119 全量重写对账引擎 <span class="pill r">rejected</span></h6>
+        <div class="meta">rejected/architecture/2026-09-19-recon-full-rewrite.md · 张三 · 14:20</div>
+        <div class="body"><b>否决原因</b>：改动面 27 文件、回归成本 2 周，收益与 #118 局部修复无差。留档防重犯。</div>
+      </div>
+      <div class="note-card">
+        <h6>#117 接管期间命令必须走留痕通道 <span class="pill g">implemented</span></h6>
+        <div class="meta">implemented/process/2026-09-12-takeover-audit.md · 团队</div>
+        <div class="body">护栏（guardrail digest）：接管写入一律标 actor——seq#128 已按此执行 ✓。本任务派活时已注入该护栏。</div>
+      </div>
+    </div>
+
+    <div class="dtab" id="dt-wf">
+      <div class="note" style="margin-bottom:12px">任务由 dsh workflow 驱动（durable run）：每步状态/耗时/输入输出可展开，失败步可直接定位到会话与日志。</div>
+      <div class="wfstep open"><div class="wh" onclick="this.parentNode.classList.toggle('open')"><span class="pill g">✓</span><b>1 · 定位差异根因</b><span style="color:var(--caption);font-size:12px">09:15–09:58 · 43m</span></div>
+        <div class="wc">输入：recon_fail.log（3 类差异）· 输出：根因表 fx/rounding/latency<br><div class="wf-io">fx: 62%  rounding: 31%  latency: 7%</div></div></div>
+      <div class="wfstep open"><div class="wh" onclick="this.parentNode.classList.toggle('open')"><span class="pill g">✓</span><b>2 · 修复 recon.ts + merge.ts</b><span style="color:var(--caption);font-size:12px">09:58–13:40</span></div>
+        <div class="wc">含 11:40 王五呼叫 → 张三接管 12min（人类介入点，见全流程）<span class="loc" onclick="dtab(document.querySelector('.drawer .tabs span:nth-child(1)'),'dt-flow')">→ 时间线 11:40</span></div></div>
+      <div class="wfstep"><div class="wh" onclick="this.parentNode.classList.toggle('open')"><span class="pill g">✓</span><b>3 · 回归测试</b><span style="color:var(--caption);font-size:12px">13:40–14:18</span></div><div class="wc">23 passed / 0 failed（新增 9 例）</div></div>
+      <div class="wfstep"><div class="wh" onclick="this.parentNode.classList.toggle('open')"><span class="pill a">●</span><b>4 · 提交验收（当前）</b><span style="color:var(--caption);font-size:12px">15:02–</span></div><div class="wc">等待 lead 验收 → 触发第 5 步</div></div>
+      <div class="wfstep"><div class="wh" onclick="this.parentNode.classList.toggle('open')"><span class="pill">○</span><b>5 · 蒸馏进团队记忆</b></div><div class="wc">验收后自动：笔记转 implemented + 卡点/解法进团队仓（git + hippo federation）</div></div>
+    </div>
+
+    <div class="dtab" id="dt-ov">
+      <div class="tdetail on" style="display:grid;box-shadow:none;border:0;background:transparent;padding:0"><div class="cols">
+        <div>
+          <h6>描述</h6>
+          <div class="tl">对账差异 3 类根因修复；完成后跑双机验收。</div>
+          <h6 style="margin-top:10px">子任务</h6>
+          <div class="tl"><div>✓ recon 差异合并（fx/rounding）</div><div>✓ merge 幂等</div><div>◻ 回归测试补全 9 例已过 · 文档未更</div></div>
+          <h6 style="margin-top:10px">关联</h6>
+          <div class="tl"><div>仓库 D:\proj\pay · 分支 fix/recon-fx</div><div>dsh 会话 ×1 · 接管 ×1（12min）· 笔记 ×3</div></div>
+        </div>
+        <div>
+          <h6>关键数字</h6>
+          <div class="tl"><div>diff +412 / −38 · 测试 23✓ · 成本 ¥22.1</div><div>历时 5h50m · 人类介入 1 次（接管 12min）</div></div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+</div>
 <script>
 function tab(el,id){document.querySelectorAll('.tabs span').forEach(t=>t.classList.remove('on'));el.classList.add('on');document.querySelectorAll('.tabc').forEach(c=>c.classList.remove('on'));document.getElementById(id).classList.add('on')}
 function newTask(){alert('新建任务：标题/指派/优先级/截止/指定CLI/描述（下一版出表单）')}
+function openTask(){document.getElementById('ovl').classList.add('on');document.getElementById('drawer').classList.add('on')}
+function closeTask(){document.getElementById('ovl').classList.remove('on');document.getElementById('drawer').classList.remove('on')}
+function dtab(el,id){if(!el)return;var d=document.getElementById('drawer');d.querySelectorAll('.tabs span').forEach(t=>t.classList.remove('on'));el.classList.add('on');d.querySelectorAll('.dtab').forEach(c=>c.classList.remove('on'));document.getElementById(id).classList.add('on')}
 </script>
 </body>
 </html>
