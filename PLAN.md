@@ -145,3 +145,18 @@ flowchart TB
 4. 读 dsh-remote-desktop 源码：截屏 API 选型（截图周期/增量？键鼠注入方式）、本地代理结构，落一页实现笔记
 5. hippo federation 指向临时 git 仓，push/pull 后确认自动入库
 6. 全部结论回填本 PLAN 第 1/3 节并登记笔记
+
+## 8. M0 实测结论（2026-09-19）
+
+> 三条 M0 验收全部完成，**D8/D9 降级路径均未触发**，M1 按原架构起步。证据留档：`D:\coding\tmp\termfleet-m0-probe\`（boot/curl/dump-config 全套日志）、本插件 `docs/m0-screen-notes.md`、termfleet-heimdall `.agents/notes/implemented/architecture/2026-09-19-m0-probe-verdicts.md`。
+
+| # | 命门 | 判定 | 一句话证据 |
+|---|---|---|---|
+| 1 | 骨架合成 | **通** | `dsh --profile web --patch …\cordis.patch.yml --dump-config` exit 0，合成树出现 termfleet 覆盖层（termfleet-dump-web.json:579-582），lib 产物 ESM 装载 ok |
+| 2 | 会话流读 | **通** | 真 web 宿主 boot（127.0.0.1:3180）插件全局 listener 收全量事件 sessionEventCount=17（seq0-16 完整 turn），snapshotEvents() 交叉验证一致 |
+| 3 | 会话流写 | **通** | POST 路由 → agent.followup 注入文本以 user/message(seq8) 落会话日志并回显（延迟 661/451ms），假 provider 快败零 API 费用 |
+| 4 | PTY | **通** | @lydell/node-pty@1.2.0-beta.15 装插件自身 node_modules（不碰 profile），宿主内 file:// 动态 import spawn pwsh：banner 97ms、stdin 写回显 35ms |
+| 5 | 屏幕流路线 | **部分** | dsh-remote-desktop 源码笔记落档（GDI+ 截屏 worker + user32 P/Invoke 键鼠 + 五坑清单，见 `docs/m0-screen-notes.md`）路线已钉死；截屏/注入未在本插件栈内实跑，首证留待 M2 自写实现 |
+| 6 | 记忆仓 | **通** | git 仓 + hippo federation（HIPPO_DATA_DIR 沙箱）双步真测：scan 入库 6+3 条、新成员 clone 全量 created 9/9、recall top-1 命中（score 1.07）、重扫幂等（created 0 / reinforced 9） |
+
+M0 副产物钉死的 M1 约束：自建会话必须传 `meta.cwd`（否则败于 `{{cwd}}` 变量）；已持久化会话同 id 重建抛 SessionAlreadyExistsError；插件 webServer 直挂路由绕过 launch token，**上总线前必须先加同意/鉴权门**；title-LLM 可能发网络请求（需绝对零费用时关掉）。

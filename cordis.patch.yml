@@ -1,0 +1,11 @@
+# dsh-termfleet bundle patch：把团队驾驶舱插件插入 profile 合成。
+# host 半（lib/index.js）：webServer 路由 /dsh-termfleet/ping 探针自检
+# （返回 {"ok":true,"ts":...}）——host 半可注入 webServer 路由是被
+# dsh-hippo 证明过的形态，M0 骨架只做这一件事。
+# 浏览器半未开工（lib/client.js 为桩）；Fleet 面板开工后在 package.json
+# 的 dsh.client 声明 + exports["./client"] 提供真实入口。
+
+- insert:
+    - id: termfleet
+      name: 'dsh-termfleet'
+      config: {}
