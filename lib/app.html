@@ -57,6 +57,12 @@ svg.ic{display:inline-block;vertical-align:-3px}
 .trow .who{font-size:12.5px;color:var(--label2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .rowops{display:flex;gap:6px;justify-content:flex-end;flex:none}
 .ibtn{height:26px;flex:none;border:1px solid var(--border2);background:transparent;color:var(--label2);border-radius:8px;padding:0 8px;font-size:12px;display:inline-flex;align-items:center;gap:5px}
+.bcard{position:relative}
+.bcard .chead{display:flex;align-items:flex-start;gap:6px}
+.bcard .chead .t{flex:1;min-width:0}
+.bcard .stq{width:22px;height:22px;padding:0;justify-content:center;border-radius:6px;opacity:.55}
+.bcard:hover .stq{opacity:1}
+.bcard:hover{transform:translateY(-1px)}
 .ibtn:hover{color:var(--label1);border-color:var(--label3)}
 .panel{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden}
 .empty{padding:60px 20px;text-align:center;color:var(--caption);font-size:13px}
@@ -232,6 +238,10 @@ svg.ic{display:inline-block;vertical-align:-3px}
 <div class="drawer" id="drawer">
   <div class="dhead"><b id="dId" style="font-family:'SF Mono',Consolas,monospace;font-size:13px;color:var(--caption)"></b>
     <span style="font-weight:600;font-size:14.5px;flex:1" id="dTitle"></span>
+    <span id="dStatusPill"></span>
+    <button class="ibtn" id="dClaimBtn"></button>
+    <button class="ibtn" id="dFlowBtn"></button>
+    <button class="ibtn" id="dDelBtn"></button>
     <button class="ibtn" onclick="closeDrawer()"></button></div>
   <div class="dtabs" id="dtabs">
     <span class="on" onclick="dtab(this,'dp-doc')">文档</span>
@@ -337,6 +347,9 @@ function openLessonForm(prefill){
 function load(){ return api('/dsh-termfleet/tasks').then(function(d){ ST.tasks = d.tasks||[]; render(); }).catch(function(){}); }
 function act(op, id, patch){ return api('/dsh-termfleet/tasks/action',{op:op,id:id,patch:patch||{}}).then(function(d){
   if(d.ok){ ST.tasks=d.tasks; render(); toast(op==='delete'?'已删除 '+id:'已更新 '+id);
+    if(document.getElementById('drawer').classList.contains('on') && window.__t && window.__t.id===id && op!=='delete'){
+      var nt=ST.tasks.filter(function(x){return x.id===id})[0]; if(nt) openDrawer(nt.id);
+    }
     if(op==='status' && patch && patch.status==='done'){
       var t=ST.tasks.filter(function(x){return x.id===id})[0]||{};
       setTimeout(function(){ openLessonForm({title:'（蒸馏）'+t.title, project:t.project, sourceTask:id,
@@ -374,9 +387,16 @@ function renderBoard(){
     col.innerHTML = '<h4>'+stLabel(st[0])+' <span class="cnt">'+items.length+'</span></h4>';
     items.forEach(function(t){
       var c = document.createElement('div'); c.className='bcard';
-      c.innerHTML = '<div class="t">'+esc(t.title)+'</div><div class="m">'+cardMeta(t)+'</div>';
-      c.onclick = function(ev){ if(ev.target.closest('.claim'))return; openStatMenu(ev, t); };
+      c.innerHTML = '<div class="chead"><div class="t">'+esc(t.title)+'</div>'
+        + '<button class="ibtn stq" data-stmenu="'+t.id+'" title="流转状态">'+ic('ChevronDown',13)+'</button></div>'
+        + '<div class="m">'+cardMeta(t)+'</div>';
+      c.onclick = function(ev){ if(ev.target.closest('.claim')||ev.target.closest('.stq'))return; openDrawer(t.id); };
       col.appendChild(c);
+    });
+    el.querySelectorAll('[data-stmenu]').forEach(function(b){
+      b.onclick = function(ev){ ev.stopPropagation();
+        var t = ST.tasks.filter(function(x){return x.id===b.getAttribute('data-stmenu')})[0];
+        openStatMenu(ev, t); };
     });
     el.appendChild(col);
   });
@@ -430,6 +450,18 @@ function openDrawer(id){
   window.__t = t;
   document.getElementById('dId').textContent=t.id;
   document.getElementById('dTitle').textContent=t.title;
+  // 抽屉头部操作：状态 pill / 认领 / 流转 / 删除
+  var sc = t.status==='done'?'g':t.status==='blocked'?'r':t.status==='review'?'a':t.status==='doing'?'b':'';
+  document.getElementById('dStatusPill').innerHTML = '<span class="pill '+sc+'">'+stLabel(t.status)+'</span> <span class="prio '+t.prio+'">'+t.prio+'</span>';
+  var cb=document.getElementById('dClaimBtn');
+  cb.innerHTML = t.owner ? ic('User',13)+' '+esc(t.owner) : ic('User',13)+' 认领';
+  cb.disabled = !!t.owner;
+  cb.onclick = function(){ act('claim', t.id).then(function(){ var nt=ST.tasks.filter(function(x){return x.id===t.id})[0]; if(nt) openDrawer(nt.id); }); };
+  var fb=document.getElementById('dFlowBtn'); fb.innerHTML='状态 '+ic('ChevronDown',12);
+  fb.onclick=function(ev){ var cur=ST.tasks.filter(function(x){return x.id===t.id})[0]||t; openStatMenu(ev, cur); cur._after=undefined;
+    window.__flowTaskId=t.id; };
+  var db=document.getElementById('dDelBtn'); db.innerHTML=ic('Trash',13)+' 删';
+  db.onclick=function(){ if(confirm('删除 '+t.id+'？')){ closeDrawer(); act('delete', t.id); } };
   // 文档 tab：大纲 + 正文（desc 即文档正文，后续扩展结构化章节）
   document.getElementById('docOutline').innerHTML =
     '<div class="ol"><a>基本信息</a><a>描述（文档正文）</a><a>子任务/验收</a><a class="lnk" data-pane="dp-flow">▸ 全流程轨迹</a><a class="lnk" data-pane="dp-notes">▸ 关联避坑笔记</a></div>'
