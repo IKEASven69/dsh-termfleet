@@ -1,0 +1,7 @@
+# termfleet M0 探针 boot 覆盖层：绝对路径 → file URL（不进 profile node_modules）。
+# 与骨架 cordis.patch.yml 的差别仅在 name 用绝对路径指向 lib/index.js（包名解析需装进
+# profile，被纪律③禁止）；id 保持 termfleet，插件功能完全一致。
+- insert:
+    - id: termfleet
+      name: 'D:/coding/dsh-plugin/plugins/dsh-termfleet/lib/index.js'
+      config: {}

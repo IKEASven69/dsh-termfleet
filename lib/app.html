@@ -93,6 +93,31 @@ svg.ic{display:inline-block;vertical-align:-3px}
 .lcard .lt{font-size:13.5px;font-weight:600;color:var(--label1);margin-bottom:6px}
 .lcard .lb{font-size:12.5px;color:var(--label3);line-height:1.6;max-height:60px;overflow:hidden}
 .lcard .lm{display:flex;gap:8px;font-size:11px;color:var(--caption);margin-top:8px;white-space:nowrap}
+.dtabs{display:flex;gap:2px;padding:0 16px;border-bottom:1px solid var(--border);overflow-x:auto}
+.dtabs span{padding:10px 12px;font-size:13px;color:var(--label3);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.dtabs span.on{color:var(--label1);font-weight:600;border-bottom-color:var(--label1)}
+.dpane{display:none;padding:16px 18px 26px}
+.dpane.on{display:block}
+.flow{position:relative;padding-left:18px}
+.flow::before{content:'';position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--border2)}
+.fe{position:relative;padding:0 0 12px}
+.fe::before{content:'';position:absolute;left:-17.5px;top:5px;width:9px;height:9px;border-radius:50%;background:var(--brand);border:2px solid var(--bg)}
+.fe .ft{font-family:'SF Mono',Consolas,monospace;font-size:11.5px;color:var(--caption);margin-right:8px}
+.fe .fx{font-size:13px;color:var(--label2)}
+.doc-outline{display:grid;grid-template-columns:170px 1fr;gap:18px;align-items:start}
+.doc-outline .ol{font-size:12.5px;position:sticky;top:0}
+.doc-outline .ol a{display:block;color:var(--label3);padding:2px 8px 2px 14px;border-left:2px solid var(--border);cursor:pointer}
+.doc-outline .ol a:hover{color:var(--label1)}
+.doc-outline .ol a.lnk{color:var(--blue)}
+.doc-body{max-width:640px;font-size:13.5px;color:var(--label2)}
+.doc-body h2{font-size:15px;color:var(--label1);margin:18px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--border);font-weight:700}
+.doc-body p{margin:6px 0;white-space:pre-wrap}
+.audline{display:flex;gap:10px;font-size:12.5px;padding:8px 2px;border-bottom:1px dashed var(--border);color:var(--label2)}
+.audline .ts{font-family:'SF Mono',Consolas,monospace;color:var(--caption);flex:none}
+.remgrid{display:grid;grid-template-columns:280px 1fr;gap:16px;align-items:start}
+.devcard{display:flex;gap:10px;padding:12px 14px;border-top:1px solid var(--border);align-items:center}
+.devcard .av{width:34px;height:34px;border-radius:10px;background:var(--card2);display:grid;place-items:center;font-weight:700;font-size:13px;border:1px solid var(--border);flex:none}
+.ph{padding:40px 20px;text-align:center;color:var(--caption);font-size:13px;border:1px dashed var(--border2);border-radius:12px}
 .authbar{background:var(--red-t);color:var(--red);border:1px solid var(--red);border-radius:12px;padding:10px 14px;font-size:13px;margin-bottom:12px;display:none}
 .authbar.on{display:block}
 </style>
@@ -112,6 +137,8 @@ svg.ic{display:inline-block;vertical-align:-3px}
   <div class="pgnav">
     <span class="on" id="navTask" onclick="pgView('task')">任务板</span>
     <span id="navMem" onclick="pgView('mem')">避坑库 <span id="memCnt" style="font-size:11px;opacity:.7"></span></span>
+    <span id="navRemote" onclick="pgView('remote')">远程</span>
+    <span id="navAudit" onclick="pgView('audit')">审计</span>
   </div>
   <div class="view on" id="viewTask">
   <div class="tbar">
@@ -136,6 +163,42 @@ svg.ic{display:inline-block;vertical-align:-3px}
       <button class="btn sm" id="newLessonBtn"></button>
     </div>
     <div class="lesson-grid" id="lessonGrid"></div>
+  </div>
+  <div class="view" id="viewRemote">
+    <div class="remgrid">
+      <div class="panel">
+        <h5 style="font-size:12px;font-weight:600;color:var(--caption);padding:12px 14px 8px">设备 · 成员</h5>
+        <div class="devcard"><span style="width:8px;height:8px;border-radius:50%;background:var(--green);flex:none"></span><div class="av">我</div><div><div style="font-weight:600;font-size:13.5px">本机 <span class="pill g" style="margin-left:4px">在线</span></div><div style="font-size:11.5px;color:var(--caption);font-family:'SF Mono',Consolas,monospace">127.0.0.1 · 探针就绪</div><div style="font-size:12px;color:var(--label3)">dsh 宿主内 · PTY 可起</div></div></div>
+        <div class="devcard" style="opacity:.5"><span style="width:8px;height:8px;border-radius:50%;background:var(--n600);flex:none"></span><div class="av">?</div><div><div style="font-weight:600;font-size:13.5px">团队成员设备</div><div style="font-size:12px;color:var(--label3)">M1 总线（配对+握手卡）接入后点亮</div></div></div>
+      </div>
+      <div>
+        <div class="panel" style="padding:16px 18px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+            <b style="font-size:14.5px">本机 pwsh 会话（真实探针）</b>
+            <span class="pill">M0 已验：宿主内 spawn PTY</span>
+            <span class="spacer"></span>
+            <button class="btn sm" id="ptyStartBtn"></button>
+            <button class="btn ghost sm" id="ptyWriteBtn" disabled></button>
+          </div>
+          <div class="term" id="ptyTerm" style="margin:0;min-height:120px">（点「启动会话」——真起一个 pwsh，回显走宿主内 PTY 流）</div>
+          <div class="note" style="margin-top:10px">远程成员设备/同意握手卡/IM 审批/倒计时 → M1 总线落地后在此页点亮（原型交互已定稿 docs/mockups/m1-mockups.html）。</div>
+        </div>
+        <div class="ph" style="margin-top:14px">握手卡与 IM 审批卡（成员侧视图）——总线接入后在此呈现，交互形态见原型 v7</div>
+      </div>
+    </div>
+  </div>
+  <div class="view" id="viewAudit">
+    <div class="panel" style="padding:14px 16px 18px">
+      <div class="tbar">
+        <div class="seg" id="audSeg">
+          <button class="on" data-k="*">全部</button><button data-k="任务">任务</button><button data-k="避坑">避坑</button>
+        </div>
+        <span class="spacer"></span>
+        <span class="pill" id="audCnt"></span>
+        <button class="btn ghost sm" id="audRefresh"></button>
+      </div>
+      <div id="auditList"></div>
+    </div>
   </div>
 </div>
 
@@ -170,11 +233,21 @@ svg.ic{display:inline-block;vertical-align:-3px}
   <div class="dhead"><b id="dId" style="font-family:'SF Mono',Consolas,monospace;font-size:13px;color:var(--caption)"></b>
     <span style="font-weight:600;font-size:14.5px;flex:1" id="dTitle"></span>
     <button class="ibtn" onclick="closeDrawer()"></button></div>
+  <div class="dtabs" id="dtabs">
+    <span class="on" onclick="dtab(this,'dp-doc')">文档</span>
+    <span onclick="dtab(this,'dp-flow')">全流程</span>
+    <span onclick="dtab(this,'dp-sess')">会话</span>
+    <span onclick="dtab(this,'dp-notes')">决策笔记</span>
+    <span onclick="dtab(this,'dp-wf')">工作流</span>
+    <span onclick="dtab(this,'dp-diff')">diff</span>
+  </div>
   <div class="dbody">
-    <div class="kv" id="dKv"></div>
-    <div style="font-size:12px;color:var(--caption);font-weight:600;margin:8px 0 4px">轨迹（真实落盘的操作历史）</div>
-    <div id="dHist"></div>
-    <div class="note" style="margin-top:14px">六 tab 深钻（全流程/会话 seq/决策笔记/工作流/diff/文档）随 M1 总线接入逐步点亮。</div>
+    <div class="dpane on" id="dp-doc"><div class="doc-outline" id="docOutline"></div></div>
+    <div class="dpane" id="dp-flow"><div class="flow" id="flowEl"></div></div>
+    <div class="dpane" id="dp-sess"><div class="ph">会话事件流（seq 级）——M1 接宿主 listener + PTY 通道后点亮<br>已验机制：插件全局 listener 收全量会话事件（M0 seq0-16 实测）</div></div>
+    <div class="dpane" id="dp-notes"><div id="taskNotes"></div></div>
+    <div class="dpane" id="dp-wf"><div class="ph">dsh workflow run 步骤树——任务接工作流引擎后点亮</div></div>
+    <div class="dpane" id="dp-diff"><div class="ph">任务关联 diff（验收管线）——M3 验收→蒸馏管线落地后点亮</div></div>
   </div>
 </div>
 
@@ -204,9 +277,14 @@ var MEM = { lessons: [], proj: '*', q: '' };
 function pgView(v){
   document.getElementById('navTask').classList.toggle('on', v==='task');
   document.getElementById('navMem').classList.toggle('on', v==='mem');
+  document.getElementById('navRemote').classList.toggle('on', v==='remote');
+  document.getElementById('navAudit').classList.toggle('on', v==='audit');
   document.getElementById('viewTask').classList.toggle('on', v==='task');
   document.getElementById('viewMem').classList.toggle('on', v==='mem');
+  document.getElementById('viewRemote').classList.toggle('on', v==='remote');
+  document.getElementById('viewAudit').classList.toggle('on', v==='audit');
   if (v==='mem') loadMem();
+  if (v==='audit') loadAudit();
 }
 function loadMem(){ return api('/dsh-termfleet/memory').then(function(d){ MEM.lessons=d.lessons||[]; renderMem(); }).catch(function(){}); }
 function memVisible(){
@@ -345,11 +423,71 @@ document.addEventListener('click', function(ev){
   if (cl){ ev.stopPropagation(); act('claim', cl.getAttribute('data-claim')); }
 });
 
+function dtab(el,id){ if(!el)return; document.querySelectorAll('#dtabs span').forEach(function(x){x.classList.remove('on')}); el.classList.add('on');
+  document.querySelectorAll('.dpane').forEach(function(p){p.classList.remove('on')}); document.getElementById(id).classList.add('on'); }
 function openDrawer(id){
+  var t = ST.tasks.filter(function(x){return x.id===id})[0]; if(!t) return;
+  window.__t = t;
+  document.getElementById('dId').textContent=t.id;
+  document.getElementById('dTitle').textContent=t.title;
+  // 文档 tab：大纲 + 正文（desc 即文档正文，后续扩展结构化章节）
+  document.getElementById('docOutline').innerHTML =
+    '<div class="ol"><a>基本信息</a><a>描述（文档正文）</a><a>子任务/验收</a><a class="lnk" data-pane="dp-flow">▸ 全流程轨迹</a><a class="lnk" data-pane="dp-notes">▸ 关联避坑笔记</a></div>'
+    + '<div class="doc-body"><h2>基本信息</h2><p>'
+    + '编号 '+esc(t.id)+' · 状态 '+stLabel(t.status)+' · 优先级 '+t.prio
+    + (t.project?' · 项目 '+esc(t.project):'') + (t.due?' · 截止 '+esc(t.due):'') + (t.cli?' · CLI '+esc(t.cli):'')
+    + (t.owner?' · 认领 '+esc(t.owner):' · 未认领') + '</p>'
+    + '<h2>描述（文档正文）</h2><p>'+esc(t.desc||'（空）')+'</p>'
+    + '<h2>创建/更新</h2><p>创建 '+new Date(t.createdAt).toLocaleString()+' · 更新 '+new Date(t.updatedAt).toLocaleString()+'</p></div>';
+  // 全流程 tab：真实 history 时间线
+  var fl = t.history.map(function(h){
+    return '<div class="fe"><span class="ft">'+new Date(h.ts).toLocaleTimeString()+'</span><span class="fx"><b>'+esc(h.by)+'</b> '+esc(h.what)+'</span></div>';
+  }).join('');
+  document.getElementById('flowEl').innerHTML = fl || '<div class="note">（无轨迹）</div>';
+  // 决策笔记 tab：避坑库中 source-task == 本任务
+  loadMem().then(function(){
+    var rel = MEM.lessons.filter(function(l){ return l['source-task']===t.id; });
+    document.getElementById('taskNotes').innerHTML = rel.length
+      ? rel.map(function(l){ return '<div class="lcard" style="margin-bottom:10px" data-note="'+esc(l.id)+'"><div class="lt">'+esc(l.title)+'</div><div class="lb">'+esc((l.body||'').slice(0,200))+'</div><div class="lm"><span>'+esc(l.date.slice(0,10))+'</span><span>'+esc(l.by||'')+'</span></div></div>'; }).join('')
+      : '<div class="ph">本任务还没有关联避坑——完成时点「蒸馏」或去避坑库新增（填关联任务 '+esc(t.id)+'）</div>';
+  });
+  document.getElementById('drawer').classList.add('on');
+  dtab(document.querySelector('#dtabs span'),'dp-doc');
+}
+function openLessonById(id){
+  var l = MEM.lessons.filter(function(x){return x.id===id})[0]; if(!l) return; closeDrawer(); openLesson(l);
+}
+var AUD = { events: [], k: '*' };
+function loadAudit(){ return api('/dsh-termfleet/audit').then(function(d){ AUD.events=d.events||[]; renderAudit(); }).catch(function(){}); }
+function renderAudit(){
+  document.getElementById('audCnt').textContent = AUD.events.length+' 条';
+  var list=document.getElementById('auditList'); list.innerHTML='';
+  var items = AUD.events.filter(function(e){ return AUD.k==='*' || (e.action||'').indexOf(AUD.k)>=0; });
+  if(!items.length){ list.innerHTML='<div class="empty">还没有审计事件——去任务板/避坑库做点操作</div>'; return; }
+  items.forEach(function(e){
+    var d=document.createElement('div'); d.className='audline';
+    d.innerHTML='<span class="ts">'+new Date(e.ts).toLocaleTimeString()+'</span><span><b>'+esc(e.actor)+'</b> '+esc(e.action)+' · '+esc(e.detail||'')+'</span>';
+    list.appendChild(d);
+  });
+}
+function ptyProbe(op){
+  var btn=document.getElementById('ptyStartBtn'), wbtn=document.getElementById('ptyWriteBtn');
+  if(op==='start'){ btn.disabled=true; btn.textContent='启动中…';
+    api('/dsh-termfleet/probe-pty').then(function(d){
+      btn.textContent='已启动 pid '+(d.pty&&d.pty.pid); wbtn.disabled=false;
+      document.getElementById('ptyTerm').textContent=(d.tail||'').slice(-400)||'（无回显）';
+      api('/dsh-termfleet/probe-pty/write',{data:'echo TERMFLEET_PTY_ALIVE\r'}).then(function(d2){
+        document.getElementById('ptyTerm').textContent=(d2.tail||'').slice(-500);
+      });
+    }); }
+  else { api('/dsh-termfleet/probe-pty/write',{data:'echo TERMFLEET_PTY_ALIVE '+new Date().toLocaleTimeString()+'\r'}).then(function(d2){
+      document.getElementById('ptyTerm').textContent=(d2.tail||'').slice(-500); }); }
+}
+function _oldDrawer(id){
   var t = ST.tasks.filter(function(x){return x.id===id})[0]; if(!t) return;
   document.getElementById('dId').textContent=t.id;
   document.getElementById('dTitle').textContent=t.title;
-  document.getElementById('dKv').innerHTML =
+  var dead=document.getElementById('dKv'); if(dead) dead.innerHTML =
     '<b>状态</b><span class="pill '+(t.status==='done'?'g':t.status==='blocked'?'r':t.status==='review'?'a':t.status==='doing'?'b':'')+'">'+stLabel(t.status)+'</span>'
     +'<b>优先级</b><span class="prio '+t.prio+'">'+t.prio+'</span>'
     +'<b>项目</b><span>'+esc(t.project||'默认')+'</span>'
@@ -391,6 +529,20 @@ document.getElementById('lessonSubmit').onclick=function(){
     .then(function(d){ if(d.ok){ document.getElementById('lessonMask').classList.remove('on'); toast('已落库 '+d.id); loadMem(); } });
 };
 document.getElementById('memSearch').oninput=function(){ MEM.q=this.value.trim(); renderMem(); };
+var psb=document.getElementById('ptyStartBtn'); psb.innerHTML=ic('Play',14)+' 启动会话'; psb.onclick=function(){ ptyProbe('start'); };
+var pwb=document.getElementById('ptyWriteBtn'); pwb.innerHTML=ic('Send',14)+' 发指令'; pwb.onclick=function(){ ptyProbe('write'); };
+document.getElementById('audRefresh').innerHTML=ic('Refresh',14)+' 刷新'; document.getElementById('audRefresh').onclick=loadAudit;
+document.querySelectorAll('#audSeg button').forEach(function(b){ b.onclick=function(){ document.querySelectorAll('#audSeg button').forEach(function(x){x.classList.remove('on')}); b.classList.add('on'); AUD.k=b.getAttribute('data-k'); renderAudit(); }; });
+// 大纲锚与任务笔记卡：事件委托（免内联引号）
+document.getElementById('docOutline').addEventListener('click', function(ev){
+  var a = ev.target.closest('a[data-pane]'); if(!a) return;
+  var idx = a.getAttribute('data-pane')==='dp-flow' ? 1 : 3;
+  dtab(document.querySelectorAll('#dtabs span')[idx], a.getAttribute('data-pane'));
+});
+document.getElementById('taskNotes').addEventListener('click', function(ev){
+  var c = ev.target.closest('[data-note]'); if(!c) return;
+  pgView('mem'); openLessonById(c.getAttribute('data-note'));
+});
 document.getElementById('newBtn').onclick=openForm;
 document.getElementById('vBoard').onclick=function(){ ST.view='board'; this.classList.add('on'); document.getElementById('vList').classList.remove('on');
   document.getElementById('boardWrap').classList.remove('off'); document.getElementById('listWrap').classList.remove('on'); };
