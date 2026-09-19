@@ -274,9 +274,12 @@ body[data-light] .term{background:var(--n1000)}
   <!-- ═══ 避坑库 ═══ -->
   <div class="page" id="pg-mem">
     <div class="tbar">
-      <div class="seg" id="memProjSeg"></div>
-      <div class="search">🔍<input id="memSearch" placeholder="搜索教训/项目…"></div>
+      <div class="seg" id="memStateSeg"></div>
+      <div class="seg" id="memCatSeg"></div>
+      <div class="search">🔍<input id="memSearch" placeholder="搜索教训/正文…"></div>
       <span class="spacer"></span>
+      <span class="pill" id="memStat"></span>
+      <button class="btn ghost sm" id="memVerifyBtn"></button>
       <button class="btn sm" id="newLessonBtn"></button>
     </div>
     <div class="lesson-grid" id="lessonGrid"></div>
@@ -358,11 +361,16 @@ body[data-light] .term{background:var(--n1000)}
 <!-- 新增避坑 -->
 <div class="mask" id="lessonMask"><div class="modal">
   <h4>新增避坑（团队记忆）</h4>
-  <label>标题 *</label><input id="lTitle" placeholder="一句话教训，如：部署前必须跑双机验收">
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+  <label>标题 *</label><input id="lTitle" placeholder="一句话决策/教训，如：部署前必须跑双机验收">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+    <div><label>状态</label><select id="lState"><option>proposed</option><option>implemented</option><option>rejected</option></select></div>
+    <div><label>分类（六选一）</label><select id="lCat"><option>process</option><option>architecture</option><option>bug-fix</option><option>feature</option><option>simplification</option><option>testing</option></select></div>
     <div><label>项目</label><input id="lProject" placeholder="如 pay / 通用"></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr;gap:10px">
     <div><label>关联任务（可空）</label><input id="lSource" placeholder="如 T-001"></div>
   </div>
+  <div class="note" style="margin-top:2px">写法（wnlds 规范）：proposed 必须含「备选」段——先写备选最强理由，再写为何放弃；收益与代价都要写。</div>
   <label>正文（卡点 / 解法 / 代价）</label><textarea id="lBody" rows="5"></textarea>
   <div class="acts"><button class="btn ghost" onclick="document.getElementById('lessonMask').classList.remove('on')">取消</button><button class="btn" id="lessonSubmit">落库</button></div>
   <div class="note" style="margin-top:8px">写入 ~/.dsh/termfleet/team-memory/*.md（团队仓工作副本；hippo federation 可指向此目录）。</div>
@@ -381,9 +389,12 @@ var TOK = new URLSearchParams(location.search).get('token') || localStorage.getI
 if (TOK) localStorage.setItem('tf_token', TOK);
 var ME = localStorage.getItem('tf_user') || 'me';
 var ST = { tasks: [], q: '' };
-var MEM = { lessons: [], proj: '*', q: '' };
+var MEM = { lessons: [], state: '*', cat: '*', q: '' };
 var AUD = { events: [], k: '*' };
-var CH = null;            // 当前同意通道 {id,status,mode,expireAt,...}
+var CH = null;
+var NSTATE = { proposed: ['待定','a'], implemented: ['已生效','g'], rejected: ['已否决','r'], archived: ['已归档',''] };
+var NCATS = ['feature','bug-fix','simplification','architecture','process','testing'];
+var NFLOW = { proposed: ['implemented','rejected'], implemented: ['archived'], rejected: ['archived'], archived: [] };            // 当前同意通道 {id,status,mode,expireAt,...}
 var STATUSES = [['todo','待办'],['doing','进行中'],['review','待验收'],['done','完成'],['blocked','阻塞']];
 
 function api(path, body){
@@ -527,8 +538,8 @@ function act(op, id, patch){ return api('/dsh-termfleet/tasks/action',{op:op,id:
       var nt=ST.tasks.filter(function(x){return x.id===id})[0]; if(nt) openDrawer(nt.id); }
     if(op==='status' && patch && patch.status==='done'){
       var t=ST.tasks.filter(function(x){return x.id===id})[0]||{};
-      setTimeout(function(){ openLessonForm({title:'（蒸馏）'+t.title, project:t.project, sourceTask:id,
-        body:'卡点：\n解法：\n代价/收益：'}); toast('任务完成——建议蒸馏一条避坑（可跳过）'); },350);
+      setTimeout(function(){ openLessonForm({title:'（蒸馏）'+t.title, state:'implemented', category:'process', project:t.project, sourceTask:id,
+        body:'卡点：\n解法：\n代价/收益：\n备选：（另一条路：最强理由+为何放弃）'}); toast('任务完成——建议蒸馏一条笔记（已填 implemented，可跳过）'); },350);
     } } }); }
 function visible(){ return ST.tasks.filter(function(t){
   if(ST.q){ var q=ST.q.toLowerCase(); var hay=(t.title+' '+(t.desc||'')+' '+(t.owner||'')).toLowerCase(); if(hay.indexOf(q)<0) return false; }
@@ -635,7 +646,7 @@ function openDrawer(id){
   loadMem().then(function(){
     var rel=MEM.lessons.filter(function(l){ return l['source-task']===t.id; });
     document.getElementById('taskNotes').innerHTML=rel.length
-      ? rel.map(function(l){ return '<div class="note-card"><h6>'+esc(l.title)+' <span class="pill '+(l.id.indexOf('reject')>=0?'r':'g')+'" style="margin-left:auto">implemented</span></h6><div class="meta">'+esc(l.id+'.md')+' · '+esc(l.by||'')+' · '+esc((l.date||'').slice(0,10))+'</div><div class="body">'+esc((l.body||'').slice(0,300))+'</div></div>'; }).join('')
+      ? rel.map(function(l){ var st=NSTATE[l.state]||['?','']; return '<div class="note-card"><h6>'+esc(l.title)+' <span class="pill '+st[1]+'" style="margin-left:auto">'+st[0]+'</span></h6><div class="meta">'+esc(l.id+'.md')+' · '+esc(l.by||'')+' · '+esc((l.date||'').slice(0,10))+'</div><div class="body">'+esc((l.body||'').slice(0,300))+'</div></div>'; }).join('')
       : '<div class="ph">本任务还没有关联避坑——完成时点「蒸馏」或去避坑库新增（关联任务填 '+esc(t.id)+'）</div>';
   });
   document.getElementById('ovl').classList.add('on');
@@ -653,28 +664,54 @@ document.getElementById('docOutline').addEventListener('click',function(ev){
 /* ═══ 避坑库 ═══ */
 function loadMem(){ return api('/dsh-termfleet/memory').then(function(d){ MEM.lessons=d.lessons||[]; renderMem(); }).catch(function(){}); }
 function memVisible(){ return MEM.lessons.filter(function(l){
-  if(MEM.proj!=='*'&&(l.project||'通用')!==MEM.proj) return false;
-  if(MEM.q){ var q=MEM.q.toLowerCase(); var hay=((l.title||'')+' '+(l.body||'')+' '+(l.project||'')).toLowerCase(); if(hay.indexOf(q)<0)return false; }
+  if(MEM.state&&MEM.state!=='*'&&l.state!==MEM.state) return false;
+  if(MEM.cat&&MEM.cat!=='*'&&l.category!==MEM.cat) return false;
+  if(MEM.q){ var q=MEM.q.toLowerCase(); var hay=((l.title||'')+' '+(l.body||'')+' '+(l.state||'')).toLowerCase(); if(hay.indexOf(q)<0)return false; }
   return true; }); }
 function renderMem(){
   document.getElementById('memCnt').textContent=MEM.lessons.length?'('+MEM.lessons.length+')':'';
-  var seg=document.getElementById('memProjSeg'); seg.innerHTML='';
-  var projects={}; MEM.lessons.forEach(function(l){ projects[l.project||'通用']=1; });
-  var mk=function(name,label){ var b=document.createElement('button'); b.textContent=label; if(MEM.proj===name)b.classList.add('on');
-    b.onclick=function(){ MEM.proj=name; renderMem(); }; seg.appendChild(b); };
-  mk('*','全部 '+MEM.lessons.length);
-  Object.keys(projects).sort().forEach(function(n){ mk(n,n+' '+MEM.lessons.filter(function(l){return (l.project||'通用')===n}).length); });
+  // 状态筛选 + 统计（决策看板）
+  var ss=document.getElementById('memStateSeg'); ss.innerHTML='';
+  var mkS=function(k,label){ var b=document.createElement('button'); b.textContent=label;
+    if((MEM.state||'*')===k)b.classList.add('on'); b.onclick=function(){ MEM.state=k; renderMem(); }; ss.appendChild(b); };
+  var cnt={}; MEM.lessons.forEach(function(l){ cnt[l.state]=(cnt[l.state]||0)+1 });
+  mkS('*','全部 '+MEM.lessons.length);
+  Object.keys(NSTATE).forEach(function(s){ mkS(s, NSTATE[s][0]+' '+(cnt[s]||0)); });
+  document.getElementById('memStat').textContent='proposed '+((cnt.proposed||0))+' → implemented '+(cnt.implemented||0)+' / rejected '+(cnt.rejected||0);
+  // 分类筛选
+  var cs=document.getElementById('memCatSeg'); cs.innerHTML='';
+  var mkC=function(k,label){ var b=document.createElement('button'); b.textContent=label;
+    if((MEM.cat||'*')===k)b.classList.add('on'); b.onclick=function(){ MEM.cat=k; renderMem(); }; cs.appendChild(b); };
+  mkC('*','全分类');
+  NCATS.forEach(function(c){ mkC(c,c); });
   var grid=document.getElementById('lessonGrid'); grid.innerHTML='';
   var items=memVisible();
-  if(!items.length){ grid.innerHTML='<div class="empty" style="grid-column:1/-1">'+(MEM.lessons.length?'没有匹配的教训':'避坑库还是空的——任务完成时点「蒸馏」，或右上手动新增')+'</div>'; return; }
+  if(!items.length){ grid.innerHTML='<div class="empty" style="grid-column:1/-1">'+(MEM.lessons.length?'没有匹配的笔记':'笔记库还是空的——任务完成时点「蒸馏」，或右上手动新增')+'</div>'; return; }
   items.forEach(function(l){
+    var st=NSTATE[l.state]||['?',''];
     var c=document.createElement('div'); c.className='lcard';
-    c.innerHTML='<div class="lt">'+esc(l.title||l.id)+'</div><div class="lb">'+esc((l.body||'').slice(0,160))+'</div>'
+    c.innerHTML='<div class="lm" style="margin:0 0 6px"><span class="pill '+st[1]+'">'+st[0]+'</span>'
+      +'<span class="pill" style="border-style:dashed;padding:0 7px;height:18px">'+esc(l.category||'process')+'</span>'
+      +'<span class="spacer" style="flex:1"></span>'+(NFLOW[l.state]&&NFLOW[l.state].length?'<span class="flowlnk" style="color:var(--caption);font-size:11px;cursor:pointer">流转 ▾</span>':'')+'</div>'
+      +'<div class="lt">'+esc(l.title||l.id)+'</div><div class="lb">'+esc((l.body||'').slice(0,160))+'</div>'
       +'<div class="lm"><span class="pill" style="border-style:dashed;padding:0 7px;height:18px">'+esc(l.project||'通用')+'</span>'
       +(l['source-task']?'<span>'+esc(l['source-task'])+'</span>':'')+'<span>'+esc((l.date||'').slice(0,10))+'</span><span>'+esc(l.by||'')+'</span></div>';
-    c.onclick=function(){ openLesson(l); };
+    c.onclick=function(ev){ if(ev.target.classList.contains('flowlnk')){ ev.stopPropagation(); openNoteMenu(ev,l); return; } openLesson(l); };
     grid.appendChild(c);
   });
+}
+function openNoteMenu(ev,l){
+  var m=document.getElementById('statMenu'); m.innerHTML='';
+  (NFLOW[l.state]||[]).forEach(function(to){ var b=document.createElement('button');
+    b.innerHTML='转入 '+NSTATE[to][0]+'（'+to+'）';
+    b.onclick=function(){ m.classList.remove('on'); noteFlow(l.id,to); }; m.appendChild(b); });
+  var r=ev.currentTarget.getBoundingClientRect();
+  m.style.left=Math.min(r.left,innerWidth-190)+'px'; m.style.top=(r.bottom+6)+'px'; m.classList.add('on');
+}
+function noteFlow(id,to){
+  api('/dsh-termfleet/memory/transition',{id:id,to:to}).then(function(d){
+    if(d.ok){ toast('已流转 → '+to+'（目录移动·入审计）'); loadMem(); }
+    else toast('流转被拒：'+(d.error||'')); });
 }
 function openLesson(l){
   document.getElementById('dId').textContent=l.id||'';
@@ -684,13 +721,19 @@ function openLesson(l){
   document.getElementById('dtabs').style.display='none';
   document.querySelectorAll('.dpane').forEach(function(p){p.classList.remove('on')});
   document.getElementById('dp-doc').classList.add('on');
-  document.getElementById('docOutline').innerHTML='<div class="ol"><div class="ot">避坑记录</div><a>正文</a><a>元信息</a></div>'
-    +'<div class="doc-body"><h1>'+esc(l.title||'')+'</h1><div class="meta">'+esc(l.id+'.md')+' · '+esc(l.by||'')+' · '+esc((l.date||'').replace('T',' ').slice(0,19))+'</div>'
+  var st=NSTATE[l.state]||['?',''];
+  document.getElementById('docOutline').innerHTML='<div class="ol"><div class="ot">决策笔记</div><a>正文</a><a>元信息</a><a>流转</a></div>'
+    +'<div class="doc-body"><h1>'+esc(l.title||'')+'</h1><div class="meta">'+esc(l.id+'.md')+'</div>'
+    +'<h2>状态</h2><p><span class="pill '+st[1]+'">'+st[0]+'</span> <span class="pill" style="border-style:dashed;padding:0 7px">'+esc(l.category||'process')+'</span>'
+    +(NFLOW[l.state]&&NFLOW[l.state].length?'　可流转：'+NFLOW[l.state].map(function(t){return NSTATE[t][0]}).join(' / '):'　终态')+'</p>'
+    +'<h2>正文</h2><p>'+esc(l.body||'')+'</p><h2>元信息</h2><p>'+esc(l.by||'')+' · '+esc((l.date||'').replace('T',' ').slice(0,19))+(l.project?' · '+esc(l.project):'')+(l['source-task']?' · 关联 '+esc(l['source-task']):'')+'</p>'
     +'<h2>正文</h2><p>'+esc(l.body||'')+'</p><h2>元信息</h2><p>项目 '+esc(l.project||'通用')+(l['source-task']?' · 关联 '+esc(l['source-task']):'')+'</p></div>';
   document.getElementById('ovl').classList.add('on'); document.getElementById('drawer').classList.add('on');
 }
 function openLessonForm(pre){ pre=pre||{};
   document.getElementById('lTitle').value=pre.title||'';
+  document.getElementById('lState').value=pre.state||'proposed';
+  document.getElementById('lCat').value=pre.category||'process';
   document.getElementById('lProject').value=pre.project||'';
   document.getElementById('lSource').value=pre.sourceTask||'';
   document.getElementById('lBody').value=pre.body||'';
@@ -721,12 +764,18 @@ document.getElementById('formSubmit').onclick=function(){
     prio:document.getElementById('fPrio').value,due:document.getElementById('fDue').value.trim(),
     cli:document.getElementById('fCli').value.trim(),desc:document.getElementById('fDesc').value})
     .then(function(d){ if(d.ok){ document.getElementById('formMask').classList.remove('on'); toast('已创建 '+d.task.id); load(); } }); };
-document.getElementById('newLessonBtn').innerHTML=ic('Plus',14)+' 新增避坑';
+document.getElementById('newLessonBtn').innerHTML=ic('Plus',14)+' 新增笔记';
+document.getElementById('memVerifyBtn').innerHTML=ic('Check',14)+' 校验';
+document.getElementById('memVerifyBtn').onclick=function(){
+  api('/dsh-termfleet/memory/verify').then(function(d){
+    toast('校验门：'+d.total+' 篇，'+(d.failed?d.failed+' 篇不合格（'+d.errors.map(function(e){return e.id.split('/').pop().slice(11)+'…'}).join('；')+'）':'全部合格 ✓'));
+  }); };
 document.getElementById('newLessonBtn').onclick=function(){ openLessonForm(); };
 document.getElementById('lessonSubmit').onclick=function(){
   var title=document.getElementById('lTitle').value.trim();
   if(!title){ toast('标题必填'); return; }
-  api('/dsh-termfleet/memory/create',{title:title,project:document.getElementById('lProject').value.trim(),
+  api('/dsh-termfleet/memory/create',{title:title,state:document.getElementById('lState').value,category:document.getElementById('lCat').value,
+    project:document.getElementById('lProject').value.trim(),
     sourceTask:document.getElementById('lSource').value.trim(),body:document.getElementById('lBody').value})
     .then(function(d){ if(d.ok){ document.getElementById('lessonMask').classList.remove('on'); toast('已落库 '+d.id); loadMem(); } }); };
 document.getElementById('memSearch').oninput=function(){ MEM.q=this.value.trim(); renderMem(); };
