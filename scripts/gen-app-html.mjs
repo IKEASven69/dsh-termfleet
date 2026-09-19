@@ -98,6 +98,16 @@ svg.ic{display:inline-block;vertical-align:-3px}
 .hline{font-size:12.5px;color:var(--label2);padding:6px 0;border-bottom:1px dashed var(--border)}
 .hline .ts{font-family:'SF Mono',Consolas,monospace;color:var(--caption);margin-right:8px}
 .note{font-size:12px;color:var(--caption)}
+.pgnav{display:flex;gap:2px;margin-bottom:12px}
+.pgnav span{padding:7px 16px;border-radius:999px;font-size:13.5px;color:var(--label3);cursor:pointer;font-weight:500}
+.pgnav span.on{background:var(--brand);color:var(--brand-fg);font-weight:600}
+.view{display:none}.view.on{display:block}
+.lesson-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.lcard{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:13px 14px;cursor:pointer}
+.lcard:hover{border-color:var(--border2)}
+.lcard .lt{font-size:13.5px;font-weight:600;color:var(--label1);margin-bottom:6px}
+.lcard .lb{font-size:12.5px;color:var(--label3);line-height:1.6;max-height:60px;overflow:hidden}
+.lcard .lm{display:flex;gap:8px;font-size:11px;color:var(--caption);margin-top:8px;white-space:nowrap}
 .authbar{background:var(--red-t);color:var(--red);border:1px solid var(--red);border-radius:12px;padding:10px 14px;font-size:13px;margin-bottom:12px;display:none}
 .authbar.on{display:block}
 </style>
@@ -114,6 +124,11 @@ svg.ic{display:inline-block;vertical-align:-3px}
     <button class="btn ghost sm" id="themeBtn"></button>
     <button class="btn sm" id="newBtn"></button>
   </div>
+  <div class="pgnav">
+    <span class="on" id="navTask" onclick="pgView('task')">任务板</span>
+    <span id="navMem" onclick="pgView('mem')">避坑库 <span id="memCnt" style="font-size:11px;opacity:.7"></span></span>
+  </div>
+  <div class="view on" id="viewTask">
   <div class="tbar">
     <div class="seg" id="projSeg"></div>
     <div class="search" id="searchBox"><input id="searchInput" placeholder="搜索标题/描述/人…"></div>
@@ -127,7 +142,29 @@ svg.ic{display:inline-block;vertical-align:-3px}
       <div id="listRows"></div>
     </div>
   </div>
+  </div><!-- /viewTask -->
+  <div class="view" id="viewMem">
+    <div class="tbar">
+      <div class="seg" id="memProjSeg"></div>
+      <div class="search"><input id="memSearch" placeholder="搜索教训/项目…"></div>
+      <span class="spacer"></span>
+      <button class="btn sm" id="newLessonBtn"></button>
+    </div>
+    <div class="lesson-grid" id="lessonGrid"></div>
+  </div>
 </div>
+
+<div class="mask" id="lessonMask"><div class="modal">
+  <h4>新增避坑（团队记忆）</h4>
+  <label>标题 *</label><input id="lTitle" placeholder="一句话教训，如：部署前必须跑双机验收">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div><label>项目</label><input id="lProject" placeholder="如 pay / 通用"></div>
+    <div><label>关联任务（可空）</label><input id="lSource" placeholder="如 T-001"></div>
+  </div>
+  <label>正文（卡点 / 解法 / 代价）</label><textarea id="lBody" rows="5"></textarea>
+  <div class="acts"><button class="btn ghost" onclick="document.getElementById('lessonMask').classList.remove('on')">取消</button><button class="btn" id="lessonSubmit">落库</button></div>
+  <div class="note" style="margin-top:8px">写入 ~/.dsh/termfleet/team-memory/*.md（团队仓工作副本，git 可同步；hippo federation 可指向此目录）。</div>
+</div></div>
 
 <div class="mask" id="formMask"><div class="modal">
   <h4 id="formTitle">新建任务</h4>
@@ -178,8 +215,71 @@ function toast(m){ var t=document.getElementById('toastEl'); t.textContent=m; t.
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function stLabel(s){ for (var i=0;i<STATUSES.length;i++) if (STATUSES[i][0]===s) return STATUSES[i][1]; return s; }
 
+var MEM = { lessons: [], proj: '*', q: '' };
+function pgView(v){
+  document.getElementById('navTask').classList.toggle('on', v==='task');
+  document.getElementById('navMem').classList.toggle('on', v==='mem');
+  document.getElementById('viewTask').classList.toggle('on', v==='task');
+  document.getElementById('viewMem').classList.toggle('on', v==='mem');
+  if (v==='mem') loadMem();
+}
+function loadMem(){ return api('/dsh-termfleet/memory').then(function(d){ MEM.lessons=d.lessons||[]; renderMem(); }).catch(function(){}); }
+function memVisible(){
+  return MEM.lessons.filter(function(l){
+    if (MEM.proj!=='*' && (l.project||'通用')!==MEM.proj) return false;
+    if (MEM.q){ var q=MEM.q.toLowerCase(); var hay=((l.title||'')+' '+(l.body||'')+' '+(l.project||'')).toLowerCase(); if (hay.indexOf(q)<0) return false; }
+    return true;
+  });
+}
+function renderMem(){
+  document.getElementById('memCnt').textContent = MEM.lessons.length ? '('+MEM.lessons.length+')' : '';
+  var seg = document.getElementById('memProjSeg'); seg.innerHTML='';
+  var projects={}; MEM.lessons.forEach(function(l){ projects[l.project||'通用']=1; });
+  var mk=function(name,label){ var b=document.createElement('button'); b.textContent=label; if(MEM.proj===name)b.classList.add('on');
+    b.onclick=function(){ MEM.proj=name; renderMem(); }; seg.appendChild(b); };
+  mk('*','全部 '+MEM.lessons.length);
+  Object.keys(projects).sort().forEach(function(n){ mk(n, n+' '+MEM.lessons.filter(function(l){return (l.project||'通用')===n}).length); });
+  var grid=document.getElementById('lessonGrid'); grid.innerHTML='';
+  var items=memVisible();
+  if(!items.length){ grid.innerHTML='<div class="empty" style="grid-column:1/-1">'+(MEM.lessons.length?'没有匹配的教训':'避坑库还是空的——任务完成时点「蒸馏」，或右上角手动新增')+'</div>'; return; }
+  items.forEach(function(l){
+    var c=document.createElement('div'); c.className='lcard';
+    c.innerHTML='<div class="lt">'+esc(l.title||l.id)+'</div><div class="lb">'+esc((l.body||'').slice(0,160))+'</div>'
+      +'<div class="lm"><span class="pill" style="border-style:dashed;padding:0 7px">'+esc(l.project||'通用')+'</span>'
+      +(l['source-task']?'<span>'+esc(l['source-task'])+'</span>':'')+'<span>'+esc((l.date||'').slice(0,10))+'</span><span>'+esc(l.by||'')+'</span></div>';
+    c.onclick=function(){ openLesson(l); };
+    grid.appendChild(c);
+  });
+}
+function openLesson(l){
+  document.getElementById('dId').textContent=l.id||'';
+  document.getElementById('dTitle').textContent=l.title||'';
+  document.getElementById('dKv').innerHTML =
+    '<b>项目</b><span>'+esc(l.project||'通用')+'</span>'
+    +'<b>记录人</b><span>'+esc(l.by||'—')+'</span>'
+    +'<b>日期</b><span>'+esc((l.date||'').replace('T',' ').slice(0,19))+'</span>'
+    +'<b>关联任务</b><span>'+esc(l['source-task']||'—')+'</span>';
+  document.getElementById('dHist').innerHTML='<div style="font-size:13px;color:var(--label2);white-space:pre-wrap">'+esc(l.body||'')+'</div>';
+  document.getElementById('drawer').classList.add('on');
+}
+function openLessonForm(prefill){
+  prefill=prefill||{};
+  document.getElementById('lTitle').value=prefill.title||'';
+  document.getElementById('lProject').value=prefill.project||'';
+  document.getElementById('lSource').value=prefill.sourceTask||'';
+  document.getElementById('lBody').value=prefill.body||'';
+  document.getElementById('lessonMask').classList.add('on');
+  document.getElementById('lTitle').focus();
+}
 function load(){ return api('/dsh-termfleet/tasks').then(function(d){ ST.tasks = d.tasks||[]; render(); }).catch(function(){}); }
-function act(op, id, patch){ return api('/dsh-termfleet/tasks/action',{op:op,id:id,patch:patch||{}}).then(function(d){ if(d.ok){ ST.tasks=d.tasks; render(); toast(op==='delete'?'已删除 '+id:'已更新 '+id);} }); }
+function act(op, id, patch){ return api('/dsh-termfleet/tasks/action',{op:op,id:id,patch:patch||{}}).then(function(d){
+  if(d.ok){ ST.tasks=d.tasks; render(); toast(op==='delete'?'已删除 '+id:'已更新 '+id);
+    if(op==='status' && patch && patch.status==='done'){
+      var t=ST.tasks.filter(function(x){return x.id===id})[0]||{};
+      setTimeout(function(){ openLessonForm({title:'（蒸馏）'+t.title, project:t.project, sourceTask:id,
+        body:'卡点：\\n解法：\\n代价/收益：'}); toast('任务完成——建议蒸馏一条避坑（可跳过）'); }, 350);
+    }
+  } }); }
 
 function visible(){
   return ST.tasks.filter(function(t){
@@ -296,6 +396,16 @@ document.getElementById('formSubmit').onclick=function(){
 };
 
 document.getElementById('newBtn').innerHTML = ic('Plus',14)+' 新建任务';
+document.getElementById('newLessonBtn').innerHTML = ic('Plus',14)+' 新增避坑';
+document.getElementById('newLessonBtn').onclick=function(){ openLessonForm(); };
+document.getElementById('lessonSubmit').onclick=function(){
+  var title=document.getElementById('lTitle').value.trim();
+  if(!title){ toast('标题必填'); return; }
+  api('/dsh-termfleet/memory/create',{ title:title, project:document.getElementById('lProject').value.trim(),
+    sourceTask:document.getElementById('lSource').value.trim(), body:document.getElementById('lBody').value })
+    .then(function(d){ if(d.ok){ document.getElementById('lessonMask').classList.remove('on'); toast('已落库 '+d.id); loadMem(); } });
+};
+document.getElementById('memSearch').oninput=function(){ MEM.q=this.value.trim(); renderMem(); };
 document.getElementById('newBtn').onclick=openForm;
 document.getElementById('vBoard').onclick=function(){ ST.view='board'; this.classList.add('on'); document.getElementById('vList').classList.remove('on');
   document.getElementById('boardWrap').classList.remove('off'); document.getElementById('listWrap').classList.remove('on'); };

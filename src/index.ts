@@ -4,7 +4,53 @@
  *   命门① dsh 会话流：ctx.on('session/event') 全局 listener 实时读 +
  *            agentLoop.create(假 provider) + agent.followup(UserMessage) 写入；
  *   命门② PTY：@lydell/node-pty spawn pwsh，onData 回显 + pty.write 注入。
- * 路由形态照抄 dsh-hippo 已验证的 host 半：ctx.inject(['webServer']) 内
+ * 路由形态照抄 dsh-hippo 已验证的 host 半：  // ── 避坑库（D9 团队记忆提前：~/.dsh/termfleet/team-memory/*.md，即团队仓工作副本） ──
+  // 文件即记录（git 可同步）；hippo federation 指向本目录即成共享层（M0 已验机制）。
+  const memoryStore = (() => {
+    let dir = ''
+    const ensure = async () => {
+      if (dir) return dir
+      const p = await import('node:path'), os = await import('node:os'), fsx = await import('node:fs')
+      dir = p.join(os.homedir(), '.dsh', 'termfleet', 'team-memory')
+      fsx.mkdirSync(dir, { recursive: true })
+      return dir
+    }
+    const parse = (name, text) => {
+      const m = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/)
+      const meta = { id: name.replace(/\.md$/, '') }
+      if (m) {
+        for (const line of m[1].split('\n')) {
+          const kv = line.match(/^([a-z-]+):\s*(.*)$/)
+          if (kv) meta[kv[1]] = kv[2]
+        }
+        meta.body = m[2].trim()
+      } else meta.body = text.trim()
+      return meta
+    }
+    return {
+      async list() {
+        const d = await ensure(), fsx = await import('node:fs')
+        return fsx.readdirSync(d).filter((f) => f.endsWith('.md'))
+          .map((f) => parse(f, fsx.readFileSync(d + '/' + f, 'utf8')))
+          .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+      },
+      async create(input, by) {
+        const d = await ensure()
+        const date = new Date().toISOString().slice(0, 10)
+        const slug = String(input.title || 'lesson').slice(0, 24).replace(/[\\/:*?"<>|\s]+/g, '-')
+        const id = date + '-' + slug + '-' + Math.random().toString(36).slice(2, 6)
+        const front = ['title: ' + String(input.title || '未命名').replace(/\n/g, ' '),
+          'project: ' + String(input.project || '通用'), 'date: ' + new Date().toISOString(),
+          'by: ' + by, input.sourceTask ? 'source-task: ' + String(input.sourceTask) : '',
+          'tags: lesson,pit'].filter(Boolean).join('\n')
+        const fsx = await import('node:fs')
+        fsx.writeFileSync(d + '/' + id + '.md', '---\n' + front + '\n---\n\n' + String(input.body || '') + '\n')
+        return { id, ok: true }
+      },
+    }
+  })()
+
+ctx.inject(['webServer']) 内
  * host.webServer.register —— 注册期零依赖、不碰用户活数据。
  * 构建产物 lib/index.js（骨架阶段手写同步，无构建管线）。
  * @module dsh-termfleet
@@ -547,8 +593,30 @@ export function apply(ctx: Context, _config?: Config): void {
             } catch (e: any) { json(res, 400, { ok: false, error: String(e).slice(0, 300) }) }
           },
         }),
+        host.webServer.register({
+          kind: 'exact',
+          path: '/dsh-termfleet/memory',
+          handler: async (req, res) => {
+            if (guard(req, res)) return
+            if (req.method !== 'GET') { res.writeHead(405, { allow: 'GET' }); res.end(); return }
+            json(res, 200, { ok: true, lessons: await memoryStore.list() })
+          },
+        }),
+        host.webServer.register({
+          kind: 'exact',
+          path: '/dsh-termfleet/memory/create',
+          handler: async (req, res) => {
+            if (guard(req, res)) return
+            if (req.method !== 'POST') { res.writeHead(405, { allow: 'POST' }); res.end(); return }
+            try {
+              const body = JSON.parse((await readBody(req)) || '{}')
+              json(res, 200, await memoryStore.create(body, who(req)))
+            } catch (e) { json(res, 400, { ok: false, error: String(e).slice(0, 300) }) }
+          },
+        }),
+
       )
-      ctx.logger.info('dsh-termfleet: 10 routes registered on webServer (6 probe + 4 tasks)')
+      ctx.logger.info('dsh-termfleet: 12 routes registered on webServer (6 probe + 4 tasks + 2 memory)')
       return () => {
         try { ptyProc?.kill() } catch { /* 已退出 */ }
         disposers.forEach((d) => d())
