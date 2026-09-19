@@ -165,6 +165,26 @@ body[data-light] .wf-io{background:var(--n1000)}
 .ccard h4{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:8px}
 .ccard .who{font-size:13px;color:var(--label2);margin-bottom:12px}
 .ccard .acts{display:flex;gap:9px;flex-wrap:wrap}
+/* 任务文档 + 大纲 */
+.docgrid{display:grid;grid-template-columns:210px 1fr;gap:18px;align-items:start}
+.outline{position:sticky;top:0;font-size:12.5px}
+.outline .ot{font-size:11px;color:var(--caption);font-weight:600;letter-spacing:.3px;margin:10px 0 4px 8px}
+.outline a{display:block;color:var(--label3);text-decoration:none;padding:3px 8px 3px 16px;border-left:2px solid var(--border);cursor:pointer}
+.outline a.on{color:var(--label1);border-left-color:var(--brand);font-weight:600}
+.outline a:hover{color:var(--label1)}
+.outline a.lvl3{padding-left:28px;font-size:12px}
+.doc{max-width:720px;font-size:13.5px;color:var(--label2)}
+.doc h1{font-size:19px;color:var(--label1);margin:2px 0 4px;font-weight:700}
+.doc .meta{font-size:11.5px;color:var(--caption);font-family:'SF Mono',Consolas,monospace;margin-bottom:14px}
+.doc h2{font-size:15px;color:var(--label1);margin:20px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--border);font-weight:700}
+.doc h3{font-size:13.5px;color:var(--label1);margin:14px 0 6px;font-weight:600}
+.doc p{margin:6px 0}
+.doc ul{margin:6px 0 6px 20px}
+.doc li{margin:3px 0}
+.doc code{font-family:'SF Mono',Consolas,monospace;font-size:12px;background:var(--card2);border-radius:5px;padding:1px 6px;color:var(--label1)}
+.doc .ac{font-size:12px;color:var(--blue);cursor:pointer;border-bottom:1px dashed var(--blue)}
+.doc .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:12.5px;margin:8px 0}
+.doc .kv b{color:var(--caption);font-weight:600}
 .switcher{position:sticky;top:0;z-index:9;display:flex;gap:8px;align-items:center;background:var(--bg);border-bottom:1px solid var(--border);padding:9px 20px;font-size:12.5px;color:var(--caption)}
 </style>
 </head>
@@ -365,13 +385,13 @@ PS D:\proj\pay&gt; <span class="cur">▊</span></div>
     <span onclick="dtab(this,'dt-notes')">决策笔记 <span class="pill" style="margin-left:4px">3</span></span>
     <span onclick="dtab(this,'dt-wf')">工作流</span>
     <span onclick="dtab(this,'dt-diff')">diff</span>
-    <span onclick="dtab(this,'dt-ov')">概览</span>
+    <span onclick="dtab(this,'dt-doc')">文档</span>
   </div>
   <div class="dbody">
     <div class="dtab on" id="dt-flow">
       <div class="note" style="margin-bottom:12px">任务全生命周期，每事件可「定位」到原始细节（会话 seq / 回放帧 / diff 行 / 笔记）。</div>
       <div class="flow">
-        <div class="fe"><span class="ft">09:12</span><span class="fx"><b>张三</b> 创建任务 · 派给王五 · P1<span class="loc" onclick="dtab(document.querySelectorAll('.dtabs span')[5],'dt-ov')">→ 概览</span></span></div>
+        <div class="fe"><span class="ft">09:12</span><span class="fx"><b>张三</b> 创建任务 · 派给王五 · P1<span class="loc" onclick="dtab(document.querySelectorAll('.dtabs span')[5],'dt-doc')">→ 文档</span></span></div>
         <div class="fe"><span class="ft">09:14</span><span class="fx">工作流启动 <b>pay-recon-fix@v3</b>（5 步）<span class="loc" onclick="dtab(document.querySelectorAll('.dtabs span')[3],'dt-wf')">→ 工作流</span></span></div>
         <div class="fe"><span class="ft">09:15</span><span class="fx">dsh 会话开始 · cwd D:\proj\pay<span class="loc" onclick="dtab(document.querySelectorAll('.dtabs span')[1],'dt-sess')">→ 会话 seq#0</span></span></div>
         <div class="fe"><span class="ft">10:02</span><span class="fx">决策笔记提案：<b>「fx 差异走 mergeFx」</b>（proposed）<span class="loc" onclick="dtab(document.querySelectorAll('.dtabs span')[2],'dt-notes')">→ 笔记 #118</span></span></div>
@@ -428,19 +448,67 @@ PS D:\proj\pay&gt; <span class="cur">▊</span></div>
 src/bill/merge.ts
 <span style="color:var(--green)">+ export function mergeFx(a,b): Money { /* 幂等 */ }</span></div>
     </div>
-    <div class="dtab" id="dt-ov">
-      <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px">
-        <div>
-          <h6 style="font-size:12px;color:var(--caption);margin-bottom:6px">描述</h6>
-          <div style="font-size:12.5px;color:var(--label2)">对账差异 3 类根因修复；完成后跑双机验收。</div>
-          <h6 style="font-size:12px;color:var(--caption);margin:10px 0 6px">子任务</h6>
-          <div style="font-size:12.5px;color:var(--label2)"><div>✓ recon 差异合并（fx/rounding）</div><div>✓ merge 幂等</div><div>◻ 文档未更</div></div>
-          <h6 style="font-size:12px;color:var(--caption);margin:10px 0 6px">关联</h6>
-          <div style="font-size:12.5px;color:var(--label2)"><div>D:\proj\pay · fix/recon-fx</div><div>dsh×1 + pwsh×1 · 接管×1（12min）· 笔记×3</div></div>
+    <div class="dtab" id="dt-doc">
+      <div class="docgrid">
+        <div class="outline">
+          <div class="ot">文档大纲</div>
+          <a class="on">背景</a>
+          <a>目标与验收标准</a>
+          <a>需求明细</a>
+          <a class="lvl3">R1 · fx 差异</a>
+          <a class="lvl3">R2 · rounding 差异</a>
+          <a class="lvl3">R3 · latency 差异</a>
+          <a>技术方案</a>
+          <a>子任务</a>
+          <a>执行记录（自动追加）</a>
+          <a>变更记录</a>
+          <div class="ot">关联物</div>
+          <a onclick="dtab(document.querySelectorAll('.dtabs span')[1],'dt-sess')">▸ 会话 ×2（dsh+pwsh）</a>
+          <a onclick="dtab(document.querySelectorAll('.dtabs span')[2],'dt-notes')">▸ 决策笔记 ×3</a>
+          <a onclick="dtab(document.querySelectorAll('.dtabs span')[3],'dt-wf')">▸ 工作流 pay-recon-fix@v3</a>
+          <a onclick="dtab(document.querySelectorAll('.dtabs span')[4],'dt-diff')">▸ diff +412/−38</a>
+          <a onclick="dtab(document.querySelectorAll('.dtabs span')[0],'dt-flow')">▸ 全流程时间线</a>
         </div>
-        <div>
-          <h6 style="font-size:12px;color:var(--caption);margin-bottom:6px">关键数字</h6>
-          <div style="font-size:12.5px;color:var(--label2)"><div>diff +412/−38 · 测试 23✓ · ¥22.1</div><div>历时 5h50m · 人类介入 1 次</div></div>
+        <div class="doc">
+          <h1>支付对账重构</h1>
+          <div class="meta">T-2026-0912-01 · 创建 张三 09:12 · 指派 王五 · P0 · D:\proj\pay · fix/recon-fx</div>
+          <h2>背景</h2>
+          <p>支付对账夜间批任务连续 3 天中断（09-16/17/18），根因集中在 recon 差异处理：fx 类差异直接抛 <code>unsupported</code>，批任务整体回滚。受影响商户 214 家，人工补账日均 40 分钟。</p>
+          <h2>目标与验收标准</h2>
+          <ul>
+            <li>三类差异（fx/rounding/latency）全部自动合并，<b>零中断跑完三夜批任务</b></li>
+            <li>回归测试覆盖三类差异路径，≥9 例新增，全绿（<span class="ac" onclick="dtab(document.querySelectorAll('.dtabs span')[1],'dt-sess')">执行记录 → seq#130</span>）</li>
+            <li>双机验收：本机 + 备机各跑一轮（团队记忆 #97 的教训：<b>部署前必须跑双机验收</b>）</li>
+          </ul>
+          <h2>需求明细</h2>
+          <h3>R1 · fx 差异（62%，主因）</h3>
+          <p>手续费币种换算尾差。方案：<code>mergeFx(a,b)</code> 幂等合并，不抛异常——见<span class="ac" onclick="dtab(document.querySelectorAll('.dtabs span')[2],'dt-notes')">决策笔记 #118</span>（含被否决的备选方案）。</p>
+          <h3>R2 · rounding 差异（31%）</h3>
+          <p>银行四舍五入 vs 我方截断。方案：以银行为准，差异入 <code>rounding_sink</code> 科目。</p>
+          <h3>R3 · latency 差异（7%）</h3>
+          <p>跨日边界在途单。方案：延迟 24h 自动重对，不阻塞当批。</p>
+          <h2>技术方案</h2>
+          <p>改动收敛在 <code>src/bill/recon.ts</code> 与 <code>merge.ts</code>。关键实现（<span class="ac" onclick="dtab(document.querySelectorAll('.dtabs span')[4],'dt-diff')">diff recon.ts#L42</span>，张三接管期间写入，已留痕）：</p>
+          <p><code>if (diff.kind === 'fx') return mergeFx(a, b)</code></p>
+          <h2>子任务</h2>
+          <ul>
+            <li>✓ recon 差异合并（fx/rounding）</li>
+            <li>✓ merge 幂等改造</li>
+            <li>◻ 文档更新（docs/bill/recon.md 未动，验收前补）</li>
+          </ul>
+          <h2>执行记录（自动追加）</h2>
+          <ul>
+            <li><span class="mono" style="font-size:12px;color:var(--caption)">09:15</span> 会话开始 · <span class="ac" onclick="dtab(document.querySelectorAll('.dtabs span')[0],'dt-flow')">seq#0</span></li>
+            <li><span class="mono" style="font-size:12px;color:var(--caption)">11:40</span> 王五呼叫协助 → 张三接管 12min · <span class="ac">回放 11:42:07</span></li>
+            <li><span class="mono" style="font-size:12px;color:var(--caption)">14:18</span> 回归 23✓ · <span class="ac" onclick="dtab(document.querySelectorAll('.dtabs span')[1],'dt-sess')">seq#142</span></li>
+            <li><span class="mono" style="font-size:12px;color:var(--caption)">15:02</span> 提交验收 · <span class="ac" onclick="dtab(document.querySelectorAll('.dtabs span')[4],'dt-diff')">diff 全览</span></li>
+          </ul>
+          <h2>变更记录</h2>
+          <ul>
+            <li><span class="mono" style="font-size:12px;color:var(--caption)">09:12</span> 张三创建 · P1</li>
+            <li><span class="mono" style="font-size:12px;color:var(--caption)">09:30</span> 提级 P0（影响面扩大）</li>
+            <li><span class="mono" style="font-size:12px;color:var(--caption)">14:20</span> 否决方案 B（全量重写）· <span class="ac" onclick="dtab(document.querySelectorAll('.dtabs span')[2],'dt-notes')">笔记 #119</span></li>
+          </ul>
         </div>
       </div>
     </div>
