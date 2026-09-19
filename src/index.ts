@@ -37,6 +37,51 @@ export function apply(ctx: Context, _config?: Config): void {
   const bootAt = Date.now()
   ctx.logger.info('dsh-termfleet: M0 探针插件已加载（命门① session 流 + 命门② PTY）')
 
+  // ── 鉴权门（M1：M0 发现插件路由绕过宿主 launch token，全部路由必须过门）──
+  // 令牌持久化 ~/.dsh/termfleet/token.json（跨重启稳定）；装载失败 fail-closed（持续 401）。
+  let gateToken: string | null = null
+  let safeEqual: ((a: string, b: string) => boolean) | null = null
+  ;(async () => {
+    try {
+      const [{ randomBytes, timingSafeEqual }, fs, path, os] = await Promise.all([
+        import('node:crypto'), import('node:fs'), import('node:path'), import('node:os'),
+      ])
+      const dir = path.join(os.homedir(), '.dsh', 'termfleet')
+      const file = path.join(dir, 'token.json')
+      let t: string | null = null
+      try { t = JSON.parse(fs.readFileSync(file, 'utf8')).token } catch { /* 首次或损坏 */ }
+      if (typeof t !== 'string' || !t.length) {
+        t = randomBytes(24).toString('hex')
+        fs.mkdirSync(dir, { recursive: true })
+        fs.writeFileSync(file, JSON.stringify({ token: t, createdAt: new Date().toISOString() }, null, 2))
+      }
+      gateToken = t
+      safeEqual = (a, b) => {
+        const ba = Buffer.from(a), bb = Buffer.from(b)
+        return ba.length === bb.length && timingSafeEqual(ba, bb)
+      }
+      ctx.logger.info(`dsh-termfleet: 鉴权门已启用（令牌文件 ${file}，全路由无豁免）`)
+    } catch (e: any) {
+      ctx.logger.error(`dsh-termfleet: 令牌装载失败，全部路由将持续 401（fail-closed）：${String(e).slice(0, 200)}`)
+    }
+  })()
+
+  /** Bearer 头或 ?token= 查询参数；令牌未就绪一律拒绝。 */
+  const isAuthorized = (req: any, url: URL): boolean => {
+    if (!gateToken || !safeEqual) return false
+    const h = String(req.headers?.authorization ?? '')
+    const bearer = h.startsWith('Bearer ') ? h.slice(7) : ''
+    const q = url.searchParams.get('token') ?? ''
+    return (bearer.length > 0 && safeEqual(bearer, gateToken)) || (q.length > 0 && safeEqual(q, gateToken))
+  }
+  const guard = (req: any, res: any): boolean => {
+    const url = new URL(req.url, 'http://localhost')
+    if (isAuthorized(req, url)) return false
+    res.writeHead(401, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
+    res.end(JSON.stringify({ error: 'unauthorized' }))
+    return true
+  }
+
   // ── 探针状态（全部随路由回显） ──────────────────────────────
   const state: any = {
     pluginBootAt: bootAt,
@@ -270,6 +315,7 @@ export function apply(ctx: Context, _config?: Config): void {
           kind: 'exact',
           path: '/dsh-termfleet/ping',
           handler: (req: any, res: any) => {
+            if (guard(req, res)) return
             if (req.method !== 'GET') { res.writeHead(405, { allow: 'GET' }); res.end(); return }
             json(res, 200, { ok: true, ts: Date.now(), uptimeMs: Date.now() - bootAt, plugin: name })
           },
@@ -278,6 +324,7 @@ export function apply(ctx: Context, _config?: Config): void {
           kind: 'exact',
           path: '/dsh-termfleet/probe-session',
           handler: async (req: any, res: any) => {
+            if (guard(req, res)) return
             if (req.method !== 'GET') { res.writeHead(405, { allow: 'GET' }); res.end(); return }
             let snapshotCount: number | null = null
             let snapshotTypes: string[] | null = null
@@ -310,6 +357,7 @@ export function apply(ctx: Context, _config?: Config): void {
           kind: 'exact',
           path: '/dsh-termfleet/probe-session/write',
           handler: async (req: any, res: any) => {
+            if (guard(req, res)) return
             if (req.method !== 'POST') { res.writeHead(405, { allow: 'POST' }); res.end(); return }
             try {
               const body = JSON.parse((await readBody(req)) || '{}')
@@ -327,6 +375,7 @@ export function apply(ctx: Context, _config?: Config): void {
           kind: 'exact',
           path: '/dsh-termfleet/probe-pty',
           handler: async (req: any, res: any) => {
+            if (guard(req, res)) return
             if (req.method !== 'GET') { res.writeHead(405, { allow: 'GET' }); res.end(); return }
             const st = await ensurePty()
             // 给 shell banner 一点时间
@@ -343,6 +392,7 @@ export function apply(ctx: Context, _config?: Config): void {
           kind: 'exact',
           path: '/dsh-termfleet/probe-pty/write',
           handler: async (req: any, res: any) => {
+            if (guard(req, res)) return
             if (req.method !== 'POST') { res.writeHead(405, { allow: 'POST' }); res.end(); return }
             try {
               const body = JSON.parse((await readBody(req)) || '{}')
@@ -358,6 +408,7 @@ export function apply(ctx: Context, _config?: Config): void {
           kind: 'exact',
           path: '/dsh-termfleet/probe-pty/kill',
           handler: async (req: any, res: any) => {
+            if (guard(req, res)) return
             if (req.method !== 'POST') { res.writeHead(405, { allow: 'POST' }); res.end(); return }
             try {
               if (ptyProc) ptyProc.kill()

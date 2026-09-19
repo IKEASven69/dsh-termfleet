@@ -16,6 +16,19 @@
     "cordis.patch.yml"
   ],
   "license": "MIT",
+  "scripts": {
+    "doc:init": "node scripts/doclib.mjs init",
+    "doc:status": "node scripts/doclib.mjs status",
+    "doc:health": "node scripts/doclib.mjs health",
+    "doc:search": "node scripts/doclib.mjs search",
+    "doc:plan": "node scripts/doclib.mjs new-plan",
+    "doc:new-change": "node scripts/doclib.mjs new-change",
+    "doc:update-change": "node scripts/doclib.mjs update-change",
+    "doc:close-change": "node scripts/doclib.mjs close-change",
+    "doc:promote-plan": "node scripts/doclib.mjs promote-plan",
+    "doc:record-bug": "node scripts/doclib.mjs record-bug",
+    "doc:sync-module": "node scripts/doclib.mjs sync-module"
+  },
   "dependencies": {
     "@lydell/node-pty": "1.2.0-beta.15"
   },
