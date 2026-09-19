@@ -248,11 +248,11 @@ body[data-light] .wf-io{background:var(--n1000)}
         <div class="rwin">
           <div class="rtoolbar">
             <span class="pill g">● 已连接 · 可操作</span>
-            <span style="font-size:12.5px;color:var(--label3)">剩余 <b style="color:var(--label1)" class="mono">29:41</b> · 断开需成员随时可断</span>
+            <span style="font-size:12.5px;color:var(--label3)">剩余 <b style="color:var(--label1)" class="mono">29:41</b> · 仅此会话 · 成员随时可断</span>
             <span class="spacer"></span>
-            <button class="btn sm" onclick="rvFix(this,'rvt')">⌨ 终端</button>
-            <button class="btn ghost sm" onclick="rvFix(this,'rvs')">🖥 屏幕围观</button>
-            <button class="btn ghost sm" onclick="alert('切换只读：lead 侧输入被禁，仅观看')">切只读</button>
+            <button class="btn sm" onclick="alert('dsh 会话弹权限请求时这里直接代答（卡片透传，成员侧也看到）')">⚡ 答权限卡 <span class="pill a" style="margin-left:2px">1</span></button>
+            <button class="btn ghost sm" onclick="alert('像手机端一样给会话发一条指令/追问，走同一通道留痕')">✉ 发指令</button>
+            <button class="btn ghost sm" onclick="alert('切换只读：仅观看会话流，输入禁用')">切只读</button>
             <button class="btn danger sm">断开</button>
           </div>
           <div class="rview on" id="rvt">
@@ -266,23 +266,13 @@ PS D:\proj\pay&gt; <span class="p">npm test -- recon</span>
  Tests  23 passed · 0 failed
 
 PS D:\proj\pay&gt; <span class="cur">▊</span></div>
-            <div class="note" style="margin:0 14px 12px">终端流=成员机实时回显（dsh 会话走宿主 listener，CLI 走插件 PTY）；接管写入带 actor 标记、全量留痕；王五此刻同屏可见。</div>
+            <div class="note" style="margin:0 14px 12px">远程对象=**会话本身**（dsh 走宿主 listener、CLI 走插件 PTY），不碰成员桌面——隐私边界天然干净；附加会话即可看进度/答权限/发指令（手机端操控自己电脑的体验，连的是队友）；写入带 actor 标记全量留痕。</div>
           </div>
-          <div class="rview" id="rvs">
-            <div class="screen">
-              <div class="fakebar">● ● ●  D:\proj\pay — Windows PowerShell 7</div>
-              <div class="fakewin">npm test -- recon<br>✓ recon.spec.ts (14)<br>✓ merge.spec.ts (9)<br>Tests 23 passed · 0 failed<br><span style="opacity:.4">▊</span></div>
-              <div class="wm">围观中 · 王五可见 · 留痕中</div>
-            </div>
-            <div class="note" style="margin:0 14px 12px">屏幕围观=独立通道（默认只读，可操作需二次授权）；水印+全程留痕；锁屏自动断开。</div>
-          </div>
-        </div>
-
         <!-- 成员侧握手卡（远程页专属） -->
         <div class="consent">
           <div class="panel ccard">
             <h4>⚑ 连接请求（成员侧看到） <span class="pill a" style="margin-left:auto">限时 30 分钟</span></h4>
-            <div class="who"><b>张三</b>（WIN-MAIN）请求连接你的设备：<b>王五 · WIN-DEV-03</b><br>对象：dsh 会话「支付对账重构」/ 屏幕</div>
+            <div class="who"><b>张三</b>（WIN-MAIN）请求连接你的设备：<b>王五 · WIN-DEV-03</b><br>对象：dsh 会话「支付对账重构」（仅此会话，不涉桌面）</div>
             <div class="acts"><button class="btn">允许（可操作）</button><button class="btn ghost">仅只读</button><button class="btn danger">拒绝</button></div>
             <div class="note">拒绝无需理由 · 随时一键断开 · 全程留痕；桌面/终端/CLI 同一张卡。</div>
           </div>
