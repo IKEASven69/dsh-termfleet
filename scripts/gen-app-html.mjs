@@ -187,8 +187,8 @@ body[data-light] .term{background:var(--n1000)}
   <div class="topbar">
     <div class="logo"><span class="mark">TF</span>TermFleet</div>
     <div class="nav">
-      <span class="on" id="navRemote" onclick="pg('remote')">远程</span>
-      <span id="navTask" onclick="pg('task')">任务</span>
+      <span id="navRemote" onclick="pg('remote')">远程</span>
+      <span class="on" id="navTask" onclick="pg('task')">任务</span>
       <span id="navMem" onclick="pg('mem')">避坑库 <span id="memCnt" style="font-size:11px;opacity:.7"></span></span>
       <span id="navAudit" onclick="pg('audit')">审计</span>
     </div>
@@ -199,7 +199,7 @@ body[data-light] .term{background:var(--n1000)}
   </div>
 
   <!-- ═══ 远程 ═══ -->
-  <div class="page on" id="pg-remote">
+  <div class="page" id="pg-remote">
     <div class="rem">
       <div class="panel">
         <h5>设备 · 成员</h5>
@@ -251,8 +251,8 @@ body[data-light] .term{background:var(--n1000)}
 
         <div class="panel" style="padding:16px;margin-top:14px" id="consentPanel">
           <div class="ccard">
-            <h4 id="csTitle">⚑ 连接请求</h4>
-            <div class="who" id="csWho">尚未发起连接。</div>
+            <h4 id="csTitle">会话通道</h4>
+            <div class="who" id="csWho">未建立通道——没有人在连接你。操控会话由你主动发起（对象仅限会话，不碰桌面）。</div>
             <div class="acts" id="csActs"></div>
             <div class="note">成员侧视角（单机模拟：跨机后此卡来自成员机的 decide）；拒绝无需理由 · 全程留痕。</div>
           </div>
@@ -262,7 +262,7 @@ body[data-light] .term{background:var(--n1000)}
   </div>
 
   <!-- ═══ 任务 ═══ -->
-  <div class="page" id="pg-task">
+  <div class="page on" id="pg-task">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
       <h3 style="font-size:15px">项目任务板</h3>
       <span class="pill">全员共享 · 任何人可建/认领/更新</span>
@@ -346,7 +346,7 @@ body[data-light] .term{background:var(--n1000)}
 
 <!-- 同意卡（pending 时弹出） -->
 <div class="mask" id="consentMask"><div class="modal">
-  <h4>⚑ 连接请求 <span class="pill a" style="margin-left:auto">限时 30 分钟</span></h4>
+  <h4>被控方答复（模拟）<span class="pill a" style="margin-left:auto">同意后限时 30 分钟</span></h4>
   <div class="who" id="consentWho"></div>
   <div class="acts">
     <button class="btn" id="csAllow">允许（可操作）</button>
@@ -417,6 +417,7 @@ function pg(v){
     document.getElementById('nav'+p.split(':')[1]).classList.toggle('on', v===k); });
   document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('on'); });
   document.getElementById('pg-'+v).classList.add('on');
+  if (v==='remote') renderChannel();
   if (v==='mem') loadMem();
   if (v==='audit') loadAudit();
 }
@@ -432,17 +433,18 @@ function renderChannel(){
   var mb=document.getElementById('rtModeBtn'), eb=document.getElementById('rtEndBtn'), cl=document.getElementById('cmdline');
   var sub=document.getElementById('devLocalSub');
   clearInterval(tick); tick=null;
-  if(!CH || CH.status==='pending'){
+  if(CH && CH.status==='pending'){
+    var mine = CH._mine;
     st.className='pill a'; st.textContent='◌ 等待成员确认';
     meta.textContent='成员侧同意卡已弹出（本页下方/弹窗）';
     mb.disabled=true; eb.disabled=false; eb.textContent='取消请求';
     cl.classList.remove('on'); sub.textContent='pwsh 通道：等待确认';
-    document.getElementById('csTitle').innerHTML='⚑ 连接请求 <span class="pill a" style="margin-left:auto">待确认</span>';
-    document.getElementById('csWho').innerHTML='<b>'+esc(CH?CH.requester:ME)+'</b> 请求连接：<b>本机 pwsh 会话</b>（仅此会话）';
+    document.getElementById('csTitle').innerHTML='你发起的连接 · 等待被控方确认 <span class="pill a" style="margin-left:auto">待确认</span>';
+    document.getElementById('csWho').innerHTML='<b>'+esc(CH?CH.requester:ME)+'</b>（你）→ <b>本机 pwsh 会话</b>（仅此会话）。下方按钮=被控方答复（单机模拟，跨机后来自成员机）：';
     document.getElementById('csActs').innerHTML='<button class="btn sm" id="csA">允许</button><button class="btn ghost sm" id="csR">仅只读</button><button class="btn danger sm" id="csD">拒绝</button>';
-    bindDecide(); document.getElementById('consentMask').classList.add('on');
+    bindDecide(); document.getElementById('consentMask').classList.toggle('on', !!mine);
     pill.className='pill a'; pill.textContent='等确认';
-  } else if(CH.status==='active'){
+  } else if(CH && CH.status==='active'){
     st.className='pill '+(CH.mode==='rw'?'g':'a'); st.textContent='● 已连接 · '+(CH.mode==='rw'?'可操作':'只读');
     mb.disabled=false; mb.textContent=CH.mode==='rw'?'切只读':'（只读中）'; eb.disabled=false; eb.textContent='断开';
     cl.classList.add('on');
@@ -463,8 +465,8 @@ function renderChannel(){
     cl.classList.remove('on'); sub.textContent='pwsh 通道未建立';
     document.getElementById('consentMask').classList.remove('on');
     pill.className='pill'; pill.textContent='无通道';
-    document.getElementById('csTitle').textContent='⚑ 连接请求';
-    document.getElementById('csWho').innerHTML='尚未发起连接。点下方「请求连接本机 pwsh」——服务端无通道一律 403。';
+    document.getElementById('csTitle').textContent='会话通道';
+    document.getElementById('csWho').innerHTML='未建立通道——<b>没有人在连接你</b>。操控会话由你主动发起（对象仅限会话，不碰桌面）；服务端无通道一律 403。';
     document.getElementById('csActs').innerHTML='<button class="btn" id="csReq">'+ic('Play',13)+' 请求连接本机 pwsh</button>';
     document.getElementById('csReq').onclick=requestChannel;
   }
@@ -476,7 +478,7 @@ function bindDecide(){
 }
 function requestChannel(){
   api('/dsh-termfleet/consent/request',{type:'pty',target:'pwsh7·本机'}).then(function(d){
-    if(d.ok){ CH=d.consent; renderChannel(); toast('已发起连接请求（入审计）'); }});
+    if(d.ok){ CH=d.consent; CH._mine=true; renderChannel(); toast('已发起连接请求（入审计）'); }});
 }
 function decide(dec){
   api('/dsh-termfleet/consent/decide',{id:CH.id,decision:dec}).then(function(d){
@@ -760,7 +762,8 @@ document.getElementById('rtEndBtn').onclick=function(){
   api('/dsh-termfleet/consent/end',{id:CH.id}).then(function(){ CH={status:'ended'}; renderChannel(); toast('已断开（入审计）'); }); };
 
 /* ═══ 启动 ═══ */
-renderChannel(); load(); loadMem(); startEvents();
+api('/dsh-termfleet/consent/list').then(function(d){ var c=(d.consents||[]).find(function(x){return x.type==='pty'&&(x.status==='pending'||x.status==='active')}); if(c){ CH=c; } renderChannel(); }).catch(function(){renderChannel()});
+load(); loadMem(); startEvents();
 </script>
 </body>
 </html>
