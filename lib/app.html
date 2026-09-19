@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TermFleet · 任务板</title>
+<style>
+:root{--n50:#f9fafb;--n60:#f5f6f7;--n100:#ebeef2;--n300:#cfd3d6;--n400:#adb2b8;--n600:#81858c;--n700:#61666b;--n800:#353638;--n900:#1b1b1c;--n950:#151517;--n1000:#0f1115}
+body{--bg:var(--n950);--card:var(--n900);--card2:var(--n800);--label1:var(--n50);--label2:var(--n300);--label3:var(--n400);--caption:var(--n600);--brand:var(--n50);--brand-fg:var(--n1000);--border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.12);--hover:rgba(255,255,255,.24);--green:#4ed17e;--green-t:rgba(34,197,94,.14);--amber:#f59e0b;--amber-t:rgba(245,158,11,.14);--red:#f25a5a;--red-t:rgba(239,68,68,.14);--blue:#7fa7e8;--blue-t:rgba(59,130,246,.10);background:var(--bg);color:var(--label1)}
+body[data-light]{--bg:#fff;--card:var(--n60);--card2:#fff;--label1:var(--n1000);--label2:var(--n700);--label3:var(--n600);--caption:var(--n400);--brand:var(--n1000);--brand-fg:#fff;--border:rgba(0,0,0,.04);--border2:rgba(0,0,0,.1);--hover:rgba(38,49,72,.14);--green:#15803d;--green-t:rgba(34,197,94,.12);--amber:#b45309;--amber-t:rgba(245,158,11,.12);--red:#dc2626;--red-t:rgba(239,68,68,.10);--blue:#2563eb;--blue-t:rgba(59,130,246,.10)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB',sans-serif;font-size:14px;line-height:1.55}
+.wrap{max-width:1320px;margin:0 auto;padding:0 20px 60px}
+.topbar{display:flex;align-items:center;gap:10px;padding:14px 0 14px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px}
+.logo .mark{width:22px;height:22px;border-radius:7px;background:var(--brand);color:var(--brand-fg);display:grid;place-items:center;font-size:10.5px;font-weight:800}
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:600;color:var(--label2);border:1px solid var(--border2);white-space:nowrap}
+.pill.g{color:var(--green);background:var(--green-t);border-color:transparent}
+.pill.a{color:var(--amber);background:var(--amber-t);border-color:transparent}
+.pill.r{color:var(--red);background:var(--red-t);border-color:transparent}
+.pill.b{color:var(--blue);background:var(--blue-t);border-color:transparent}
+button{font-family:inherit;cursor:pointer;transition:opacity .1s}
+button:active{opacity:.75}
+.btn{border-radius:18px;border:0;background:var(--brand);color:var(--brand-fg);padding:0 16px;height:34px;font-size:13.5px;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+.btn.ghost{background:transparent;color:var(--label1);border:1px solid var(--border2);font-weight:500}
+.btn.danger{background:transparent;color:var(--red);border:1px solid var(--red)}
+.btn.sm{height:28px;padding:0 13px;font-size:12.5px;border-radius:14px}
+.spacer{flex:1}
+.me{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--caption)}
+.me input{background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:4px 8px;font-size:12.5px;width:86px;outline:none}
+svg.ic{display:inline-block;vertical-align:-3px}
+.tbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.seg{display:flex;background:var(--card2);border:1px solid var(--border);border-radius:999px;padding:2px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--label2);padding:4px 12px;border-radius:999px;font-size:12.5px}
+.seg button.on{background:var(--brand);color:var(--brand-fg);font-weight:600}
+.search{display:flex;align-items:center;gap:6px;background:var(--card2);border:1px solid var(--border);border-radius:999px;padding:0 12px;height:30px;color:var(--caption);font-size:12.5px}
+.search input{border:0;background:transparent;color:var(--label1);outline:none;font-size:12.5px;width:130px}
+.board{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.bcol h4{font-size:12.5px;color:var(--caption);font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.bcol h4 .cnt{font-size:11px;background:var(--card2);border-radius:6px;padding:0 7px}
+.bcard{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:11px 12px;margin-bottom:9px;cursor:pointer}
+.bcard:hover{border-color:var(--border2)}
+.bcard .t{font-size:13px;color:var(--label1);font-weight:500;margin-bottom:6px;word-break:break-all}
+.bcard .m{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--label3);flex-wrap:wrap}
+.claim{color:var(--blue);cursor:pointer;border-bottom:1px dashed var(--blue)}
+.prio{font-size:11.5px;font-weight:700;font-family:'SF Mono',Consolas,monospace}
+.prio.P0{color:var(--red)}.prio.P1{color:var(--amber)}.prio.P2{color:var(--label3)}
+.listwrap{display:none}.listwrap.on{display:block}
+.boardwrap{display:block}.boardwrap.off{display:none}
+.thead,.trow{display:grid;grid-template-columns:60px 44px 96px 1fr 96px 84px 90px 130px;gap:8px;align-items:center}
+.thead{padding:6px 10px;font-size:11.5px;color:var(--caption);font-weight:600}
+.trow{padding:9px 10px;border-top:1px solid var(--border);font-size:13px;background:var(--card)}
+.trow:hover{background:var(--hover)}
+.trow .title{color:var(--label1);font-weight:500;cursor:pointer}
+.trow .who{font-size:12.5px;color:var(--label2)}
+.rowops{display:flex;gap:6px;justify-content:flex-end}
+.ibtn{height:26px;border:1px solid var(--border2);background:transparent;color:var(--label2);border-radius:8px;padding:0 8px;font-size:12px;display:inline-flex;align-items:center;gap:5px}
+.ibtn:hover{color:var(--label1);border-color:var(--label3)}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.empty{padding:60px 20px;text-align:center;color:var(--caption);font-size:13px}
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--brand);color:var(--brand-fg);padding:9px 18px;border-radius:12px;font-size:13px;font-weight:500;z-index:300;opacity:0;transition:all .22s;pointer-events:none;max-width:80vw}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none}
+.mask.on{display:flex;align-items:center;justify-content:center}
+.modal{width:min(480px,92vw);background:var(--bg);border:1px solid var(--border2);border-radius:16px;padding:20px 22px}
+.modal h4{font-size:15px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.modal label{display:block;font-size:12px;color:var(--caption);margin:10px 0 4px}
+.modal input,.modal textarea,.modal select{width:100%;background:var(--card2);border:1px solid var(--border2);border-radius:9px;color:var(--label1);padding:7px 10px;font-size:13px;outline:none;font-family:inherit}
+.modal .acts{display:flex;gap:9px;margin-top:16px;justify-content:flex-end}
+.menu{position:fixed;z-index:250;background:var(--bg);border:1px solid var(--border2);border-radius:12px;padding:6px;display:none;box-shadow:0 16px 50px rgba(0,0,0,.45);min-width:150px}
+.menu.on{display:block}
+.menu button{display:block;width:100%;text-align:left;background:transparent;border:0;color:var(--label2);font-size:13px;padding:7px 12px;border-radius:8px}
+.menu button:hover{background:var(--hover);color:var(--label1)}
+.menu button.danger{color:var(--red)}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(430px,94vw);background:var(--bg);border-left:1px solid var(--border2);z-index:150;display:none;flex-direction:column}
+.drawer.on{display:flex}
+.dhead{display:flex;align-items:center;gap:9px;padding:14px 18px;border-bottom:1px solid var(--border)}
+.dbody{flex:1;overflow-y:auto;padding:16px 18px}
+.kv{display:grid;grid-template-columns:76px 1fr;gap:6px 12px;font-size:13px;margin-bottom:16px}
+.kv b{color:var(--caption);font-weight:600}
+.hline{font-size:12.5px;color:var(--label2);padding:6px 0;border-bottom:1px dashed var(--border)}
+.hline .ts{font-family:'SF Mono',Consolas,monospace;color:var(--caption);margin-right:8px}
+.note{font-size:12px;color:var(--caption)}
+.authbar{background:var(--red-t);color:var(--red);border:1px solid var(--red);border-radius:12px;padding:10px 14px;font-size:13px;margin-bottom:12px;display:none}
+.authbar.on{display:block}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="authbar" id="authbar">⚠ 401：需要令牌。用带 <b>?token=…</b> 的地址打开本页（令牌在 <b>~/.dsh/termfleet/token.json</b>），或先启动宿主看 boot 日志。</div>
+  <div class="topbar">
+    <div class="logo"><span class="mark">TF</span>TermFleet · 任务板</div>
+    <span class="pill">项目共享 · 任何人可建/认领/更新</span>
+    <span class="pill" id="countPill">0 项</span>
+    <span class="spacer"></span>
+    <span class="me">我是 <input id="meInput" title="显示名（写入操作历史）"></span>
+    <button class="btn ghost sm" id="themeBtn"></button>
+    <button class="btn sm" id="newBtn"></button>
+  </div>
+  <div class="tbar">
+    <div class="seg" id="projSeg"></div>
+    <div class="search" id="searchBox"><input id="searchInput" placeholder="搜索标题/描述/人…"></div>
+    <span class="spacer"></span>
+    <div class="seg"><button id="vBoard" class="on">看板</button><button id="vList">列表</button></div>
+  </div>
+  <div class="boardwrap" id="boardWrap"><div class="board" id="board"></div></div>
+  <div class="listwrap" id="listWrap">
+    <div class="panel">
+      <div class="thead"><span>编号</span><span>优先级</span><span>状态</span><span>任务</span><span>认领人</span><span>截止</span><span>CLI</span><span style="text-align:right">操作</span></div>
+      <div id="listRows"></div>
+    </div>
+  </div>
+</div>
+
+<div class="mask" id="formMask"><div class="modal">
+  <h4 id="formTitle">新建任务</h4>
+  <label>标题 *</label><input id="fTitle" placeholder="要做什么">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+    <div><label>项目</label><input id="fProject" placeholder="如 pay"></div>
+    <div><label>优先级</label><select id="fPrio"><option>P2</option><option>P1</option><option>P0</option></select></div>
+    <div><label>截止</label><input id="fDue" placeholder="如 周五 / 09-30"></div>
+  </div>
+  <label>指定 CLI（可空：dsh / kimi / codex / pwsh…）</label><input id="fCli" placeholder="dsh">
+  <label>描述</label><textarea id="fDesc" rows="4" placeholder="背景、验收标准…（将来即任务文档的正文）"></textarea>
+  <div class="acts"><button class="btn ghost" onclick="closeForm()">取消</button><button class="btn" id="formSubmit"></button></div>
+</div></div>
+
+<div class="menu" id="statMenu"></div>
+
+<div class="drawer" id="drawer">
+  <div class="dhead"><b id="dId" style="font-family:'SF Mono',Consolas,monospace;font-size:13px;color:var(--caption)"></b>
+    <span style="font-weight:600;font-size:14.5px;flex:1" id="dTitle"></span>
+    <button class="ibtn" onclick="closeDrawer()"></button></div>
+  <div class="dbody">
+    <div class="kv" id="dKv"></div>
+    <div style="font-size:12px;color:var(--caption);font-weight:600;margin:8px 0 4px">轨迹（真实落盘的操作历史）</div>
+    <div id="dHist"></div>
+    <div class="note" style="margin-top:14px">六 tab 深钻（全流程/会话 seq/决策笔记/工作流/diff/文档）随 M1 总线接入逐步点亮。</div>
+  </div>
+</div>
+
+<div class="toast" id="toastEl"></div>
+<script>
+var ICONS = {"Plus":["M8.64453 1.5V7.34961H14.5V8.65039H8.64453V14.5H7.34473V8.65039H1.5V7.34961H7.34473V1.5H8.64453Z"],"Check":["M11.5635 4.58984L7.61426 9.07715C7.35154 9.37561 7.11346 9.64812 6.89453 9.84668C6.66593 10.054 6.38519 10.2506 6.01465 10.3164C5.82079 10.3508 5.62207 10.3529 5.42773 10.3213C5.0561 10.2609 4.77266 10.0674 4.54102 9.86328C4.31926 9.66791 4.07752 9.39911 3.81055 9.10449L2.44531 7.59863L3.55664 6.59082L4.92188 8.09766C5.21256 8.41844 5.38878 8.61191 5.53223 8.73828C5.61022 8.80699 5.65253 8.83192 5.66895 8.83984C5.69648 8.84429 5.72449 8.84467 5.75195 8.83984C5.72657 8.84451 5.75564 8.85422 5.88672 8.73535C6.02833 8.60692 6.20225 8.41088 6.48828 8.08594L10.4385 3.59961L11.5635 4.58984Z"],"Search":["M11.894845 6.647401C11.894845 3.725463 9.534486 1.356779 6.623219 1.35657C3.711786 1.35657 1.351635 3.725338 1.351635 6.647401C1.351843 9.569296 3.711911 11.938273 6.623219 11.938273C9.534361 11.938064 11.894637 9.569171 11.894845 6.647401ZM13.245462 6.647401C13.245254 10.317935 10.280401 13.293613 6.623219 13.293821C2.965871 13.293821 0.000204 10.31806 0 6.647401C0 2.976574 2.965746 0 6.623219 0C10.280526 0.000205 13.245462 2.9767 13.245462 6.647401Z","M16.000417 15.041079L15.044449 16.000433L11.530434 12.473588L12.486298 11.514234L16.000417 15.041079Z"],"Send":["M8.3125 0.981587C8.66767 1.0545 8.97902 1.20558 9.2627 1.43374C9.48724 1.61438 9.73029 1.85933 9.97949 2.10854L14.707 6.83608L13.293 8.25014L9 3.95717V15.0431H7V3.95717L2.70703 8.25014L1.29297 6.83608L6.02051 2.10854C6.26971 1.85933 6.51277 1.61438 6.7373 1.43374C6.97662 1.24126 7.28445 1.04542 7.6875 0.981587C7.8973 0.94841 8.1031 0.956564 8.3125 0.981587Z"],"Stop":["M2 4.88C2 3.68009 2 3.08013 2.30557 2.65954C2.40426 2.52371 2.52371 2.40426 2.65954 2.30557C3.08013 2 3.68009 2 4.88 2H11.12C12.3199 2 12.9199 2 13.3405 2.30557C13.4763 2.40426 13.5957 2.52371 13.6944 2.65954C14 3.08013 14 3.68009 14 4.88V11.12C14 12.3199 14 12.9199 13.6944 13.3405C13.5957 13.4763 13.4763 13.5957 13.3405 13.6944C12.9199 14 12.3199 14 11.12 14H4.88C3.68009 14 3.08013 14 2.65954 13.6944C2.52371 13.5957 2.40426 13.4763 2.30557 13.3405C2 12.9199 2 12.3199 2 11.12V4.88Z"],"Close":["M14.1168 13.197L13.197 14.1167L1.8833 2.80303L2.80309 1.88324L14.1168 13.197Z","M13.197 1.88326L14.1168 2.80305L2.80309 14.1168L1.8833 13.197L13.197 1.88326Z"],"ChevronDown":["M11.8486 5.5L11.4238 5.92383L8.69727 8.65137C8.44157 8.90706 8.21562 9.13382 8.01172 9.29785C7.79912 9.46883 7.55595 9.61756 7.25 9.66602C7.08435 9.69222 6.91565 9.69222 6.75 9.66602C6.44405 9.61756 6.20088 9.46883 5.98828 9.29785C5.78438 9.13382 5.55843 8.90706 5.30273 8.65137L2.57617 5.92383L2.15137 5.5L3 4.65137L3.42383 5.07617L6.15137 7.80273C6.42595 8.07732 6.59876 8.24849 6.74023 8.3623C6.87291 8.46904 6.92272 8.47813 6.9375 8.48047C6.97895 8.48703 7.02105 8.48703 7.0625 8.48047C7.07728 8.47813 7.12709 8.46904 7.25977 8.3623C7.40124 8.24849 7.57405 8.07732 7.84863 7.80273L10.5762 5.07617L11 4.65137L11.8486 5.5Z"],"Ellipsis":["M4.55146 8.00001C4.55146 8.63513 4.03659 9.15001 3.40146 9.15001C2.76634 9.15001 2.25146 8.63513 2.25146 8.00001C2.25146 7.36488 2.76634 6.85001 3.40146 6.85001C4.03659 6.85001 4.55146 7.36488 4.55146 8.00001Z","M9.1476 8.00001C9.1476 8.63513 8.63273 9.15001 7.9976 9.15001C7.36248 9.15001 6.8476 8.63513 6.8476 8.00001C6.8476 7.36488 7.36248 6.85001 7.9976 6.85001C8.63273 6.85001 9.1476 7.36488 9.1476 8.00001Z","M13.7486 8.00001C13.7486 8.63513 13.2338 9.15001 12.5986 9.15001C11.9635 9.15001 11.4486 8.63513 11.4486 8.00001C11.4486 7.36488 11.9635 6.85001 12.5986 6.85001C13.2338 6.85001 13.7486 7.36488 13.7486 8.00001Z"],"Edit":["M9.94076 1.34942C10.7047 0.90231 11.6503 0.902415 12.4143 1.34942C12.7061 1.52015 12.9688 1.79118 13.3104 2.13284C13.6521 2.47448 13.9231 2.73721 14.0939 3.02894C14.5408 3.79294 14.5409 4.73856 14.0939 5.50251C13.9231 5.79415 13.652 6.05704 13.3104 6.39861L6.65932 13.0497C6.28068 13.4284 6.00695 13.7108 5.66543 13.9097C5.32391 14.1085 4.94315 14.2074 4.42705 14.3498L3.24394 14.6761C2.77527 14.8054 2.34538 14.9262 2.00131 14.9684C1.65196 15.0112 1.17964 15.0013 0.810764 14.6325C0.441921 14.2637 0.432107 13.7913 0.47486 13.442C0.517035 13.0979 0.6379 12.668 0.767181 12.1993L1.09352 11.0162C1.23588 10.5001 1.33481 10.1193 1.5336 9.77784C1.7325 9.43632 2.0149 9.1626 2.39355 8.78395L9.04466 2.13284C9.38625 1.79126 9.64911 1.52016 9.94076 1.34942ZM15.5427 14.8398H7.55223L8.96707 13.425H15.5427V14.8398ZM3.39382 9.78422C2.965 10.213 2.84244 10.3436 2.75709 10.49C2.67183 10.6366 2.61862 10.8079 2.45733 11.3925L2.13099 12.5756C2.00183 13.0439 1.92194 13.3419 1.88863 13.5536C2.10041 13.5204 2.39872 13.4416 2.86764 13.3123L4.05075 12.9859C4.63544 12.8246 4.80669 12.7715 4.95323 12.6862C5.09968 12.6008 5.23022 12.4783 5.65905 12.0494L10.721 6.98644L8.45577 4.72121L3.39382 9.78422ZM11.7 2.57079C11.3774 2.38198 10.9777 2.38198 10.6551 2.57079C10.5602 2.62647 10.4487 2.72931 10.0449 3.13311L9.45604 3.72094L11.7213 5.98617L12.3102 5.39833C12.7139 4.99457 12.8168 4.88307 12.8725 4.78818C13.0613 4.46561 13.0612 4.06585 12.8725 3.74326C12.8169 3.64827 12.7146 3.53752 12.3102 3.13311C11.9057 2.72863 11.795 2.6264 11.7 2.57079Z"],"Trash":["M14.4782 4.84067L14.2138 10.1152C14.1102 12.1872 14.067 13.0115 13.3866 13.9607C13.1044 14.3546 12.7498 14.6912 12.3424 14.9535C11.8239 15.2872 11.2415 15.4316 10.5585 15.4998C9.88727 15.5668 9.04946 15.5656 7.99998 15.5656C6.95051 15.5656 6.1127 15.5668 5.44142 15.4998C4.75851 15.4316 4.17602 15.2872 3.65753 14.9535C3.25012 14.6912 2.89559 14.3546 2.61332 13.9607C1.93296 13.0115 1.88979 12.1872 1.78619 10.1152L1.52179 4.84067L2.89006 4.77277L3.15343 10.0463C3.26221 12.2218 3.32452 12.6015 3.72646 13.1624C3.90825 13.4161 4.13686 13.6334 4.39927 13.8023C4.66204 13.9714 5.00263 14.0792 5.57825 14.1367C6.16562 14.1953 6.92298 14.1963 7.99998 14.1963C9.07699 14.1963 9.83434 14.1953 10.4217 14.1367C10.9973 14.0792 11.3379 13.9714 11.6007 13.8023C11.8631 13.6334 12.0917 13.4161 12.2735 13.1624C12.6755 12.6015 12.7378 12.2218 12.8465 10.0463L13.1099 4.77277L14.4782 4.84067ZM5.43011 6.22849H6.7994V11.3909H5.43011V6.22849ZM9.20056 6.22849H10.5699V11.3909H9.20056V6.22849ZM8.53597 0.434431C9.17976 0.434431 9.6522 0.426926 10.0966 0.571258C10.2357 0.616451 10.3717 0.672554 10.502 0.738948C10.9182 0.951107 11.2464 1.29099 11.7015 1.74612L12.4978 2.54136H15.3742V3.91169H0.625732V2.54136H3.50218L4.29845 1.74612C4.75358 1.29099 5.08174 0.951107 5.49801 0.738948C5.62831 0.672554 5.76425 0.616451 5.90334 0.571258C6.34776 0.426926 6.82021 0.434431 7.46399 0.434431H8.53597ZM7.46399 1.80476C6.73208 1.80476 6.51641 1.81187 6.32617 1.87369C6.25545 1.89667 6.18668 1.92533 6.12041 1.95907C5.96398 2.03878 5.82348 2.16253 5.44142 2.54136H10.5585C10.1765 2.16253 10.036 2.03878 9.87955 1.95907C9.81329 1.92533 9.74452 1.89667 9.6738 1.87369C9.48356 1.81187 9.26789 1.80476 8.53597 1.80476H7.46399Z"],"Warning":["M6.3002 3.32843L7.69986 3.32843L7.69986 7.79657H6.3002L6.3002 3.32843Z","M6.3002 9.01935H7.69986V10.6711H6.3002V9.01935Z","M12.6328 6.99976C12.6328 3.88874 10.111 1.36694 7 1.36694C3.88899 1.36695 1.3672 3.88875 1.36719 6.99976C1.36719 10.1108 3.88899 12.6326 7 12.6326C10.111 12.6326 12.6328 10.1108 12.6328 6.99976ZM13.8582 6.99976C13.8582 10.7873 10.7876 13.8579 7 13.8579C3.21244 13.8579 0.141846 10.7873 0.141846 6.99976C0.141857 3.2122 3.21245 0.141612 7 0.141602C10.7876 0.141602 13.8581 3.21219 13.8582 6.99976Z"],"User":["M11.0307 5.46369C11.0305 3.78995 9.6734 2.43357 7.99961 2.43357C6.32601 2.43379 4.96972 3.79009 4.96949 5.46369C4.96949 7.13748 6.32587 8.49455 7.99961 8.49477C9.67354 8.49477 11.0307 7.13762 11.0307 5.46369ZM12.3163 5.46369C12.3163 7.84777 10.3837 9.78042 7.99961 9.78042C5.61572 9.7802 3.68288 7.84763 3.68288 5.46369C3.6831 3.07993 5.61586 1.14718 7.99961 1.14695C10.3836 1.14695 12.3161 3.0798 12.3163 5.46369Z","M8.00002 10.3316C11.7343 10.3316 14.1864 11.8997 15.0387 14.4445L14.4292 14.6483L13.8197 14.8531C13.1955 12.9893 11.3673 11.6182 8.00002 11.6182C4.63277 11.6182 2.80455 12.9893 2.18031 14.8531L1.5708 14.6483L0.961304 14.4445C1.81368 11.8997 4.26579 10.3316 8.00002 10.3316Z"],"Branch":["M13.0762 1.37207C14.0846 1.37228 14.9021 2.19077 14.9023 3.19922C14.9022 4.20772 14.0847 5.02518 13.0762 5.02539C12.2967 5.02539 11.6325 4.53691 11.3701 3.84961H4.35547C4.79397 4.26458 5.15861 4.7644 5.41699 5.33496L7.10645 9.06738C7.88526 10.7875 9.55104 11.9228 11.4189 12.0371C11.7085 11.4109 12.3411 10.9756 13.0762 10.9756C14.0843 10.9759 14.9023 11.7936 14.9023 12.8018C14.9023 13.81 14.0843 14.6277 13.0762 14.6279C12.2534 14.6279 11.5574 14.0832 11.3291 13.335C8.9868 13.1879 6.89981 11.7612 5.92285 9.60352L4.23242 5.87109C3.67503 4.64033 2.44878 3.84961 1.09766 3.84961V2.54883C1.10665 2.54883 1.11601 2.54975 1.125 2.5498L11.3701 2.54883C11.6326 1.86151 12.2969 1.37207 13.0762 1.37207ZM13.0762 12.2764C12.7858 12.2764 12.5508 12.5114 12.5508 12.8018C12.5508 13.0921 12.7858 13.3281 13.0762 13.3281C13.3664 13.3279 13.6025 13.092 13.6025 12.8018C13.6025 12.5115 13.3664 12.2766 13.0762 12.2764ZM13.0762 2.67285C12.7855 2.67285 12.55 2.90861 12.5498 3.19922C12.5499 3.48987 12.7855 3.72559 13.0762 3.72559C13.3667 3.72538 13.6024 3.48975 13.6025 3.19922C13.6023 2.90874 13.3666 2.67306 13.0762 2.67285Z"],"Code":["M12.3368 1.53569L11.931 4.43172H14.8086V5.79673H11.7404L11.1962 9.67859H14.2839V11.0436H11.0056L10.4994 14.6529L9.14873 14.4643L9.62731 11.0436H5.75876L5.25252 14.6529L3.90186 14.4643L4.38043 11.0436H1.69141V9.67859H4.57104L5.11417 5.79673H2.21609V4.43172H5.30581L5.73724 1.34713L7.08995 1.53569L6.68414 4.43172H10.5527L10.9841 1.34713L12.3368 1.53569ZM5.94937 9.67859H9.81791L10.361 5.79673H6.49353L5.94937 9.67859Z"],"Refresh":["M7.92136 0.349152C10.3744 0.349234 12.5564 1.5052 13.9557 3.29894L15.1281 2.12759C15.3303 1.92546 15.6767 2.06943 15.6767 2.35538V5.53923C15.6766 5.71626 15.5329 5.85976 15.3559 5.86002H12.171C11.8854 5.8597 11.7426 5.51465 11.9443 5.31249L12.9641 4.29056C11.8237 2.74305 9.98908 1.74106 7.92136 1.74097C4.46436 1.74097 1.66233 4.543 1.66233 8C1.66233 11.457 4.46436 14.259 7.92136 14.259C11.3782 14.2589 14.1804 11.4569 14.1804 8H15.5722C15.5722 12.2251 12.1465 15.6507 7.92136 15.6508C3.69614 15.6508 0.270508 12.2252 0.270508 8C0.270508 3.77478 3.69614 0.349152 7.92136 0.349152Z"],"Play":["M14.1446 8C14.1446 4.6062 11.3938 1.85539 8 1.85539C4.6062 1.85539 1.85539 4.6062 1.85539 8C1.85539 11.3938 4.6062 14.1446 8 14.1446C11.3938 14.1446 14.1446 11.3938 14.1446 8ZM15.511 8C15.511 12.148 12.148 15.511 8 15.511C3.85202 15.511 0.489014 12.148 0.489014 8C0.489014 3.85202 3.85202 0.489014 8 0.489014C12.148 0.489014 15.511 3.85202 15.511 8Z","M10.5617 8.42578C10.852 8.21614 10.852 7.78386 10.5617 7.57422L7.25708 5.18751C6.90974 4.93666 6.42436 5.18484 6.42436 5.61329V10.3867C6.42436 10.8152 6.90974 11.0633 7.25708 10.8125L10.5617 8.42578Z"],"Download":["M15.3695 11.411L15.1234 12.8866C14.8869 14.3042 13.6603 15.3436 12.223 15.3436H3.77673C2.33958 15.3434 1.1128 14.3042 0.876343 12.8866L0.630249 11.411L2.05408 11.1747L2.29919 12.6493C2.41973 13.3713 3.04475 13.9001 3.77673 13.9003H12.223C12.9551 13.9002 13.58 13.3713 13.7006 12.6493L13.9457 11.1747L15.3695 11.411ZM8.72205 8.994C8.77717 8.93934 8.83792 8.88106 8.90271 8.81627L12.4828 5.23424L13.5043 6.25572L9.92224 9.8358C9.6395 10.1185 9.38763 10.3732 9.15857 10.5575C8.91892 10.7503 8.63953 10.9224 8.2865 10.9784C8.09711 11.0083 7.90363 11.0083 7.71423 10.9784C7.36106 10.9224 7.0809 10.7503 6.84119 10.5575C6.61215 10.3732 6.36022 10.1185 6.07751 9.8358L2.49646 6.25572L3.51697 5.23424L7.09705 8.81627C7.16219 8.88142 7.22331 8.94006 7.27869 8.99498V1.3065H8.72205V8.994Z"],"FolderClose16":["M5.05582 0.518756L4.50669 0.86654L5.05582 0.518756ZM13 9.4837L13.65 9.4837L13.65 3.53962L13 3.53962L12.35 3.53962L12.35 9.4837L13 9.4837ZM11.3264 1.86603L11.3264 1.21603L6.52313 1.21603L6.52313 1.86603L6.52313 2.51603L11.3264 2.51603L11.3264 1.86603ZM5.58054 1.34727L6.12968 0.999489L5.60495 0.170972L5.05582 0.518756L4.50669 0.86654L5.03141 1.69506L5.58054 1.34727ZM4.11323 1.23058e-13L4.11323 -0.65L1.67359 -0.65L1.67359 5.00699e-14L1.67359 0.65L4.11323 0.65L4.11323 1.23058e-13ZM0 1.67359L-0.65 1.67359L-0.65 9.4837L0 9.4837L0.65 9.4837L0.65 1.67359L0 1.67359ZM11.3264 11.1573L11.3264 10.5073L1.67359 10.5073L1.67359 11.1573L1.67359 11.8073L11.3264 11.8073L11.3264 11.1573ZM0 9.4837L-0.65 9.4837C-0.65 10.767 0.390308 11.8073 1.67359 11.8073L1.67359 11.1573L1.67359 10.5073C1.10828 10.5073 0.65 10.049 0.65 9.4837L0 9.4837ZM1.67359 5.00699e-14L1.67359 -0.65C0.390307 -0.65 -0.65 0.390309 -0.65 1.67359L0 1.67359L0.65 1.67359C0.65 1.10828 1.10828 0.65 1.67359 0.65L1.67359 5.00699e-14ZM5.05582 0.518756L5.60495 0.170972C5.28121 -0.340193 4.71829 -0.65 4.11323 -0.65L4.11323 1.23058e-13L4.11323 0.65C4.27282 0.65 4.4213 0.731715 4.50669 0.86654L5.05582 0.518756ZM6.52313 1.86603L6.52313 1.21603C6.36354 1.21603 6.21507 1.13431 6.12968 0.999489L5.58054 1.34727L5.03141 1.69506C5.35515 2.20622 5.91808 2.51603 6.52313 2.51603L6.52313 1.86603ZM13 3.53962L13.65 3.53962C13.65 2.25634 12.6097 1.21603 11.3264 1.21603L11.3264 1.86603L11.3264 2.51603C11.8917 2.51603 12.35 2.97431 12.35 3.53962L13 3.53962ZM13 9.4837L12.35 9.4837C12.35 10.049 11.8917 10.5073 11.3264 10.5073L11.3264 11.1573L11.3264 11.8073C12.6097 11.8073 13.65 10.767 13.65 9.4837L13 9.4837Z"],"Light":["M11.3496 8C11.3496 6.14985 9.85015 4.65039 8 4.65039C6.14985 4.65039 4.65039 6.14985 4.65039 8C4.65039 9.85015 6.14985 11.3496 8 11.3496C9.85015 11.3496 11.3496 9.85015 11.3496 8ZM12.6504 8C12.6504 10.5681 10.5681 12.6504 8 12.6504C5.43188 12.6504 3.34961 10.5681 3.34961 8C3.34961 5.43188 5.43188 3.34961 8 3.34961C10.5681 3.34961 12.6504 5.43188 12.6504 8Z","M8.65039 0.5V2.5H7.34961V0.5H8.65039Z","M8.65039 13.5V15.5H7.34961V13.5H8.65039Z","M3.15808 2.24035L4.57229 3.65456L3.6525 4.57435L2.23829 3.16014L3.15808 2.24035Z","M12.3505 11.4327L13.7647 12.8469L12.8449 13.7667L11.4307 12.3525L12.3505 11.4327Z","M2.24537 12.8469L3.65958 11.4327L4.57937 12.3525L3.16516 13.7667L2.24537 12.8469Z","M11.4377 3.65455L12.852 2.24033L13.7718 3.16012L12.3575 4.57434L11.4377 3.65455Z","M0.5 7.35461H2.5V8.6554H0.5L0.5 7.35461Z","M13.5 7.35461H15.5V8.6554H13.5V7.35461Z"],"Dark":["M13.2764 9.52324C12.5607 9.97754 11.7177 10.242 10.7812 10.242C8.11386 10.2419 5.95042 8.07997 5.9502 5.41289C5.9502 4.48128 6.21453 3.61071 6.67188 2.87285C4.30332 3.4658 2.54992 5.60845 2.5498 8.16093C2.5498 11.1712 4.99103 13.6102 8 13.6102C10.5383 13.6102 12.6709 11.8724 13.2764 9.52324ZM7.05078 5.41289C7.051 7.47224 8.72116 9.1423 10.7812 9.14238C11.9248 9.14238 12.887 8.63397 13.5781 7.8084C13.7266 7.63106 13.9701 7.56547 14.1875 7.64433C14.4049 7.72329 14.5497 7.9297 14.5498 8.16093C14.5498 11.7766 11.6161 14.7098 8 14.7098C4.38402 14.7098 1.4502 11.7792 1.4502 8.16093C1.45033 4.54322 4.3812 1.61015 8 1.61015C8.23027 1.61015 8.43585 1.75352 8.51562 1.96953C8.59536 2.18554 8.53241 2.42829 8.35742 2.57793C7.55573 3.26311 7.05078 4.27876 7.05078 5.41289Z"],"Loading":["M2.871 13.1286C0.0387669 10.2962 0.0387669 5.70383 2.871 2.87141C5.70341 0.0390029 10.2957 0.0391154 13.1282 2.87141L12.1387 3.86094C9.85292 1.57538 6.1469 1.57596 3.86123 3.86163C1.57573 6.14732 1.57573 9.85269 3.86123 12.1384C6.1469 14.424 9.85292 14.4246 12.1387 12.1391L13.1282 13.1286C10.2957 15.9609 5.70341 15.961 2.871 13.1286Z"]};
+function ic(n, size){ size = size || 16; var ds = ICONS[n] || []; var inner = '';
+  for (var i=0;i<ds.length;i++) inner += '<path d="'+ds[i]+'" fill="currentColor"/>';
+  return '<svg class="ic" width="'+size+'" height="'+size+'" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'+inner+'</svg>'; }
+
+var TOK = new URLSearchParams(location.search).get('token') || localStorage.getItem('tf_token') || '';
+if (TOK) localStorage.setItem('tf_token', TOK);
+var ME = localStorage.getItem('tf_user') || 'me';
+var ST = { tasks: [], view: 'board', proj: '*', q: '' };
+var STATUSES = [['todo','待办'],['doing','进行中'],['review','待验收'],['done','完成'],['blocked','阻塞']];
+
+function api(path, body){
+  return fetch(path, body ? { method:'POST', headers:{ 'content-type':'application/json','authorization':'Bearer '+TOK,'x-tf-user':encodeURIComponent(ME) }, body: JSON.stringify(body) }
+                          : { headers:{ 'authorization':'Bearer '+TOK,'x-tf-user':encodeURIComponent(ME) } })
+    .then(function(r){ if (r.status===401){ document.getElementById('authbar').classList.add('on'); throw new Error('401'); } return r.json(); });
+}
+function toast(m){ var t=document.getElementById('toastEl'); t.textContent=m; t.classList.add('on'); clearTimeout(t._tm); t._tm=setTimeout(function(){t.classList.remove('on')},2400); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function stLabel(s){ for (var i=0;i<STATUSES.length;i++) if (STATUSES[i][0]===s) return STATUSES[i][1]; return s; }
+
+function load(){ return api('/dsh-termfleet/tasks').then(function(d){ ST.tasks = d.tasks||[]; render(); }).catch(function(){}); }
+function act(op, id, patch){ return api('/dsh-termfleet/tasks/action',{op:op,id:id,patch:patch||{}}).then(function(d){ if(d.ok){ ST.tasks=d.tasks; render(); toast(op==='delete'?'已删除 '+id:'已更新 '+id);} }); }
+
+function visible(){
+  return ST.tasks.filter(function(t){
+    if (ST.proj!=='*' && (t.project||'默认')!==ST.proj) return false;
+    if (ST.q){ var q=ST.q.toLowerCase(); var hay=(t.title+' '+(t.desc||'')+' '+(t.owner||'')).toLowerCase(); if (hay.indexOf(q)<0) return false; }
+    return true;
+  });
+}
+function render(){ renderProjSeg(); renderBoard(); renderList(); document.getElementById('countPill').textContent = ST.tasks.length+' 项'; }
+function renderProjSeg(){
+  var projects = {}; ST.tasks.forEach(function(t){ projects[t.project||'默认']=1; });
+  var names = Object.keys(projects).sort();
+  var seg = document.getElementById('projSeg'); seg.innerHTML='';
+  var mk = function(name,label){ var b=document.createElement('button'); b.textContent=label; if(ST.proj===name)b.classList.add('on');
+    b.onclick=function(){ ST.proj=name; render(); }; seg.appendChild(b); };
+  mk('*','全部 '+ST.tasks.length);
+  names.forEach(function(n){ mk(n, n+' '+ST.tasks.filter(function(t){return (t.project||'默认')===n}).length); });
+}
+function cardMeta(t){
+  var own = t.owner ? '<span>'+esc(t.owner)+'</span>' : '<span class="claim" data-claim="'+t.id+'">◻ 认领</span>';
+  var cli = t.cli ? '<span class="pill" style="border-style:dashed;padding:0 7px">'+esc(t.cli)+'</span>' : '';
+  var due = t.due ? '<span>'+esc(t.due)+'</span>' : '';
+  return '<span class="prio '+t.prio+'">'+t.prio+'</span>'+own+cli+due;
+}
+function renderBoard(){
+  var el = document.getElementById('board'); el.innerHTML='';
+  STATUSES.forEach(function(st){
+    var col = document.createElement('div'); col.className='bcol';
+    var items = visible().filter(function(t){ return t.status===st[0]; });
+    col.innerHTML = '<h4>'+stLabel(st[0])+' <span class="cnt">'+items.length+'</span></h4>';
+    items.forEach(function(t){
+      var c = document.createElement('div'); c.className='bcard';
+      c.innerHTML = '<div class="t">'+esc(t.title)+'</div><div class="m">'+cardMeta(t)+'</div>';
+      c.onclick = function(ev){ if(ev.target.closest('.claim'))return; openStatMenu(ev, t); };
+      col.appendChild(c);
+    });
+    el.appendChild(col);
+  });
+  var any = visible().length;
+  if(!any){ el.innerHTML='<div class="empty" style="grid-column:1/-1">'+(ST.tasks.length?'没有匹配的任务':'还没有任务——点右上「新建任务」建第一张卡')+'</div>'; }
+}
+function renderList(){
+  var el = document.getElementById('listRows'); el.innerHTML='';
+  visible().forEach(function(t){
+    var r=document.createElement('div'); r.className='trow';
+    r.innerHTML = '<span style="font-family:SF Mono,Consolas,monospace;font-size:12px;color:var(--caption)">'+t.id+'</span>'
+      +'<span class="prio '+t.prio+'">'+t.prio+'</span>'
+      +'<span class="pill '+(t.status==='done'?'g':t.status==='blocked'?'r':t.status==='review'?'a':t.status==='doing'?'b':'')+'" style="cursor:pointer">'+stLabel(t.status)+' '+ic('ChevronDown',12)+'</span>'
+      +'<span class="title" data-open="'+t.id+'">'+esc(t.title)+'</span>'
+      +'<span class="who">'+(t.owner?esc(t.owner):'<span style="color:var(--caption)">未认领</span>')+'</span>'
+      +'<span class="who">'+esc(t.due||'—')+'</span>'
+      +'<span class="who">'+esc(t.cli||'—')+'</span>'
+      +'<span class="rowops">'+(t.owner?'':'<button class="ibtn" data-claim="'+t.id+'">认领</button>')
+      +'<button class="ibtn" data-del="'+t.id+'">'+ic('Trash',13)+' 删</button></span>';
+    el.appendChild(r);
+  });
+  el.querySelectorAll('[data-open]').forEach(function(x){ x.onclick=function(){ openDrawer(x.getAttribute('data-open')); }; });
+  el.querySelectorAll('[data-claim]').forEach(function(x){ x.onclick=function(){ act('claim', x.getAttribute('data-claim')); }; });
+  el.querySelectorAll('[data-del]').forEach(function(x){ x.onclick=function(){ if(confirm('删除该任务？')) act('delete', x.getAttribute('data-del')); }; });
+  el.querySelectorAll('.pill').forEach(function(p){ p.onclick=function(ev){ var id=ev.currentTarget.closest('.trow').querySelector('[data-open]').getAttribute('data-open'); openStatMenu(ev, ST.tasks.filter(function(t){return t.id===id})[0]); }; });
+}
+function openStatMenu(ev, t){
+  ev.stopPropagation();
+  var m=document.getElementById('statMenu'); m.innerHTML='';
+  STATUSES.forEach(function(st){
+    var b=document.createElement('button'); if(t.status===st[0])b.style.color='var(--label1)';
+    b.innerHTML=(t.status===st[0]?'● ':'')+stLabel(st[0]);
+    b.onclick=function(){ m.classList.remove('on'); act('status', t.id, {status:st[0]}); }; m.appendChild(b);
+  });
+  var hr=document.createElement('hr'); hr.style.cssText='border:0;border-top:1px solid var(--border);margin:5px 0'; m.appendChild(hr);
+  var d=document.createElement('button'); d.className='danger'; d.innerHTML=ic('Trash',13)+' 删除';
+  d.onclick=function(){ m.classList.remove('on'); if(confirm('删除 '+t.id+'？')) act('delete', t.id); }; m.appendChild(d);
+  var r=ev.currentTarget.getBoundingClientRect();
+  m.style.left=Math.min(r.left, innerWidth-170)+'px'; m.style.top=(r.bottom+6)+'px'; m.classList.add('on');
+}
+document.addEventListener('click', function(ev){
+  if(!ev.target.closest('#statMenu')) document.getElementById('statMenu').classList.remove('on');
+  var cl = ev.target.closest('.claim[data-claim]');
+  if (cl){ ev.stopPropagation(); act('claim', cl.getAttribute('data-claim')); }
+});
+
+function openDrawer(id){
+  var t = ST.tasks.filter(function(x){return x.id===id})[0]; if(!t) return;
+  document.getElementById('dId').textContent=t.id;
+  document.getElementById('dTitle').textContent=t.title;
+  document.getElementById('dKv').innerHTML =
+    '<b>状态</b><span class="pill '+(t.status==='done'?'g':t.status==='blocked'?'r':t.status==='review'?'a':t.status==='doing'?'b':'')+'">'+stLabel(t.status)+'</span>'
+    +'<b>优先级</b><span class="prio '+t.prio+'">'+t.prio+'</span>'
+    +'<b>项目</b><span>'+esc(t.project||'默认')+'</span>'
+    +'<b>认领</b><span>'+(t.owner?esc(t.owner):'<span class="claim" data-claim="'+t.id+'">◻ 认领</span>')+'</span>'
+    +'<b>截止</b><span>'+esc(t.due||'—')+'</span>'
+    +'<b>CLI</b><span>'+esc(t.cli||'—')+'</span>'
+    +'<b>创建</b><span>'+new Date(t.createdAt).toLocaleString()+'</span>'
+    +'<b>描述</b><span style="white-space:pre-wrap">'+esc(t.desc||'（空）')+'</span>';
+  document.getElementById('dHist').innerHTML = t.history.slice().reverse().map(function(h){
+    return '<div class="hline"><span class="ts">'+new Date(h.ts).toLocaleTimeString()+'</span><b>'+esc(h.by)+'</b> '+esc(h.what)+'</div>';
+  }).join('') || '<div class="note">（无）</div>';
+  document.getElementById('drawer').classList.add('on');
+}
+function closeDrawer(){ document.getElementById('drawer').classList.remove('on'); }
+
+function openForm(){ document.getElementById('formTitle').textContent='新建任务';
+  ['fTitle','fProject','fDue','fCli','fDesc'].forEach(function(id){document.getElementById(id).value='';});
+  document.getElementById('fPrio').value='P2';
+  document.getElementById('formSubmit').textContent='创建';
+  document.getElementById('formMask').classList.add('on'); document.getElementById('fTitle').focus(); }
+function closeForm(){ document.getElementById('formMask').classList.remove('on'); }
+document.getElementById('formSubmit').onclick=function(){
+  var title=document.getElementById('fTitle').value.trim();
+  if(!title){ toast('标题必填'); return; }
+  api('/dsh-termfleet/tasks/create',{ title:title, project:document.getElementById('fProject').value.trim(),
+    prio:document.getElementById('fPrio').value, due:document.getElementById('fDue').value.trim(),
+    cli:document.getElementById('fCli').value.trim(), desc:document.getElementById('fDesc').value })
+    .then(function(d){ if(d.ok){ closeForm(); toast('已创建 '+d.task.id); return load(); } });
+};
+
+document.getElementById('newBtn').innerHTML = ic('Plus',14)+' 新建任务';
+document.getElementById('newBtn').onclick=openForm;
+document.getElementById('vBoard').onclick=function(){ ST.view='board'; this.classList.add('on'); document.getElementById('vList').classList.remove('on');
+  document.getElementById('boardWrap').classList.remove('off'); document.getElementById('listWrap').classList.remove('on'); };
+document.getElementById('vList').onclick=function(){ ST.view='list'; this.classList.add('on'); document.getElementById('vBoard').classList.remove('on');
+  document.getElementById('boardWrap').classList.add('off'); document.getElementById('listWrap').classList.add('on'); };
+document.getElementById('searchInput').oninput=function(){ ST.q=this.value.trim(); render(); };
+var meI=document.getElementById('meInput'); meI.value=ME;
+meI.onchange=function(){ ME=this.value.trim()||'me'; localStorage.setItem('tf_user',ME); toast('身份：'+ME+'（写入后续操作历史）'); };
+var tb=document.getElementById('themeBtn');
+function setTheme(light){ if(light){document.body.setAttribute('data-light','');localStorage.setItem('tf_theme','light');tb.innerHTML=ic('Light',14)+' 亮';}
+  else{document.body.removeAttribute('data-light');localStorage.setItem('tf_theme','dark');tb.innerHTML=ic('Dark',14)+' 暗';} }
+tb.onclick=function(){ setTheme(!document.body.hasAttribute('data-light')); };
+setTheme(localStorage.getItem('tf_theme')==='light');
+document.querySelector('.drawer .ibtn').innerHTML=ic('Close',14);
+load();
+</script>
+</body>
+</html>

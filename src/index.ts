@@ -82,6 +82,77 @@ export function apply(ctx: Context, _config?: Config): void {
     return true
   }
 
+  // ── 任务库（M1 真实现：项目共享任务板，落盘 ~/.dsh/termfleet/tasks.json） ──
+  // 状态机：todo→doing→review→done，任意态可标 blocked；认领=写 owner。
+  type TaskStatus = 'todo' | 'doing' | 'review' | 'done' | 'blocked'
+  interface TaskRecord {
+    id: string; title: string; desc: string; project: string
+    prio: 'P0' | 'P1' | 'P2'; due: string; cli: string
+    status: TaskStatus; owner: string | null
+    createdAt: number; updatedAt: number
+    history: Array<{ ts: number; by: string; what: string }>
+  }
+  const taskStore = (() => {
+    let data: { seq: number; tasks: TaskRecord[] } | null = null
+    let mods: { fs: typeof import('node:fs'); path: typeof import('node:path'); os: typeof import('node:os') } | null = null
+    let file = ''
+    const ensure = async () => {
+      if (!mods) mods = { fs: await import('node:fs'), path: await import('node:path'), os: await import('node:os') }
+      if (!data) {
+        file = mods.path.join(mods.os.homedir(), '.dsh', 'termfleet', 'tasks.json')
+        try { data = JSON.parse(mods.fs.readFileSync(file, 'utf8')) } catch { data = { seq: 0, tasks: [] } }
+        if (!data || !Array.isArray(data.tasks)) data = { seq: 0, tasks: [] }
+      }
+      return data
+    }
+    const save = () => {
+      if (!mods || !data) return
+      mods.fs.mkdirSync(mods.path.dirname(file), { recursive: true })
+      mods.fs.writeFileSync(file, JSON.stringify(data, null, 2))
+    }
+    return {
+      async list() { return (await ensure()).tasks },
+      async create(input: any, by: string): Promise<TaskRecord> {
+        const d = await ensure()
+        d.seq++
+        const t: TaskRecord = {
+          id: 'T-' + String(d.seq).padStart(3, '0'),
+          title: String(input.title ?? '未命名').slice(0, 120),
+          desc: String(input.desc ?? '').slice(0, 4000),
+          project: String(input.project ?? '默认').slice(0, 60),
+          prio: (['P0', 'P1', 'P2'].includes(input.prio) ? input.prio : 'P2') as TaskRecord['prio'],
+          due: String(input.due ?? '').slice(0, 20),
+          cli: String(input.cli ?? '').slice(0, 30),
+          status: 'todo', owner: null,
+          createdAt: Date.now(), updatedAt: Date.now(),
+          history: [{ ts: Date.now(), by, what: '创建' }],
+        }
+        d.tasks.unshift(t); save()
+        return t
+      },
+      async act(op: string, id: string, patch: any, by: string): Promise<TaskRecord | null> {
+        const d = await ensure()
+        const t = d.tasks.find((x) => x.id === id)
+        if (!t) return null
+        const H = (what: string) => { t.history.push({ ts: Date.now(), by, what }); t.updatedAt = Date.now() }
+        if (op === 'claim') { const from = t.owner; t.owner = by; H(`认领 ${from ?? '无人'} → ${by}`) }
+        else if (op === 'release') { t.owner = null; H('取消认领') }
+        else if (op === 'update') {
+          for (const k of ['title', 'desc', 'project', 'due', 'cli'] as const)
+            if (typeof patch?.[k] === 'string') { (t as any)[k] = String(patch[k]).slice(0, k === 'desc' ? 4000 : 120); H(`改 ${k}`) }
+          if (['P0', 'P1', 'P2'].includes(patch?.prio)) { t.prio = patch.prio; H(`优先级 → ${patch.prio}`) }
+          if (typeof patch?.owner === 'string') { t.owner = patch.owner; H(`指派 → ${patch.owner}`) }
+        } else if (op === 'status') {
+          const to = String(patch?.status ?? '')
+          if (['todo', 'doing', 'review', 'done', 'blocked'].includes(to)) { t.status = to as TaskStatus; H(`状态 → ${to}`) }
+        } else if (op === 'delete') { d.tasks = d.tasks.filter((x) => x.id !== id); save(); return t }
+        else return t
+        save(); return t
+      },
+    }
+  })()
+
+
   // ── 探针状态（全部随路由回显） ──────────────────────────────
   const state: any = {
     pluginBootAt: bootAt,
@@ -419,7 +490,65 @@ export function apply(ctx: Context, _config?: Config): void {
           },
         }),
       ]
-      ctx.logger.info('dsh-termfleet: 6 probe routes registered on webServer')
+      // ── 任务面板路由（M1 真实现；身份 v1=X-TF-User 头，接总线后换成员身份） ──
+      const who = (req: any) => (()=>{try{return decodeURIComponent(String(req.headers?.['x-tf-user'] ?? 'me'))}catch{return String(req.headers?.['x-tf-user'] ?? 'me')}})().slice(0, 40)
+      disposers.push(
+        host.webServer.register({
+          kind: 'exact',
+          path: '/dsh-termfleet/app',
+          handler: async (req: any, res: any) => {
+            if (guard(req, res)) return
+            try {
+              const { pathToFileURL } = await import('node:url')
+              const fsx = await import('node:fs')
+              const here = new URL('.', import.meta.url) // lib/
+              const html = fsx.readFileSync(new URL('app.html', here), 'utf8')
+              res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
+              res.end(html)
+            } catch (e: any) {
+              res.writeHead(500, { 'content-type': 'application/json' })
+              res.end(JSON.stringify({ error: String(e).slice(0, 300) }))
+            }
+          },
+        }),
+        host.webServer.register({
+          kind: 'exact',
+          path: '/dsh-termfleet/tasks',
+          handler: async (req: any, res: any) => {
+            if (guard(req, res)) return
+            if (req.method !== 'GET') { res.writeHead(405, { allow: 'GET' }); res.end(); return }
+            json(res, 200, { ok: true, tasks: await taskStore.list() })
+          },
+        }),
+        host.webServer.register({
+          kind: 'exact',
+          path: '/dsh-termfleet/tasks/create',
+          handler: async (req: any, res: any) => {
+            if (guard(req, res)) return
+            if (req.method !== 'POST') { res.writeHead(405, { allow: 'POST' }); res.end(); return }
+            try {
+              const body = JSON.parse((await readBody(req)) || '{}')
+              const t = await taskStore.create(body, who(req))
+              json(res, 200, { ok: true, task: t })
+            } catch (e: any) { json(res, 400, { ok: false, error: String(e).slice(0, 300) }) }
+          },
+        }),
+        host.webServer.register({
+          kind: 'exact',
+          path: '/dsh-termfleet/tasks/action',
+          handler: async (req: any, res: any) => {
+            if (guard(req, res)) return
+            if (req.method !== 'POST') { res.writeHead(405, { allow: 'POST' }); res.end(); return }
+            try {
+              const body = JSON.parse((await readBody(req)) || '{}')
+              const t = await taskStore.act(String(body.op ?? ''), String(body.id ?? ''), body.patch ?? {}, who(req))
+              if (!t) { json(res, 404, { ok: false, error: 'task not found' }); return }
+              json(res, 200, { ok: true, task: t, tasks: await taskStore.list() })
+            } catch (e: any) { json(res, 400, { ok: false, error: String(e).slice(0, 300) }) }
+          },
+        }),
+      )
+      ctx.logger.info('dsh-termfleet: 10 routes registered on webServer (6 probe + 4 tasks)')
       return () => {
         try { ptyProc?.kill() } catch { /* 已退出 */ }
         disposers.forEach((d) => d())
