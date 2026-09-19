@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dsh-termfleet · M1 低保真三版（圈点用）</title>
+<style>
+/* 低保真示意：近似色模拟 dsh 令牌体系；落码一律用官方原子 + --dsw-alias-* 令牌（见 docs/design-baseline.md） */
+:root{
+  --bg:#f5f6f8; --card:#ffffff; --overlay:rgba(20,25,38,.45);
+  --label1:#1b2234; --label2:#4a5468; --label3:#7a8499; --caption:#9aa3b5;
+  --brand:#1c2536; --accent:#4176e6; --ok:#2f9e44; --warn:#e8590c; --bad:#d64545;
+  --border:#e4e7ec; --term-bg:#171a21; --term-fg:#d7dbe4;
+  --r-card:14px; --r-pill:999px; --r-btn:18px;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif;
+  --mono:'SF Mono','JetBrains Mono',Consolas,monospace;
+}
+body[data-dark]{
+  --bg:#11141b; --card:#1a1f2a; --overlay:rgba(0,0,0,.55);
+  --label1:#eef1f6; --label2:#b7bfcd; --label3:#8b94a6; --caption:#6b7486;
+  --brand:#f2f4f8; --accent:#74a3f4; --border:#2a3140; --term-bg:#0d1015;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--label1);font-size:14px;line-height:1.55}
+.switcher{position:sticky;top:0;z-index:50;display:flex;gap:8px;align-items:center;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--border)}
+.switcher .t{font-weight:700;margin-right:8px}
+.seg{display:flex;border:1px solid var(--border);border-radius:var(--r-btn);overflow:hidden}
+.seg button{border:0;background:transparent;color:var(--label2);padding:6px 16px;cursor:pointer;font-size:13px}
+.seg button.on{background:var(--brand);color:var(--card)}
+.hint{margin-left:auto;font-size:12px;color:var(--caption)}
+button.primary{background:var(--brand);color:var(--card);border:0;border-radius:var(--r-btn);padding:8px 18px;cursor:pointer;font-size:14px}
+button.ghost{background:transparent;color:var(--label1);border:1px solid var(--border);border-radius:var(--r-btn);padding:7px 16px;cursor:pointer;font-size:13px}
+button.danger{background:transparent;color:var(--bad);border:1px solid var(--bad);border-radius:var(--r-btn);padding:7px 16px;cursor:pointer;font-size:13px}
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:var(--r-pill);padding:2px 10px;font-size:11.5px;font-weight:600;border:1px solid var(--border);color:var(--label2);white-space:nowrap}
+.pill.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 35%,transparent);background:color-mix(in srgb,var(--ok) 8%,transparent)}
+.pill.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 35%,transparent)}
+.pill.bad{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 35%,transparent)}
+.pill.acc{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.dot.on{background:var(--ok)}.dot.busy{background:var(--warn)}.dot.off{background:var(--caption)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r-card)}
+section.variant{display:none;padding:18px;max-width:1280px;margin:0 auto}
+section.variant.show{display:block}
+.topbar{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.topbar .name{font-weight:700;font-size:16px}
+.mono{font-family:var(--mono)}
+.term{background:var(--term-bg);color:var(--term-fg);font-family:var(--mono);font-size:12.5px;border-radius:10px;padding:12px 14px;white-space:pre-wrap}
+.dim{color:var(--label3)} .cap{color:var(--caption);font-size:12px}
+/* 握手卡（三版共用示例，页底展示） */
+.consent-demo{margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.consent-card{padding:18px}
+.consent-card h4{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.consent-card .who{font-size:13px;color:var(--label2);margin-bottom:12px}
+.consent-actions{display:flex;gap:10px;flex-wrap:wrap}
+.audit-line{display:flex;gap:10px;font-size:12.5px;padding:6px 0;border-bottom:1px dashed var(--border)}
+.audit-line .ts{font-family:var(--mono);color:var(--caption);flex:none}
+/* —— A 高密度 —— */
+.A-grid{display:grid;grid-template-columns:1fr 340px;gap:14px}
+table.fleet{width:100%;border-collapse:collapse;font-size:13px}
+table.fleet th{text-align:left;color:var(--caption);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px}
+table.fleet td{padding:7px 10px;border-bottom:1px solid var(--border);color:var(--label2)}
+table.fleet td.n{color:var(--label1);font-weight:600}
+table.fleet tr:hover td{background:color-mix(in srgb,var(--accent) 4%,transparent)}
+.A-side{display:flex;flex-direction:column;gap:12px}
+.A-side .card{padding:12px 14px}
+/* —— B 中密度 —— */
+.B-grid{display:grid;grid-template-columns:360px 1fr;gap:14px}
+.member-card{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;margin-bottom:10px}
+.member-card .head{display:flex;align-items:center;gap:8px;font-weight:600}
+.member-card .prog{font-size:12.5px;color:var(--label3);margin-top:3px}
+.B-main .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:12px}
+.B-main .tabs span{padding:8px 14px;color:var(--label3);cursor:pointer;font-size:13px;border-bottom:2px solid transparent}
+.B-main .tabs span.on{color:var(--label1);font-weight:600;border-bottom-color:var(--accent)}
+.task-row{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px dashed var(--border);font-size:13px}
+.task-row .title{color:var(--label1)}
+/* —— C 低密度 —— */
+.C-board{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.C-col h3{font-size:13px;color:var(--label3);margin-bottom:10px;font-weight:600}
+.C-card{padding:16px;margin-bottom:12px}
+.C-card .who{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;margin-bottom:6px}
+.C-card .prog{color:var(--label3);font-size:13px;margin-bottom:10px}
+.C-card .ops{display:flex;gap:8px}
+.legend{margin-top:18px;font-size:12px;color:var(--caption)}
+</style>
+</head>
+<body>
+<div class="switcher">
+  <span class="t">M1 低保真 · 圈点版</span>
+  <div class="seg" id="segVariant">
+    <button data-v="A" class="on">A · 高密度（表格式）</button>
+    <button data-v="B">B · 中密度（卡片+工作区）★推荐</button>
+    <button data-v="C">C · 低密度（看板大卡）</button>
+  </div>
+  <div class="seg" id="segTheme">
+    <button data-th="light" class="on">亮</button>
+    <button data-th="dark">暗</button>
+  </div>
+  <span class="hint">本页近似色仅示意布局 · 落码用官方原子+令牌</span>
+</div>
+
+<!-- ═══════ A · 高密度 ═══════ -->
+<section class="variant show" id="vA">
+  <div class="topbar">
+    <span class="name">TermFleet · Fleet</span>
+    <span class="pill acc">lead · 张三</span>
+    <span class="pill">在线 4/5</span>
+    <button class="danger" style="margin-left:auto">紧急熔断</button>
+  </div>
+  <div class="A-grid">
+    <div class="card" style="padding:4px 8px 12px">
+      <table class="fleet">
+        <tr><th style="width:26px"></th><th>成员</th><th>当前任务</th><th>会话进度摘要</th><th>状态</th><th>操控</th></tr>
+        <tr><td><span class="dot on"></span></td><td class="n">李四 · WIN-DEV-02</td><td>爬虫脚本修复</td><td class="dim">kimi · 等待权限确认 2m</td><td><span class="pill warn">等审批</span></td><td><button class="ghost" style="padding:3px 12px;font-size:12px">围观</button> <button class="ghost" style="padding:3px 12px;font-size:12px">接管</button></td></tr>
+        <tr><td><span class="dot busy"></span></td><td class="n">王五 · WIN-DEV-03</td><td>支付对账重构</td><td class="dim">dsh · 正在改 src/bill/*.ts (7 文件)</td><td><span class="pill ok">干活中</span></td><td><button class="ghost" style="padding:3px 12px;font-size:12px">围观</button> <button class="ghost" style="padding:3px 12px;font-size:12px">接管</button></td></tr>
+        <tr><td><span class="dot busy"></span></td><td class="n">赵六 · MAC-M1</td><td>文档补全</td><td class="dim">codex · 输出中 · 今日 ¥3.2</td><td><span class="pill ok">干活中</span></td><td><button class="ghost" style="padding:3px 12px;font-size:12px">围观</button> <button class="ghost" style="padding:3px 12px;font-size:12px">接管</button></td></tr>
+        <tr><td><span class="dot on"></span></td><td class="n">钱七 · WIN-DEV-05</td><td>—</td><td class="dim">空闲 · 上次会话 14:02 结束</td><td><span class="pill">空闲</span></td><td><button class="ghost" style="padding:3px 12px;font-size:12px">派活</button></td></tr>
+        <tr><td><span class="dot off"></span></td><td class="n">孙八 · WIN-DEV-06</td><td>环境治理</td><td class="dim">疑似卡住 12m（无输出）</td><td><span class="pill bad">离线</span></td><td><span class="cap">—</span></td></tr>
+      </table>
+    </div>
+    <div class="A-side">
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:8px">接管终端 · 王五/支付对账 <span class="pill acc" style="margin-left:6px">29:41</span></div>
+        <div class="term">PS D:\proj\pay&gt; git diff --stat
+ src/bill/recon.ts   | 84 ++++++++--
+ src/bill/merge.ts   | 41 ++++-
+ 2 files changed, 125 insertions(+)
+PS D:\proj\pay&gt; <span style="opacity:.5">▊</span></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="primary" style="padding:5px 14px;font-size:13px">发送</button>
+          <button class="ghost" style="padding:5px 14px;font-size:13px">只读切换</button>
+          <button class="danger" style="padding:5px 14px;font-size:13px">断开</button>
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:6px">审计（最近）</div>
+        <div class="audit-line"><span class="ts">15:42</span><span>张三 请求接管 王五/支付对账</span></div>
+        <div class="audit-line"><span class="ts">15:42</span><span>王五 同意（可操作 · 30min）</span></div>
+        <div class="audit-line"><span class="ts">15:44</span><span>张三 写入 3 条命令（留痕）</span></div>
+        <div class="audit-line"><span class="ts">14:02</span><span>李四 拒绝 围观请求（无需理由）</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="legend">A 版：一屏看全队，信息最密，接近 VSCode 终端列表；适合 ≤10 人团队日常扫视。</div>
+</section>
+
+<!-- ═══════ B · 中密度（推荐） ═══════ -->
+<section class="variant" id="vB">
+  <div class="topbar">
+    <span class="name">TermFleet</span>
+    <span class="pill acc">lead · 张三</span>
+    <span class="pill">在线 4/5</span>
+    <button class="primary" style="margin-left:auto">+ 派活</button>
+    <button class="danger">紧急熔断</button>
+  </div>
+  <div class="B-grid">
+    <div>
+      <div class="card member-card"><span class="dot on" style="margin-top:6px"></span><div><div class="head">李四 <span class="pill warn">等审批</span></div><div class="prog">爬虫脚本修复 · kimi 等待权限确认 2m</div><div style="display:flex;gap:8px;margin-top:8px"><button class="ghost">围观</button><button class="ghost">接管</button></div></div></div>
+      <div class="card member-card"><span class="dot busy" style="margin-top:6px"></span><div><div class="head">王五 <span class="pill ok">干活中</span></div><div class="prog">支付对账重构 · dsh 改 src/bill/*.ts（7 文件）</div><div style="display:flex;gap:8px;margin-top:8px"><button class="ghost">围观</button><button class="ghost">接管</button></div></div></div>
+      <div class="card member-card"><span class="dot busy" style="margin-top:6px"></span><div><div class="head">赵六 <span class="pill ok">干活中</span></div><div class="prog">文档补全 · codex 输出中 · 今日 ¥3.2</div><div style="display:flex;gap:8px;margin-top:8px"><button class="ghost">围观</button><button class="ghost">接管</button></div></div></div>
+      <div class="card member-card"><span class="dot on" style="margin-top:6px"></span><div><div class="head">钱七 <span class="pill">空闲</span></div><div class="prog">上次会话 14:02 结束</div><div style="display:flex;gap:8px;margin-top:8px"><button class="ghost">派活</button></div></div></div>
+      <div class="card member-card"><span class="dot off" style="margin-top:6px"></span><div><div class="head">孙八 <span class="pill bad">离线</span></div><div class="prog">疑似卡住 12m（无输出）</div></div></div>
+    </div>
+    <div class="B-main card" style="padding:14px 18px">
+      <div class="tabs"><span>接管终端 · 王五 <span class="pill acc">29:41</span></span><span class="on">任务面板</span><span>审计时间线</span><span>diff</span></div>
+      <div style="padding:6px 2px">
+        <div class="task-row"><span class="pill ok">进行中</span><span class="title">支付对账重构</span><span class="dim">王五 · dsh · 剩 3 项</span><button class="ghost" style="margin-left:auto;padding:3px 12px;font-size:12px">验收</button></div>
+        <div class="task-row"><span class="pill warn">等审批</span><span class="title">爬虫脚本修复</span><span class="dim">李四 · kimi · 权限确认中</span><span class="cap" style="margin-left:auto">IM 已推卡</span></div>
+        <div class="task-row"><span class="pill">待派</span><span class="title">回归测试补全</span><span class="dim">无人认领</span><button class="ghost" style="margin-left:auto;padding:3px 12px;font-size:12px">派给…</button></div>
+        <div class="task-row"><span class="pill ok">验收中</span><span class="title">文档补全</span><span class="dim">赵六 · codex · diff +412 行</span><button class="ghost" style="margin-left:auto;padding:3px 12px;font-size:12px">看 diff</button></div>
+      </div>
+      <div class="term" style="margin-top:10px">PS D:\proj\pay&gt; npm test -- recon
+ ✓ recon.spec.ts (14)
+ ✓ merge.spec.ts (9)
+Tests  23 passed · 0 failed</div>
+    </div>
+  </div>
+  <div class="legend">B 版：左列成员卡片（一卡一人一动作），右侧工作区 tab 切任务/终端/审计——动线最贴近"扫一眼→点进去"。</div>
+</section>
+
+<!-- ═══════ C · 低密度 ═══════ -->
+<section class="variant" id="vC">
+  <div class="topbar">
+    <span class="name">TermFleet</span>
+    <span class="pill acc">lead · 张三</span>
+    <button class="danger" style="margin-left:auto">熔断</button>
+  </div>
+  <div class="C-board">
+    <div class="C-col"><h3>空闲</h3>
+      <div class="card C-card"><div class="who"><span class="dot on"></span>钱七</div><div class="prog">上次 14:02 结束</div><div class="ops"><button class="ghost">派活</button></div></div>
+    </div>
+    <div class="C-col"><h3>干活中</h3>
+      <div class="card C-card"><div class="who"><span class="dot busy"></span>王五</div><div class="prog">支付对账重构 · 改 src/bill/*.ts</div><div class="ops"><button class="ghost">围观</button><button class="ghost">接管</button></div></div>
+      <div class="card C-card"><div class="who"><span class="dot busy"></span>赵六</div><div class="prog">文档补全 · 输出中</div><div class="ops"><button class="ghost">围观</button></div></div>
+    </div>
+    <div class="C-col"><h3>需要你</h3>
+      <div class="card C-card"><div class="who"><span class="dot on"></span>李四</div><div class="prog">kimi 等权限确认 2m</div><div class="ops"><button class="primary">代批</button></div></div>
+      <div class="card C-card"><div class="who"><span class="dot off"></span>孙八</div><div class="prog">卡住 12m · 离线</div><div class="ops"><button class="ghost">推 IM</button></div></div>
+    </div>
+  </div>
+  <div class="legend">C 版：看板分栏（空闲/干活中/需要你），信息最少、卡片最大；适合大屏远观，但二级信息都要点进去。</div>
+</section>
+
+<!-- ═══════ 共用：成员侧握手卡（三版一致的交互核心） ═══════ -->
+<section class="consent-demo" id="consent">
+  <div class="card consent-card">
+    <h4>⚑ 接管请求 <span class="pill warn" style="margin-left:auto">限时 30 分钟</span></h4>
+    <div class="who"><b>张三</b>（WIN-MAIN）请求接管你的会话：<b>支付对账重构</b> · dsh</div>
+    <div class="consent-actions">
+      <button class="primary">允许（可操作）</button>
+      <button class="ghost">仅只读</button>
+      <button class="danger">拒绝</button>
+    </div>
+    <div class="cap" style="margin-top:10px">拒绝无需理由 · 同意后随时一键断开 · 全程留痕</div>
+  </div>
+  <div class="card consent-card">
+    <h4>频道通知 · IM 审批卡（人在外）</h4>
+    <div class="who" style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:13px">
+      <b>飞书 · TermFleet 频道</b><br>
+      <span class="dim">[审批卡] 张三请求接管「支付对账重构」</span><br>
+      <span style="display:flex;gap:8px;margin-top:8px"><button class="ghost" style="padding:4px 12px;font-size:12px">✓ 允许</button><button class="ghost" style="padding:4px 12px;font-size:12px">👁 只读</button><button class="ghost" style="padding:4px 12px;font-size:12px">✗ 拒绝</button></span>
+    </div>
+    <div class="cap" style="margin-top:10px">同一张卡两个入口：软件内（左）与 IM（右）走同一条总线</div>
+  </div>
+</section>
+
+<script>
+const segs=document.querySelectorAll('.seg')
+segs.forEach(seg=>seg.addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return
+  seg.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on')
+  if(seg.id==='segVariant'){
+    document.querySelectorAll('section.variant').forEach(s=>s.classList.remove('show'))
+    document.getElementById('v'+b.dataset.v).classList.add('show')
+  }else{
+    document.body.toggleAttribute('data-dark',b.dataset.th==='dark')
+  }
+}))
+</script>
+</body>
+</html>
