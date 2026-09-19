@@ -15,8 +15,8 @@
 | D3 | 五件套（操控面）：远程桌面 / 远程操控(dsh+CLI) / IM / 任务面板 / hippo 记忆 | 用户确认 2026-09-19 |
 | D4 | 六缺口（感知/交付面）：进度汇报流 / 成果 diff / 会话转交 / 求助按钮 / 接管回放 / 成本面板（+熔断、权限分级） | 同上 |
 | D5 | **统一同意/审计总线**是唯一从零核心**：握手卡(允许/只读/拒绝)·限时·角色·全量审计·配对(邀请码→设备令牌)**；桌面与终端共用同一张卡、同一个断开按钮 | 25+ 红海包全是"连自己"，他信治理空白 |
-| D6 | 工作量三档：**装上即用**（hippo/dsh-connect/dsh-plugin-desktop）｜**要写有底**（屏幕流抄 dsh-remote-desktop 先例、PTY 接管搬 termfleet worker.mjs、面板移植 webapp 现成实现）｜**从零**（仅总线） | 2026-09-19 口径澄清 |
-| D7 | IM 不自研：dsh-connect（多渠道）/审批卡动线参 dsh-reach | 生态成熟过剩 |
+| D6 | 工作量三档：**直用**（仅 hippo——自家作品源码在手）｜**要写·有底**（屏幕流抄 dsh-remote-desktop 先例、PTY 接管搬 termfleet worker.mjs、面板移植 webapp 现成实现、IM 薄桥搬 webapp im.ts）｜**从零**（总线） | 2026-09-19 口径澄清 |
+| D7 | **生态件只参考不直用**（用户定调 2026-09-19）：IM 桥自研薄层（出站底子=webapp im.ts 飞书/钉钉；收方向参考 dsh-reach/dsh-im-feishu 的长连接做法）；桌面壳=dsh-plugin-desktop 降级为用户自选外部便利件，**非产品依赖**（面板在 dsh web 浏览器形态本就全）；直用白名单仅 hippo | 供应链安全（信任类产品不背第三方断更风险）+ dsh 0.1.x 快跑版本风险 |
 | D8 | 远程操控范围：dsh 会话（插件/宿主 API）+ 插件自托管任意 CLI（PTY host，worker.mjs 思路） | 用户需求"操控 cli" |
 | D9 | 团队记忆层：个人层=hippo 原样（~/.hippo 私有）；共享层=git 仓 + hippo federation 盯目录（待 M0 验证） | hippo federation 是跨 agent 文件同步，恰好可复用 |
 | D10 | 成员机零入站端口；跨网场景自建 relay（M2 后）；传输局域网 WS、M3 前决定是否上 TLS | worker.mjs 安全基线延续 |
@@ -56,12 +56,11 @@ flowchart TB
         SCREEN["屏幕流被控端"]
         PTYRELAY["会话中继<br/>dsh 会话/自托管任意 CLI"]
         HANDOFF["会话转交<br/>人走活不断"]
+        IMBR["IM 薄桥<br/>自研：webapp im.ts 搬<br/>收发参考 dsh-reach"]
     end
 
-    subgraph ECO["③ 生态件·装上即用（零代码）"]
-        HIPPO["hippo 记忆引擎"]
-        IMBR["dsh-connect IM 桥"]
-        DESK["dsh-plugin-desktop 壳"]
+    subgraph ECO["③ 直用白名单（仅自家作品）"]
+        HIPPO["hippo 记忆引擎<br/>源码在手·148 测试"]
     end
 
     SHARED["团队记忆仓<br/>git + hippo federation 盯目录"]
@@ -90,12 +89,13 @@ flowchart TB
     classDef zero fill:#e6f9f2,stroke:#0b8a66
     classDef port fill:#fff3e0,stroke:#b4740a
     classDef core fill:#ffe9e9,stroke:#d64545
-    class HIPPO,IMBR,DESK,IMC zero
-    class FLEET,TASKS,DESKV,TAKE,PROG,DIFF,REPLAY,COST,AUDIT,SOS,SCREEN,PTYRELAY,HANDOFF,SHARED port
+    class HIPPO,IMC zero
+    class FLEET,TASKS,DESKV,TAKE,PROG,DIFF,REPLAY,COST,AUDIT,SOS,SCREEN,PTYRELAY,HANDOFF,SHARED,IMBR port
     class CONSENT,PAIR,POLICY,ALOG,GATE,PANIC core
 ```
 
-**图例**：绿=装上即用（零代码）｜橙=要写·有底（移植或照先例）｜红=从零自建（仅总线族）。
+**图例**：绿=直用（仅 hippo 自家）｜橙=要写·有底（移植或照先例）｜红=从零自建（仅总线族）。
+**依赖纪律（D7）**：生态件只参考不直用；桌面壳=dsh-plugin-desktop 为用户自选外部便利件（非依赖，面板在 dsh web 浏览器形态本就全）。
 **动线**：A 派活 → B 请求/B' 求助 → 同意（人不在走 IM）→ 操控/围观 → C 验收 → D 蒸馏 → E 注入。
 
 ## 3. 里程碑与验收（每步：真测+录屏+笔记登记）
@@ -109,14 +109,14 @@ flowchart TB
 
 降级路径：M0 若"dsh 会话流拿不到"→ 改走官方 dsh-api-gateway Remote 协议（架构微调，D8 注）；若"federation 盯 git 不可行"→ 团队仓改文件同步任务（D9 注）。
 
-## 4. 复用清单（精确到包）
+## 4. 复用清单（精确到包 · D7 依赖纪律后）
 
-| 用途 | 包 | 状态 |
+| 用途 | 来源 | 用法 |
 |---|---|---|
-| 记忆引擎 | 本地 dsh-hippo v0.5.0 | 已深度适配，148 测试 |
-| IM 桥 | dsh-connect（首选，多渠道）/ dsh-reach（审批卡动线参考） | npm 现成 |
-| 桌面壳（lead 建议装） | dsh-plugin-desktop | npm 现成 |
-| 屏幕流先例 | dsh-remote-desktop（本地代理 8090+屏幕/键鼠） | M0 读源码 |
+| 记忆引擎 | 本地 dsh-hippo v0.5.0 | **直用**（自家作品，白名单唯一项） |
+| IM 桥 | 自研薄层；底子=termfleet webapp `im.ts`（飞书/钉钉出站已有） | **自研**；收方向（聊天答复）参考 dsh-reach / dsh-im-feishu 长连接做法 |
+| 桌面壳 | dsh-plugin-desktop | **非依赖**：用户自选外部件，README 推荐一句 |
+| 屏幕流 | dsh-remote-desktop（本地代理 8090+屏幕/键鼠） | **只读源码参考**，实现自写 |
 | PTY 接管逻辑 | termfleet-heimdall `worker/worker.mjs` + `server/src/pty-host.ts` | 自家代码移植 |
 | 面板底子 | termfleet-heimdall webapp：cpTailSummary/taskDiff/checkpoints/usage | 自家代码移植 |
 
