@@ -538,6 +538,13 @@ export function apply(ctx, _config) {
       for (const c of list) if (c.status === 'active' && c.expireAt && c.expireAt <= now) c.status = 'expired'
     }
     return {
+      async requestRemote(c) {
+        const l = await ensure()
+        const exist = l.find((x) => x.id === c.id)
+        if (exist) { if (exist.status === 'pending') { exist.remote = true; save() } return exist }
+        const n = { id: c.id, type: c.type, target: c.target, requester: c.requester, mode: null, status: 'pending', createdAt: Date.now(), expireAt: null, decidedBy: null, endedBy: null, remote: true }
+        l.unshift(n); save(); return n
+      },
       async request(type, target, requester) {
         const l = await ensure()
         const c = { id: 'C-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), type, target, requester, mode: null, status: 'pending', createdAt: Date.now(), expireAt: null, decidedBy: null, endedBy: null }
@@ -566,6 +573,121 @@ export function apply(ctx, _config) {
       async all() { const l = await ensure(); return l.slice(0, 30) },
     }
   })()
+
+  // ── 跨机总线 v1（M1 主体：成员出站 WS 连 lead；同意/PTY/事件中继） ──
+  // 配对 ~/.dsh/termfleet/pairing.json：{role:'lead'|'member'|'off', name, leadUrl, token}
+  // 协议(JSON 帧)：hello/presence/sess-event/pty-out/consent-decided ↑；consent-request/pty-open/pty-write/pty-kill ↓
+  const busLink = (() => {
+    let cfg = null, mods = null, file = '', wsMod = null
+    let lead = { conns: new Map() }     // name → {ws,lastSeen,sessions[],events[],ptyOut[]}
+    let member = { ws: null, timer: null, connected: false }
+    const loadCfg = async () => {
+      if (!mods) mods = { fs: await import('node:fs'), path: await import('node:path'), os: await import('node:os') }
+      if (!file) file = mods.path.join(mods.os.homedir(), '.dsh', 'termfleet', 'pairing.json')
+      try { cfg = JSON.parse(mods.fs.readFileSync(file, 'utf8')) } catch { cfg = { role: 'off' } }
+      if (!cfg || !['lead', 'member', 'off'].includes(cfg.role)) cfg = { role: 'off' }
+      // 环境变量覆盖（单机双实例测试用；真实跨机走 pairing.json）
+      if (process.env.TERMFLEET_ROLE && ['lead', 'member', 'off'].includes(process.env.TERMFLEET_ROLE)) cfg.role = process.env.TERMFLEET_ROLE
+      if (process.env.TERMFLEET_NAME) cfg.name = process.env.TERMFLEET_NAME
+      if (process.env.TERMFLEET_LEAD_URL) cfg.leadUrl = process.env.TERMFLEET_LEAD_URL
+      if (process.env.TERMFLEET_TOKEN) cfg.token = process.env.TERMFLEET_TOKEN
+      return cfg
+    }
+    const saveCfg = () => { if (mods && cfg) mods.fs.writeFileSync(file, JSON.stringify(cfg, null, 2)) }
+    const send = (ws, obj) => { try { ws.send(JSON.stringify(obj)) } catch { /* 断了就算了 */ } }
+    // ── lead：升级路由处理器（noServer 握手） ──
+    const leadUpgrade = async (req, socket, head) => {
+      if (!wsMod) wsMod = await import('ws')
+      const { WebSocketServer } = wsMod
+      if (!lead.wss) {
+        lead.wss = new WebSocketServer({ noServer: true })
+        lead.wss.on('connection', (ws) => {
+          let name = null
+          ws.on('message', (raw) => {
+            let m = null; try { m = JSON.parse(String(raw)) } catch { return }
+            if (m.t === 'hello') {
+              if (!m.token || m.token !== cfg.token) { send(ws, { t: 'bye', reason: 'bad-token' }); ws.close(); return }
+              name = String(m.name || '成员').slice(0, 30)
+              lead.conns.set(name, { ws, lastSeen: Date.now(), sessions: m.sessions || [], events: [], ptyOut: [] })
+              ctx.logger.info('dsh-termfleet bus: 成员上线 ' + name)
+              return
+            }
+            if (!name) return
+            const c = lead.conns.get(name); if (!c) return
+            c.lastSeen = Date.now()
+            if (m.t === 'presence') c.sessions = m.sessions || []
+            else if (m.t === 'sess-event') { c.events.push(m.d); if (c.events.length > 60) c.events.shift() }
+            else if (m.t === 'pty-out') { c.ptyOut.push(m.d); if (c.ptyOut.length > 200) c.ptyOut.shift() }
+            else if (m.t === 'consent-decided') {
+              // 成员答复回传：lead 侧同 id 生效
+              consentStore.decide(m.id, m.decision, name + '@成员机').then((c2) => { if (c2) auditStore.add(name, '允许连接(' + (c2.mode || 'deny') + ')·成员机', m.id) })
+            }
+          })
+          ws.on('close', () => { const c = lead.conns.get(name); if (c && c.ws === ws) lead.conns.delete(name) })
+        })
+      }
+      lead.wss.handleUpgrade(req, socket, head, (ws) => lead.wss.emit('connection', ws))
+    }
+    const leadFleet = async () => {
+      await loadCfg()
+      const out = []
+      for (const [name, c] of lead.conns) {
+        out.push({ name, online: true, lastSeen: c.lastSeen, sessions: c.sessions, msgCount: c.msgCount || 0,
+          recentEvents: c.events.slice(-8), ptyTail: c.ptyOut.slice(-30).map((x) => x.d).join('').slice(-600) })
+      }
+      return out
+    }
+    const toMember = (name, obj) => { const c = lead.conns.get(name); if (c && c.ws) { send(c.ws, obj); return true } return false }
+    // ── member：出站连接循环 ──
+    const memberLoop = async () => {
+      await loadCfg()
+      if (cfg.role !== 'member' || member.timer) return
+      const scheduleReconnect = () => {
+        if (!member.timer) member.timer = setTimeout(() => { member.timer = null; connect() }, 5000)
+      }
+      const connect = async () => {
+        if (member.timer) { clearTimeout(member.timer); member.timer = null }
+        if (!wsMod) wsMod = await import('ws')
+        try {
+          const ws = new wsMod.WebSocket(cfg.leadUrl)
+          member.ws = ws
+          let settled = false
+          ws.on('open', () => {
+            settled = true; member.connected = true
+            send(ws, { t: 'hello', name: cfg.name, token: cfg.token, sessions: [{ id: 'pwsh', tag: 'cli', label: 'pwsh 会话' }] })
+            ctx.logger.info('dsh-termfleet bus: 已连上 lead ' + cfg.leadUrl)
+          })
+          ws.on('message', (raw) => {
+            let m = null; try { m = JSON.parse(String(raw)) } catch { return }
+            if (m.t === 'consent-request') {
+              // lead 下发的请求 → 本机建 pending（同 id）；本机页面轮询即可见+可答复
+              consentStore.requestRemote(m.consent).then(() => auditStore.add(m.consent.requester, '请求连接（来自 lead）', m.consent.target || ''))
+            } else if (m.t === 'pty-open') { ensurePty() }
+            else if (m.t === 'pty-write') { ptyWrite(String(m.data || ''), undefined) }
+            else if (m.t === 'pty-kill') { try { ptyProc?.kill() } catch { /* 已退 */ } }
+          })
+          ws.on('close', () => { if (member.ws === ws) { member.connected = false; member.ws = null } scheduleReconnect() })
+          ws.on('error', () => { try { ws.close() } catch { /* 忽略 */ } })
+          // 连接超时兜底（服务器不可达时 error 不一定触发）
+          setTimeout(() => { if (!settled) { try { ws.close() } catch { /* 忽略 */ } } }, 4000)
+        } catch { scheduleReconnect() }
+      }
+      connect()
+      // 本机会话事件与 PTY 输出上报（宿主内已有钩子，挂转发）
+      bus.sess.push((e) => { if (member.connected && member.ws) send(member.ws, { t: 'sess-event', d: e }) })
+      bus.pty.push((d) => { if (member.connected && member.ws) send(member.ws, { t: 'pty-out', d }) })
+    }
+    return {
+      loadCfg, saveCfg,
+      get role() { return cfg ? cfg.role : '?' },
+      get cfg() { return cfg },
+      leadUpgrade, leadFleet, toMember,
+      memberStart: memberLoop,
+      memberConnected: () => member.connected,
+      memberSend: (obj) => { if (member.ws && member.connected) send(member.ws, obj) },
+    }
+  })()
+
 
 ctx.inject(['webServer'], (host) => {
     host.effect(() => {
@@ -815,6 +937,50 @@ ctx.inject(['webServer'], (host) => {
             json(res, 200, { ok: true, events: await auditStore.list() })
           },
         }),
+        host.webServer.register({
+          kind: 'exact',
+          path: '/dsh-termfleet/fleet',
+          handler: async (req, res) => {
+            if (guard(req, res)) return
+            if (req.method !== 'GET') { res.writeHead(405, { allow: 'GET' }); res.end(); return }
+            json(res, 200, { ok: true, members: await busLink.leadFleet() })
+          },
+        }),
+        host.webServer.register({
+          kind: 'exact',
+          path: '/dsh-termfleet/pairing',
+          handler: async (req, res) => {
+            if (guard(req, res)) return
+            await busLink.loadCfg()
+            if (req.method === 'GET') { json(res, 200, { ok: true, pairing: busLink.cfg }); return }
+            if (req.method !== 'POST') { res.writeHead(405, { allow: 'POST' }); res.end(); return }
+            try {
+              const body = JSON.parse((await readBody(req)) || '{}')
+              const cfg = busLink.cfg
+              if (['lead', 'member', 'off'].includes(body.role)) cfg.role = body.role
+              if (typeof body.name === 'string') cfg.name = body.name.slice(0, 30)
+              if (typeof body.leadUrl === 'string') cfg.leadUrl = body.leadUrl.slice(0, 200)
+              if (typeof body.token === 'string' && body.token.length >= 6) cfg.token = body.token.slice(0, 64)
+              busLink.saveCfg()
+              auditStore.add(who(req), '配对设置', cfg.role + (cfg.name ? ' ' + cfg.name : ''))
+              json(res, 200, { ok: true, pairing: cfg })
+            } catch (e) { json(res, 400, { ok: false, error: String(e).slice(0, 300) }) }
+          },
+        }),
+        host.webServer.register({
+          kind: 'exact',
+          path: '/dsh-termfleet/remote/write',
+          handler: async (req, res) => {
+            if (guard(req, res)) return
+            if (req.method !== 'POST') { res.writeHead(405, { allow: 'POST' }); res.end(); return }
+            try {
+              const body = JSON.parse((await readBody(req)) || '{}')
+              const ok = busLink.toMember(String(body.member || ''), { t: 'pty-write', data: String(body.data || '') })
+              if (ok) auditStore.add(who(req), '远端写入', body.member + ' · ' + String(body.data || '').slice(0, 40))
+              json(res, ok ? 200 : 404, { ok, error: ok ? null : 'member offline' })
+            } catch (e) { json(res, 400, { ok: false, error: String(e).slice(0, 300) }) }
+          },
+        }),
         // ── 同意总线 v0 路由 ──
         host.webServer.register({
           kind: 'exact',
@@ -823,8 +989,10 @@ ctx.inject(['webServer'], (host) => {
             if (guard(req, res)) return
             try {
               const body = JSON.parse((await readBody(req)) || '{}')
-              const c = await consentStore.request(String(body.type || 'pty'), String(body.target || ''), who(req))
+              const target = String(body.target || '')
+              const c = await consentStore.request(String(body.type || 'pty'), target, who(req))
               auditStore.add(who(req), '请求连接', c.type + ' → ' + c.target)
+              if (target.startsWith('member:')) busLink.toMember(target.slice(7), { t: 'consent-request', consent: c })
               json(res, 200, { ok: true, consent: c })
             } catch (e) { json(res, 400, { ok: false, error: String(e).slice(0, 300) }) }
           },
@@ -839,6 +1007,8 @@ ctx.inject(['webServer'], (host) => {
               const c = await consentStore.decide(String(body.id || ''), String(body.decision || ''), who(req))
               if (!c) { json(res, 409, { ok: false, error: 'consent not pending' }); return }
               auditStore.add(who(req), body.decision === 'deny' ? '拒绝连接' : '允许连接(' + c.mode + ')', c.id + ' ' + c.type + ' → ' + c.target)
+              // 成员侧答复远端(lead)请求：回传总线
+              if (c.remote) busLink.memberSend({ t: 'consent-decided', id: c.id, decision: body.decision || (c.mode === 'rw' ? 'allow' : c.mode === 'ro' ? 'readonly' : 'deny') })
               json(res, 200, { ok: true, consent: c })
             } catch (e) { json(res, 400, { ok: false, error: String(e).slice(0, 300) }) }
           },
@@ -888,6 +1058,15 @@ ctx.inject(['webServer'], (host) => {
 
       )
       ctx.logger.info('dsh-termfleet: 18 routes registered on webServer (probe/tasks/memory/audit/consent+SSE)')
+      // lead 角色注册 WS 升级路由；member 角色启动出站连接（跨机总线）
+      ;(async () => {
+        await busLink.loadCfg()
+        if (busLink.role === 'lead') {
+          try { disposers.push(host.webServer.registerUpgrade({ path: '/dsh-termfleet/bus', handler: busLink.leadUpgrade })) } catch (e) { ctx.logger.warn('dsh-termfleet bus: upgrade 注册失败 ' + e) }
+        } else if (busLink.role === 'member') {
+          busLink.memberStart()
+        }
+      })()
       return () => {
         try { ptyProc?.kill() } catch { /* 已退出 */ }
         disposers.forEach((d) => d())

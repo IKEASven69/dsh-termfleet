@@ -30,7 +30,8 @@
     "doc:sync-module": "node scripts/doclib.mjs sync-module"
   },
   "dependencies": {
-    "@lydell/node-pty": "1.2.0-beta.15"
+    "@lydell/node-pty": "1.2.0-beta.15",
+    "ws": "^8.21.3"
   },
   "dsh": {
     "bundle": {

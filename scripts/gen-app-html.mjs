@@ -208,17 +208,26 @@ body[data-light] .term{background:var(--n1000)}
           <div style="min-width:0"><div class="nm">本机 <span class="pill g" style="margin-left:2px">在线</span></div>
           <div class="mach">127.0.0.1 · dsh 宿主内</div><div class="sessn" id="devLocalSub">pwsh 通道未建立</div></div>
         </div>
-        <div class="dev" style="opacity:.5">
-          <span class="dot off"></span><div class="av">?</div>
-          <div><div class="nm">团队成员设备</div><div class="sessn">M1 总线跨机（配对+WS）接入后点亮</div></div>
+        <div id="memberDevs"></div>
+        <h5 style="border-top:1px solid var(--border)">总线设置</h5>
+        <div style="padding:0 14px 14px;font-size:12.5px;display:grid;gap:6px">
+          <div style="color:var(--label3)">角色：<b id="pairRole">?</b> <span id="pairName" style="color:var(--caption)"></span></div>
+          <select id="pairSel" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px">
+            <option value="">— 改角色 —</option><option value="lead">lead（被连端）</option><option value="member">member（连接端）</option><option value="off">off</option>
+          </select>
+          <input id="pairName2" placeholder="成员名（member 用）" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px">
+          <input id="pairUrl" placeholder="leadUrl（member 用）ws://…" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px">
+          <input id="pairTok" placeholder="团队令牌（≥6位）" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px">
+          <button class="btn sm" id="pairSave" style="justify-self:start">保存配对</button>
+          <div class="note" style="margin:0">member 保存后 5 秒内出站连接 lead；本机测试用两个端口各开一实例。</div>
         </div>
         <h5 style="border-top:1px solid var(--border)">今日成本</h5>
         <div style="padding:0 14px 12px;font-size:12.5px;color:var(--label2)">本机探针会话 · 跨机后按成员聚合</div>
       </div>
       <div>
         <div class="sessbar">
-          <div class="sess on"><span class="tag cli">pwsh</span>本机会话</div>
-          <div class="sess" style="opacity:.55" title="待总线"><span class="tag dsh">dsh</span>成员会话 · 待总线</div>
+          <div class="sess on" id="sessLocal"><span class="tag cli">pwsh</span>本机会话</div>
+          <div class="sess" id="sessMember" style="display:none"><span class="tag cli">pwsh</span><span id="sessMemberName">成员会话</span></div>
           <button class="newcli" onclick="toast('新开 CLI：成员设备通道就绪后开放（本机可用下方会话）')">＋ 新开 CLI</button>
           <span class="spacer"></span>
           <span class="pill">本机 · 127.0.0.1</span>
@@ -407,6 +416,8 @@ var ST = { tasks: [], q: '' };
 var MEM = { lessons: [], state: '*', cat: '*', q: '' };
 var AUD = { events: [], k: '*' };
 var CH = null;
+var selMember = null      // 选中的成员机名（null=本机）
+var FLEET = { members: [], role: '?', name: '' }
 var NSTATE = { proposed: ['待定','a'], implemented: ['已生效','g'], rejected: ['已否决','r'], archived: ['已归档',''] };
 var NCATS = ['feature','bug-fix','simplification','architecture','process','testing'];
 var NFLOW = { proposed: ['implemented','rejected'], implemented: ['archived'], rejected: ['archived'], archived: [] };            // 当前同意通道 {id,status,mode,expireAt,...}
@@ -428,7 +439,7 @@ function pg(v){
     document.getElementById('nav'+p.split(':')[1]).classList.toggle('on', v===k); });
   document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('on'); });
   document.getElementById('pg-'+v).classList.add('on');
-  if (v==='remote') renderChannel();
+  if (v==='remote'){ renderChannel(); if(!window._fleetTimer){ window._fleetTimer=setInterval(pollFleet,2500); pollFleet(); } }
   if (v==='mem') loadMem();
   if (v==='audit') loadAudit();
 }
@@ -450,12 +461,22 @@ function renderChannel(){
     meta.textContent='成员侧同意卡已弹出（本页下方/弹窗）';
     mb.disabled=true; eb.disabled=false; eb.textContent='取消请求';
     cl.classList.remove('on'); sub.textContent='pwsh 通道：等待确认';
-    document.getElementById('csTitle').innerHTML='你发起的连接 · 等待被控方确认 <span class="pill a" style="margin-left:auto">待确认</span>';
-    document.getElementById('csWho').innerHTML='<b>'+esc(CH?CH.requester:ME)+'</b>（你）→ <b>本机 pwsh 会话</b>（仅此会话）。下方按钮=被控方答复（单机模拟，跨机后来自成员机）：';
+    document.getElementById('csTitle').innerHTML=(CH&&CH.remote
+      ? '⚑ 收到连接请求（来自 lead）'
+      : '你发起的连接 · 等待被控方确认')+' <span class="pill a" style="margin-left:auto">待确认</span>';
+    document.getElementById('csWho').innerHTML=(CH&&CH.remote
+      ? '<b>'+esc(CH.requester||'lead')+'</b> 请求连接 <b>你的 pwsh 会话</b>（仅此会话，不碰桌面）。你的答复：'
+      : '<b>'+esc(CH?CH.requester:ME)+'</b>（你）→ <b>本机 pwsh 会话</b>（仅此会话）。下方按钮=被控方答复：');
     document.getElementById('csActs').innerHTML='<button class="btn sm" id="csA">允许</button><button class="btn ghost sm" id="csR">仅只读</button><button class="btn danger sm" id="csD">拒绝</button>';
     bindDecide(); document.getElementById('consentMask').classList.toggle('on', !!mine);
     pill.className='pill a'; pill.textContent='等确认';
   } else if(CH && CH.status==='active'){
+    if(CH.remote){ st.className='pill g'; st.textContent='● 已允许（lead 使用中）';
+      meta.textContent='你已允许 '+esc(CH.requester||'lead')+' 连接本会话 · 随时可断开';
+      mb.disabled=true; mb.textContent='切只读'; eb.disabled=false; eb.textContent='断开';
+      cl.classList.remove('on');
+      document.getElementById('consentMask').classList.remove('on');
+      pill.className='pill g'; pill.textContent='通道开放中'; return; }
     st.className='pill '+(CH.mode==='rw'?'g':'a'); st.textContent='● 已连接 · '+(CH.mode==='rw'?'可操作':'只读');
     mb.disabled=false; mb.textContent=CH.mode==='rw'?'切只读':'（只读中）'; eb.disabled=false; eb.textContent='断开';
     cl.classList.add('on');
@@ -487,8 +508,40 @@ function bindDecide(){
   var A=document.getElementById('csA'),R=document.getElementById('csR'),D=document.getElementById('csD');
   if(A){A.onclick=function(){decide('allow')}} if(R){R.onclick=function(){decide('readonly')}} if(D){D.onclick=function(){decide('deny')}}
 }
+function pollFleet(){
+  api('/dsh-termfleet/fleet').then(function(d){
+    FLEET.members=d.members||[];
+    var box=document.getElementById('memberDevs');
+    if(!FLEET.members.length){ box.innerHTML='<div class="dev" style="opacity:.5"><span class="dot off"></span><div class="av">?</div><div><div class="nm">团队成员设备</div><div class="sessn">暂无成员在线（member 配对后 5s 内出现）</div></div></div>'; return; }
+    box.innerHTML=FLEET.members.map(function(m){
+      return '<div class="dev '+(selMember===m.name?'sel':'')+'" data-member="'+esc(m.name)+'"><span class="dot on"></span><div class="av">'+esc(m.name.slice(0,1))+'</div><div style="min-width:0"><div class="nm">'+esc(m.name)+' <span class="pill g" style="margin-left:2px">在线</span></div><div class="mach" style="font-family:SF Mono,Consolas,monospace;font-size:11.5px;color:var(--caption)">bus 已连 · '+esc((m.sessions||[]).map(function(s){return s.tag}).join(','))+'</div><div class="sessn">'+(m.recentEvents||[]).length+' 条近期会话事件</div></div></div>';
+    }).join('');
+    box.querySelectorAll('[data-member]').forEach(function(el){ el.onclick=function(){ selMember=el.getAttribute('data-member');
+      document.getElementById('sessMember').style.display='flex'; document.getElementById('sessMemberName').textContent=selMember+' · pwsh'; pollFleet(); toast('已选中成员机：'+selMember+'（请求连接将发给 TA）'); }; });
+    // 远端通道 active：拉成员 pty 尾流显示
+    if(CH && CH.status==='active' && CH.target && CH.target.indexOf('member:')===0){
+      var m2=FLEET.members.filter(function(x){return x.name===CH.target.slice(7)})[0];
+      if(m2 && m2.ptyTail){ var el=document.getElementById('ptyTerm'); el.textContent=m2.ptyTail; el.scrollTop=el.scrollHeight; }
+    }
+  }).catch(function(){});
+  api('/dsh-termfleet/pairing').then(function(d){ FLEET.role=d.pairing&&d.pairing.role||'?'; FLEET.name=d.pairing&&d.pairing.name||'';
+    document.getElementById('pairRole').textContent=FLEET.role; document.getElementById('pairName').textContent=FLEET.name?('· '+FLEET.name):''; }).catch(function(){});
+  // pending 轮询：远端成员答复 / 成员页收到 lead 请求 → 采纳
+  if(CH && CH.status==='pending'){
+    api('/dsh-termfleet/consent/list').then(function(d){
+      var c=(d.consents||[]).filter(function(x){return x.id===CH.id})[0];
+      if(c && c.status!=='pending'){ CH=c; renderChannel(); if(c.status==='active') toast('成员机已答复：'+(c.mode==='rw'?'允许（可操作）':'仅只读')); else if(c.status==='denied') toast('成员机已拒绝'); }
+    }).catch(function(){});
+  } else if(!CH && FLEET.role==='member'){
+    api('/dsh-termfleet/consent/list').then(function(d){
+      var c=(d.consents||[]).filter(function(x){return x.remote&&x.status==='pending'})[0];
+      if(c){ CH=c; CH._mine=false; renderChannel(); }
+    }).catch(function(){});
+  }
+}
 function requestChannel(){
-  api('/dsh-termfleet/consent/request',{type:'pty',target:'pwsh7·本机'}).then(function(d){
+  var target = selMember ? ('member:'+selMember) : 'pwsh7·本机';
+  api('/dsh-termfleet/consent/request',{type:'pty',target:target}).then(function(d){
     if(d.ok){ CH=d.consent; CH._mine=true; renderChannel(); toast('已发起连接请求（入审计）'); }});
 }
 function decide(dec){
@@ -506,6 +559,11 @@ document.getElementById('rtModeBtn').onclick=function(){ toast('模式切换由�
 /* ═══ PTY 实流 ═══ */
 var ptyLines=[], ptyES=null;
 function startPty(){
+  if(CH && CH.target && CH.target.indexOf('member:')===0){
+    api('/dsh-termfleet/remote/write',{member:CH.target.slice(7),data:'echo MEMBER_PTY_READY\\r'}).then(function(d){
+      if(d.ok===false){ toast('成员机不在线'); } });
+    return;
+  }
   api('/dsh-termfleet/probe-pty').then(function(d){
     if(d.ok===false){ toast('PTY: '+d.error); return }
     ptyLines=[d.tail||'']; drawPty();
@@ -523,7 +581,13 @@ function drawPty(){
 function sendCmd(){
   var i=document.getElementById('cmdInput'); if(!i.value.trim())return;
   var v=i.value; i.value='';
-  ptyLines.push('[张三·远端] '+v+'\\n'); drawPty();
+  if(CH && CH.target && CH.target.indexOf('member:')===0){
+    ptyLines.push('['+esc(ME)+'·远端→'+CH.target.slice(7)+'] '+v+'\\n'); drawPty();
+    api('/dsh-termfleet/remote/write',{member:CH.target.slice(7),data:v+'\\r'}).then(function(d){
+      if(d.ok===false){ ptyLines.push('✗ 远端拒绝: '+(d.error||'')+'\\n'); drawPty(); } });
+    return;
+  }
+  ptyLines.push('['+esc(ME)+'·远端] '+v+'\\n'); drawPty();
   api('/dsh-termfleet/probe-pty/write',{data:v+'\\r'}).then(function(d){
     if(d.ok===false){ ptyLines.push('✗ 服务端拒绝: '+d.error+'\\n'); drawPty(); } });
 }
@@ -802,6 +866,15 @@ function setTheme(light){ if(light){document.body.setAttribute('data-light','');
   else{document.body.removeAttribute('data-light');localStorage.setItem('tf_theme','dark');tb.innerHTML=ic('Dark',14)+' 暗';} }
 tb.onclick=function(){ setTheme(!document.body.hasAttribute('data-light')); };
 setTheme(localStorage.getItem('tf_theme')==='light');
+document.getElementById('pairSave').onclick=function(){
+  var body={};
+  var r=document.getElementById('pairSel').value; if(r)body.role=r;
+  var n=document.getElementById('pairName2').value.trim(); if(n)body.name=n;
+  var u=document.getElementById('pairUrl').value.trim(); if(u)body.leadUrl=u;
+  var t=document.getElementById('pairTok').value.trim(); if(t)body.token=t;
+  if(!Object.keys(body).length){ toast('未填任何项'); return; }
+  api('/dsh-termfleet/pairing',body).then(function(d){ if(d.ok){ toast('配对已保存：'+d.pairing.role+(d.pairing.name?' · '+d.pairing.name:'')+'（member 5s 内连上）'); pollFleet(); } });
+};
 document.getElementById('audRefresh').innerHTML=ic('Refresh',14)+' 刷新'; document.getElementById('audRefresh').onclick=loadAudit;
 document.querySelectorAll('#audSeg button').forEach(function(b){ b.onclick=function(){
   document.querySelectorAll('#audSeg button').forEach(function(x){x.classList.remove('on')}); b.classList.add('on');
