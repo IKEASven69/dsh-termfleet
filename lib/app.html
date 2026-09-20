@@ -205,6 +205,19 @@ body[data-light] .term{background:var(--n1000)}
           <input id="pairTok" placeholder="团队令牌（≥6位）" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px">
           <button class="btn sm" id="pairSave" style="justify-self:start">保存配对</button>
           <div class="note" style="margin:0">member 保存后 5 秒内出站连接 lead；本机测试用两个端口各开一实例。</div>
+          <div style="border-top:1px dashed var(--border);margin-top:8px;padding-top:8px;display:grid;gap:6px">
+            <div style="color:var(--label3)">IM 出站（审批卡/通知走 webhook）</div>
+            <input id="imWebhook" placeholder="webhook URL（飞书机器人/自定义）" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px">
+            <div style="display:flex;gap:6px">
+              <button class="btn ghost sm" id="imSave">保存</button>
+              <button class="btn ghost sm" id="imToggle"></button>
+              <button class="btn ghost sm" id="imTest">测试发送</button>
+            </div>
+            <div style="border-top:1px dashed var(--border);margin-top:6px;padding-top:8px">
+              <button class="btn sm" id="sosBtn"></button>
+              <span class="note" style="margin-left:6px">求助=通知 lead + IM（人在外场景）</span>
+            </div>
+          </div>
         </div>
         <h5 style="border-top:1px solid var(--border)">今日成本</h5>
         <div style="padding:0 14px 12px;font-size:12.5px;color:var(--label2)">本机探针会话 · 跨机后按成员聚合</div>
@@ -499,13 +512,15 @@ function pollFleet(){
     var box=document.getElementById('memberDevs');
     if(!FLEET.members.length){ box.innerHTML='<div class="dev" style="opacity:.5"><span class="dot off"></span><div class="av">?</div><div><div class="nm">团队成员设备</div><div class="sessn">暂无成员在线（member 配对后 5s 内出现）</div></div></div>'; return; }
     box.innerHTML=FLEET.members.map(function(m){
-      return '<div class="dev '+(selMember===m.name?'sel':'')+'" data-member="'+esc(m.name)+'"><span class="dot on"></span><div class="av">'+esc(m.name.slice(0,1))+'</div><div style="min-width:0"><div class="nm">'+esc(m.name)+' <span class="pill g" style="margin-left:2px">在线</span></div><div class="mach" style="font-family:SF Mono,Consolas,monospace;font-size:11.5px;color:var(--caption)">bus 已连 · '+esc((m.sessions||[]).map(function(s){return s.tag}).join(','))+'</div><div class="sessn">'+(m.recentEvents||[]).length+' 条近期会话事件</div></div></div>';
+      return '<div class="dev '+(selMember===m.name?'sel':'')+'" data-member="'+esc(m.name)+'"><span class="dot on"></span><div class="av">'+esc(m.name.slice(0,1))+'</div><div style="min-width:0"><div class="nm">'+esc(m.name)+' <span class="pill g" style="margin-left:2px">在线</span></div><div class="mach" style="font-family:SF Mono,Consolas,monospace;font-size:11.5px;color:var(--caption)">bus 已连 · '+esc((m.sessions||[]).map(function(s){return s.tag}).join(','))+'</div><div class="sessn">'+(m.recentEvents||[]).length+' 条近期会话事件'+(m.lastSos?' <span class="pill r">SOS '+(m.lastSos.msg||'').slice(0,10)+'</span>':'')+'</div></div></div>';
     }).join('');
     box.querySelectorAll('[data-member]').forEach(function(el){ el.onclick=function(){ selMember=el.getAttribute('data-member');
       document.getElementById('sessMember').style.display='flex'; document.getElementById('sessMemberName').textContent=selMember+' · pwsh'; pollFleet(); toast('已选中成员机：'+selMember+'（请求连接将发给 TA）'); }; });
     // 远端通道 active：拉成员 pty 尾流显示
     if(CH && CH.status==='active' && CH.target && CH.target.indexOf('member:')===0){
       var m2=FLEET.members.filter(function(x){return x.name===CH.target.slice(7)})[0];
+      var sosM=FLEET.members.filter(function(x){return x.lastSos && (!window.__sosSeen||window.__sosSeen<x.lastSos.ts)})[0];
+      if(sosM){ window.__sosSeen=sosM.lastSos.ts; toast('🆘 '+sosM.name+' 呼叫协助：'+(sosM.lastSos.msg||'-')); }
       if(m2 && m2.ptyTail){ var el=document.getElementById('ptyTerm'); el.textContent=m2.ptyTail; el.scrollTop=el.scrollHeight; }
     }
   }).catch(function(){});
@@ -859,6 +874,17 @@ document.getElementById('pairSave').onclick=function(){
   var t=document.getElementById('pairTok').value.trim(); if(t)body.token=t;
   if(!Object.keys(body).length){ toast('未填任何项'); return; }
   api('/dsh-termfleet/pairing',body).then(function(d){ if(d.ok){ toast('配对已保存：'+d.pairing.role+(d.pairing.name?' · '+d.pairing.name:'')+'（member 5s 内连上）'); pollFleet(); } });
+};
+var imWeb=document.getElementById('imWebhook'), imTg=document.getElementById('imToggle');
+function loadIm(){ api('/dsh-termfleet/im').then(function(d){ imWeb.value=(d.im&&d.im.webhook)||''; imTg.textContent=(d.im&&d.im.enabled)?'已启用 · 关闭':'已停用 · 启用'; }); }
+loadIm();
+document.getElementById('imSave').onclick=function(){ api('/dsh-termfleet/im',{webhook:imWeb.value.trim()}).then(function(d){ toast(d.ok?'IM webhook 已保存':'保存失败'); }); };
+imTg.onclick=function(){ api('/dsh-termfleet/im',{enabled:true}).then(function(){ loadIm(); toast('IM 已启用'); }); };
+document.getElementById('imTest').onclick=function(){ api('/dsh-termfleet/im',{test:true}).then(function(d){ toast(d.test&&d.test.sent?'测试消息已发出 ✓':'发送失败: '+JSON.stringify(d.test||{})); }); };
+document.getElementById('sosBtn').innerHTML=ic('Warning',13)+' 呼叫 lead 协助';
+document.getElementById('sosBtn').onclick=function(){
+  var msg=prompt('简要说明卡在哪（可空）：','') ;
+  api('/dsh-termfleet/sos',{msg:msg||''}).then(function(d){ toast(d.ok?'已呼叫 lead（IM 已同步推送）':'发送失败'); });
 };
 document.getElementById('audRefresh').innerHTML=ic('Refresh',14)+' 刷新'; document.getElementById('audRefresh').onclick=loadAudit;
 document.querySelectorAll('#audSeg button').forEach(function(b){ b.onclick=function(){
