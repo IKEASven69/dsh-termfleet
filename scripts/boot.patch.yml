@@ -3,5 +3,5 @@
 # profile，被纪律③禁止）；id 保持 termfleet，插件功能完全一致。
 - insert:
     - id: termfleet
-      name: 'D:/coding/dsh-plugin/plugins/dsh-termfleet/lib/index.js'
+      name: 'D:/coding/dsh-termfleet/lib/index.js'
       config: {}

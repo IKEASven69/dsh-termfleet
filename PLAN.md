@@ -138,7 +138,7 @@ flowchart TB
 
 ## 7. 开工即执行（M0 任务细单）
 
-1. `dsh-plugin/plugins/dsh-termfleet/` 起插件骨架（package.json + cordis.patch.yml 最小半）
+1. `dsh-termfleet/` 起插件骨架（package.json + cordis.patch.yml 最小半）
 2. 探针 ①：宿主 ctx 上找 session/会话输入输出 seam（读 @deepseek-ai/dsh-agent 事件词汇表 + dsh-api-gateway 源码），实测读一条会话流+写入一条输入
 3. 探针 ②：插件内 spawn PTY（node-pty/@lydell/node-pty）跑 pwsh，回显经 webServer 路由输出
 4. 读 dsh-remote-desktop 源码：截屏 API 选型（截图周期/增量？键鼠注入方式）、本地代理结构，落一页实现笔记
