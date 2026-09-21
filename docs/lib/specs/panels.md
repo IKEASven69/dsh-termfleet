@@ -43,7 +43,7 @@ mockup：docs/mockups/m1-mockups.html 任务详情抽屉（v3 四 tab 实测截�
 
 **与 dsh-better-sidebar 共存**：它 inject sidebar-right 自挂完整 shell（VSCode 式 viewer/editor/tab），另提供 native surface 适配；集成方式二选一：a) 我们走官方 slots 注册（需实测与它抢位/共存）；b) 若其 viewer 支持自定义 URL，/app 页作为编辑器标签嵌入（最低成本）。
 
-**成本**：建 client 构建管线（React+primitives 打包）≈ 一整个工作块，含与 better-sidebar 共存实测。
+**✅ 已完成（2026-09-21 实测 verify-1~6.png）**：TF 按钮在 dsh 会话头 → 点击弹出 480px 浮层面板（iframe 嵌 /app 全功能）→ 远程请求/同意/终端指令/断开、任务/详情、避坑库(10 条)、审计(58 条)全部面板内操作通过。**成本：建 client 构建管线（React+primitives 打包）≈ 一整个工作块，含与 better-sidebar 共存实测。
 
 ## 错题记录
 （暂无）
