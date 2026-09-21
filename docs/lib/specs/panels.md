@@ -35,5 +35,15 @@ cover-files: ["src/client.ts", "web/"]
 
 mockup：docs/mockups/m1-mockups.html 任务详情抽屉（v3 四 tab 实测截图在 docs/mockups/v3-*.png）
 
+## 侧边栏集成现状与路线（2026-09-20 调查）
+
+**现状**：面板=独立页 /dsh-termfleet/app（浏览器标签形态）；lib/client.js 仍是 M0 骨架桩——**未注册进 dsh web UI 任何表面**（官方右栏无入口、better-sidebar 无集成、宿主界面里看不到 TermFleet 痕迹）。
+
+**官方机制（已摸清）**：客户端扩展点=@deepseek-ai/dsh-client-ui-slots（槽位服务，如 conversation.session.header.utilities / main.conversation）+ @deepseek-ai/dsh-client-ui-sidebar-right（右侧栏承载面）；client 半经 dsh.client{inject}+window.__ModuleLoader__.load 挂载，React 面板需打包管线（参照 dsh-better-sidebar：createRoot 挂右栏 portal + slots 注册入口图标 + Settings 段）。
+
+**与 dsh-better-sidebar 共存**：它 inject sidebar-right 自挂完整 shell（VSCode 式 viewer/editor/tab），另提供 native surface 适配；集成方式二选一：a) 我们走官方 slots 注册（需实测与它抢位/共存）；b) 若其 viewer 支持自定义 URL，/app 页作为编辑器标签嵌入（最低成本）。
+
+**成本**：建 client 构建管线（React+primitives 打包）≈ 一整个工作块，含与 better-sidebar 共存实测。
+
 ## 错题记录
 （暂无）

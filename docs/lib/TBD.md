@@ -26,3 +26,7 @@ conPTY 上报 pid=0 无法单杀子进程，清理靠宿主进程树杀（taskki
 ## 2026-09-20 · 发布前必办：monorepo 提不了 dsh-market（既踩坑，勿再踩）
 
 dsh plugin add → pnpm add；npm/pnpm 均不支持 git 仓库子目录作依赖——monorepo 里的 plugins/dsh-termfleet 无法被市场安装（先例：dsh-opencli 为此另建独立仓 IKEASven69/dsh-opencli；dsh-hippo 走 npm 发布形态 dist-publish）。**开发期无碍**（boot.patch 绝对路径 --patch 不进 profile；成员机 clone+patch 同理）。**发布时二选一**：① `git subtree split -P plugins/dsh-termfleet -b termfleet-publish` 拆独立仓（保留历史）→ `dsh plugin --profile web add github:IKEASven69/dsh-termfleet`；② npm publish（hippo 形态：dist-publish + README-npm.md，package.json 已备 files/exports）→ `dsh plugin add dsh-termfleet`。发布日执行其一。
+
+## 2026-09-20 · 面板游离于宿主 UI 之外（侧边栏集成未做）
+
+面板是独立 URL 页，dsh web 内无入口。集成=建 client 半构建管线（slots/sidebar-right/React 打包）+ better-sidebar 共存实测。用户已过问，建议 M3 提前排。
