@@ -82,3 +82,7 @@ dsh 宿主明示禁绑 0.0.0.0（防 RCE 暴露，安全设计）——不绕宿
 ## 2026-09-20 · 仓库形态：monorepo 开发 + 发布时拆独立（市场可安装性坑）
 
 用户指出既踩坑：monorepo 子目录不能被 dsh plugin add（pnpm 不支持 git 子目录）。定调：开发期留 monorepo（集中地惯例/文档/巡检共享，且 --patch 启动不依赖市场）；发布日 subtree split 拆独立仓或 npm publish（同 dsh-opencli/dsh-hippo 先例）。MEMBER-SETUP 的 clone 方式与发布形态不冲突（两条路并行）。
+
+## 2026-09-20 · 本机 LAN-IP 自测噪音：Clash TUN 劫持（重要教训）
+
+本机 curl 经 192.168.1.x 访问本机转发器：TCP 握手被 TUN/fake-ip 应答（curl 显示 Connected），载荷进代理栈被丢弃（empty reply）——极像服务端 bug，实为本机代理环境。判定法：127.0.0.1 同转发器同端口 200 而 LAN IP 000，即环境噪音。跨机验收以成员机发起为准。forwarder v2 保留首请求头 Host 改写（对 dsh fence 稳妥）。
