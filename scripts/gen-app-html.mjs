@@ -12,6 +12,7 @@ for (const [k, v] of Object.entries(iconsRaw.icons)) {
   ICONS[short] = Array.isArray(v) ? v : [v]
 }
 const ICONS_JSON = JSON.stringify(ICONS)
+const ANSI_B64 = "ZnVuY3Rpb24gYW5zaUNsZWFuKHQpewogIGlmKCF0KXJldHVybicnCiAgdmFyIEU9U3RyaW5nLmZyb21DaGFyQ29kZSgyNyksIEI9U3RyaW5nLmZyb21DaGFyQ29kZSg3KQogIHZhciBzPVN0cmluZyh0KSwgb3V0PScnLCBpPTAKICB3aGlsZShpPHMubGVuZ3RoKXsKICAgIHZhciBjaD1zW2ldCiAgICBpZihjaD09PUUpewogICAgICBpZihzW2krMV09PT0nWycpeyBpKz0yOyB3aGlsZShpPHMubGVuZ3RoKXsgdmFyIGM9c1tpXS5jaGFyQ29kZUF0KDApOyBpZihjPj0weDIwJiZjPDB4NDApe2krK31lbHNle2JyZWFrfSB9IGkrKzsgY29udGludWUgfQogICAgICBpKz0yCiAgICAgIGlmKGNoPT09RSYmc1tpXT09PSddJyl7IC8qIE9TQyDlt7Lot7Pov4flpLTpg6jvvIzmib7nu4jmraIgKi8gfQogICAgICBjb250aW51ZQogICAgfQogICAgdmFyIGNkPWNoLmNoYXJDb2RlQXQoMCkKICAgIGlmKGNkPT09N3x8Y2Q9PT04KXsgaSsrOyBjb250aW51ZSB9CiAgICBpZihjZDwweDIwJiZjaCE9PSdcbicmJmNoIT09J1x0Jyl7IGkrKzsgY29udGludWUgfQogICAgb3V0Kz1jaDsgaSsrCiAgfQogIHJldHVybiBvdXQucmVwbGFjZSgvXHIvZywnJykucmVwbGFjZSgvXG57Myx9L2csJ1xuXG4nKS50cmltKCkKfQo="
 
 const html = `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -153,6 +154,17 @@ body[data-light] .term{background:var(--n1000)}
 /* ── 审计 ── */
 .audline{display:flex;gap:10px;font-size:12.5px;padding:8px 2px;border-bottom:1px dashed var(--border);color:var(--label2)}
 .audline .ts{font-family:'SF Mono',Consolas,monospace;color:var(--caption);flex:none}
+.athead,.arow{display:grid;grid-template-columns:86px 96px 200px 190px minmax(0,1fr);gap:10px;align-items:center}
+.athead{padding:7px 10px;font-size:11.5px;color:var(--caption);font-weight:600;background:var(--card2)}
+.arow{padding:8px 10px;border-top:1px solid var(--border);font-size:12.5px;background:var(--card);transition:background var(--dur-fast) var(--ease)}
+.arow:hover{background:var(--hover)}
+.arow .ats{font-family:'SF Mono',Consolas,monospace;color:var(--caption)}
+.arow .awho{font-weight:600;color:var(--label1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arow .aact{color:var(--label2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arow .atgt{color:var(--label3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arow .adet{color:var(--label3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acat{cursor:pointer}
+.acat:hover{text-decoration:underline}
 /* ── 任务详情·居中大窗（v7 原型形态） ── */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;display:none;transition:opacity var(--dur) var(--ease);opacity:0}
 .overlay.on{display:block;opacity:1}
@@ -268,7 +280,7 @@ body[data-light] .term{background:var(--n1000)}
             <input id="cmdInput" placeholder="输入指令回车发送（写入带 actor·留痕）…" onkeydown="if(event.key==='Enter')sendCmd()">
             <button class="btn sm" onclick="sendCmd()">发送</button>
           </div>
-          <div class="note" style="margin:0 14px 12px">远程对象=会话本身（宿主内 PTY，M0 实测链路）；无同意通道时服务端一律 403——只读通道禁写也是服务端强制。</div>
+          <div class="note" style="margin:0 14px 12px">本机 pwsh=插件自托管的探针终端（验证 PTY 链路用）；<b>连接成员机时，看到的是 TA 的 dsh/CLI 会话流</b>（宿主 listener 实测 seq 级）。远程对象=会话本身；无同意通道时服务端一律 403，只读禁写同为服务端强制。</div>
         </div>
 
         <div class="panel" style="padding:14px 16px;margin-top:14px">
@@ -339,6 +351,7 @@ body[data-light] .term{background:var(--n1000)}
         <div class="seg" id="audSeg">
           <button class="on" data-k="*">全部</button><button data-k="任务">任务</button><button data-k="避坑">避坑</button><button data-k="连接">连接/通道</button>
         </div>
+        <select id="audWho" style="background:var(--card2);border:1px solid var(--border);border-radius:999px;color:var(--label1);padding:4px 12px;font-size:12.5px;outline:none"><option value="*">全部操作人</option></select>
         <span class="spacer"></span>
         <span class="pill" id="audCnt"></span>
         <button class="btn ghost sm" id="audReplay"></button>
@@ -395,13 +408,18 @@ body[data-light] .term{background:var(--n1000)}
 <!-- 回放弹窗 -->
 <div class="mask" id="replayMask"><div class="modal" style="width:min(760px,94vw)">
   <h4>回放 <span class="pill b" style="margin-left:auto">PTY 历史 + 审计时间线</span></h4>
+  <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
+    <div class="seg" id="repFilter"><button class="on" data-f="all">全部</button><button data-f="连接">连接/通道</button><button data-f="任务">任务</button><button data-f="避坑">避坑</button></div>
+    <span class="spacer"></span>
+    <button class="btn ghost sm" id="repStep">⏮ 步进回放</button>
+  </div>
   <div style="display:flex;gap:12px;max-height:60vh">
     <div style="flex:1;min-width:0">
-      <div style="font-size:11px;color:var(--caption);font-weight:600;margin-bottom:6px">终端输出（最近 200 帧）</div>
+      <div style="font-size:11px;color:var(--caption);font-weight:600;margin-bottom:6px">终端输出（清洗后·可步进）</div>
       <div class="term" id="replayPty" style="margin:0;max-height:320px;min-height:120px;font-size:11.5px"></div>
     </div>
-    <div style="width:280px;flex:none">
-      <div style="font-size:11px;color:var(--caption);font-weight:600;margin-bottom:6px">审计时间线</div>
+    <div style="width:300px;flex:none">
+      <div style="font-size:11px;color:var(--caption);font-weight:600;margin-bottom:6px">审计时间线（点击行=定位）</div>
       <div id="replayAudit" style="max-height:320px;overflow-y:auto"></div>
     </div>
   </div>
@@ -444,7 +462,9 @@ body[data-light] .term{background:var(--n1000)}
 <div class="toast" id="toastEl"></div>
 
 <script>
+var NL=String.fromCharCode(10),CR=String.fromCharCode(13),NL2=NL+NL,LF3=new RegExp(NL+'{3,}','g');
 var ICONS = ${ICONS_JSON};
+;var ansiClean = (function(){ var src = atob('${ANSI_B64}'); src = src.replace(/^function ansiClean\(t\)\{/, 'function(t){').replace(/\}\s*$/, '}'); return new Function('return (' + src + ')')(); })();
 function ic(n, size){ size = size || 16; var ds = ICONS[n] || []; var inner = '';
   for (var i=0;i<ds.length;i++) inner += '<path d="'+ds[i]+'" fill="currentColor"/>';
   return '<svg class="ic" width="'+size+'" height="'+size+'" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'+inner+'</svg>'; }
@@ -454,7 +474,7 @@ if (TOK) localStorage.setItem('tf_token', TOK);
 var ME = localStorage.getItem('tf_user') || 'me';
 var ST = { tasks: [], q: '' };
 var MEM = { lessons: [], state: '*', cat: '*', q: '' };
-var AUD = { events: [], k: '*' };
+var AUD = { events: [], k: '*', who: '*' };
 var CH = null;
 var selMember = null      // 选中的成员机名（null=本机）
 var FLEET = { members: [], role: '?', name: '' }
@@ -862,15 +882,32 @@ function openLessonForm(pre){ pre=pre||{};
   document.getElementById('lessonMask').classList.add('on'); document.getElementById('lTitle').focus(); }
 
 /* ═══ 审计 ═══ */
-function loadAudit(){ return api('/dsh-termfleet/audit').then(function(d){ AUD.events=d.events||[]; renderAudit(); }).catch(function(){}); }
+function loadAudit(){
+  AUD.who = AUD.who || '*'
+  return api('/dsh-termfleet/audit').then(function(d){ AUD.events=d.events||[];
+    var sel=document.getElementById('audWho'); if(sel){ var cur=AUD.who; var actors={}; AUD.events.forEach(function(e){actors[e.actor]=1});
+      sel.innerHTML='<option value="*">全部操作人</option>'+Object.keys(actors).map(function(a){return '<option'+(a===cur?' selected':'')+'>'+esc(a)+'</option>'}).join(''); }
+    renderAudit(); }).catch(function(){}); }
 function renderAudit(){
   document.getElementById('audCnt').textContent=AUD.events.length+' 条';
   var list=document.getElementById('auditList'); list.innerHTML='';
   var items=AUD.events.filter(function(e){ return AUD.k==='*'||(e.action||'').indexOf(AUD.k)>=0; });
-  if(!items.length){ list.innerHTML='<div class="empty">还没有审计事件——做点操作（建任务/连接通道）</div>'; return; }
-  items.forEach(function(e){ var d=document.createElement('div'); d.className='audline';
-    d.innerHTML='<span class="ts">'+new Date(e.ts).toLocaleTimeString()+'</span><span><b>'+esc(e.actor)+'</b> '+esc(e.action)+' · '+esc(e.detail||'')+'</span>';
-    list.appendChild(d); });
+  if(AUD.who&&AUD.who!=='*') items=items.filter(function(e){return e.actor===AUD.who});
+  if(!items.length){ list.innerHTML='<div class="empty">没有匹配的审计事件</div>'; return; }
+  var head=document.createElement('div'); head.className='athead';
+  head.innerHTML='<span>时间</span><span>操作人</span><span>动作</span><span>对象</span><span>详情</span>';
+  list.appendChild(head);
+  items.forEach(function(e){
+    var r=document.createElement('div'); r.className='arow';
+    var det=e.detail||'', tgt=det.indexOf(' ')>0?det.slice(0,det.indexOf(' ')):det
+    r.innerHTML='<span class="ats">'+new Date(e.ts).toLocaleTimeString()+'</span>'
+      +'<span class="awho">'+esc(e.actor)+'</span>'
+      +'<span class="aact acat" data-cat="'+esc(e.action)+'">'+esc(e.action)+'</span>'
+      +'<span class="atgt">'+esc(tgt)+'</span>'
+      +'<span class="adet" title="'+esc(det)+'">'+esc(det.slice(det.indexOf(' ')+1))+'</span>';
+    list.appendChild(r);
+  });
+  list.querySelectorAll('.acat').forEach(function(c){ c.onclick=function(){ AUD.k=c.getAttribute('data-cat'); renderAudit(); }; });
 }
 
 /* ═══ M3：diff / 会话关联 / 回放 / 成本 ═══ */
@@ -908,17 +945,44 @@ function renderSessionLinks(taskId) {
   }).catch(function() { el.innerHTML = '<div class="ph">网络错误</div>' })
 }
 
+var REP = { ptyRaw: [], audit: [], filter: 'all', step: 0 }
 function openReplay() {
   api('/dsh-termfleet/replay').then(function(d) {
     if (!d.ok) return
-    document.getElementById('replayPty').textContent = (d.ptyHistory || '(无 PTY 历史)').slice(-3000)
-    var audit = d.auditTrail || []
-    document.getElementById('replayAudit').innerHTML = audit.slice(0, 40).map(function(e) {
-      return '<div class="audline"><span class="ts">' + new Date(e.ts).toLocaleTimeString() + '</span><span><b>' + esc(e.actor) + '</b> ' + esc(e.action) + '</span></div>'
-    }).join('') || '<div class="note">（无审计事件）</div>'
+    REP.ptyRaw = ansiClean(d.ptyHistory || '').split(NL).filter(Boolean)
+    REP.audit = (d.auditTrail || []).slice().reverse()
+    REP.filter = 'all'; REP.step = 0
+    renderReplay()
     document.getElementById('replayMask').classList.add('on')
   })
 }
+function renderReplay(uptoTs) {
+  var rows = REP.audit.filter(function(e){ return REP.filter==='all' || (e.action||'').indexOf(REP.filter)>=0 })
+  var list = document.getElementById('replayAudit'); list.innerHTML = ''
+  rows.forEach(function(e) {
+    var r = document.createElement('div'); r.className = 'arow'; r.style.cursor = 'pointer'
+    r.innerHTML = '<span class="ats">'+new Date(e.ts).toLocaleTimeString()+'</span>'
+      + '<span class="awho">'+esc(e.actor)+'</span>'
+      + '<span class="aact">'+esc(e.action)+'</span>'
+      + '<span class="adet" style="grid-column:span 2">'+esc((e.detail||'').slice(0,44))+'</span>'
+    r.onclick = function() { renderPtyUpto(e.ts) }
+    list.appendChild(r)
+  })
+  if (!rows.length) list.innerHTML = '<div class="note">（无匹配事件）</div>'
+  renderPtyUpto(uptoTs)
+}
+function renderPtyUpto(uptoTs) {
+  var lines = REP.ptyRaw
+  var el = document.getElementById('replayPty')
+  el.textContent = (lines.join(NL)).slice(-3000) || '（无 PTY 历史——先在远程页建立一次通道）'
+  el.scrollTop = el.scrollHeight
+}
+document.addEventListener('click', function(ev){
+  var f = ev.target.closest('#repFilter button')
+  if (f) { f.parentNode.querySelectorAll('button').forEach(function(b){b.classList.remove('on')}); f.classList.add('on'); REP.filter = f.getAttribute('data-f'); renderReplay() }
+  var s = ev.target.closest('#repStep')
+  if (s) { REP.step = Math.min((REP.step||0)+5, REP.ptyRaw.length); document.getElementById('replayPty').textContent = REP.ptyRaw.slice(0, REP.step).join(NL) || '（无）' }
+})
 
 function loadCost() {
   api('/dsh-termfleet/cost').then(function(d) {
@@ -1005,9 +1069,6 @@ document.getElementById('audRefresh').innerHTML=ic('Refresh',14)+' 刷新'; docu
 document.querySelectorAll('#audSeg button').forEach(function(b){ b.onclick=function(){
   document.querySelectorAll('#audSeg button').forEach(function(x){x.classList.remove('on')}); b.classList.add('on');
   AUD.k=b.getAttribute('data-k'); renderAudit(); }; });
-document.getElementById('rtEndBtn').onclick=function(){
-  if(!CH||CH.status!=='pending'&&CH.status!=='active'){ return; }
-  api('/dsh-termfleet/consent/end',{id:CH.id}).then(function(){ CH={status:'ended'}; renderChannel(); toast('已断开（入审计）'); }); };
 
 /* ═══ 启动 ═══ */
 api('/dsh-termfleet/consent/list').then(function(d){ var c=(d.consents||[]).find(function(x){return x.type==='pty'&&(x.status==='pending'||x.status==='active')}); if(c){ CH=c; } renderChannel(); }).catch(function(){renderChannel()});
