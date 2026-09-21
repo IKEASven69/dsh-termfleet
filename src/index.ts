@@ -2,7 +2,7 @@
  * dsh-termfleet host 半（TS 镜像源）。
  * ⚠ 本文件=lib/index.js 的逐字镜像 + TS 头：运行装载的是 lib/index.js（宿主 file://），
  *   改动请改 lib 后运行 node scripts/rebuild-src.cjs 再生本文件，勿手编（历史手拼多次损坏）。
- * 能力：鉴权门 / 任务库 / 决策笔记库(wnlds 治理) / 审计 / 同意总线(握手卡+限时+SSE) / PTY 门控。
+ * 能力：鉴权门 / 任务库 / 决策笔记库(wnlds 治理) / 审计 / 同意总线(握手卡+限时+SSE) / PTY 门控 / M3(diff/replay/cost/session-links)。
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
@@ -171,9 +171,9 @@ export function apply(ctx, _config) {
   }
 
   // ── 实时流总线（SSE 订阅源）：pty 输出与会话事件 ──
-  const bus = { pty: [], sess: [] }
-  const emitPty = (d) => { for (const f of bus.pty) { try { f(d) } catch {} } }
-  const emitSess = (e) => { for (const f of bus.sess) { try { f(e) } catch {} } }
+  const bus = { pty: [], sess: [], history: { pty: [], sess: [] } }
+  const emitPty = (d) => { bus.history.pty.push(d); if (bus.history.pty.length > 500) bus.history.pty.shift(); for (const f of bus.pty) { try { f(d) } catch {} } }
+  const emitSess = (e) => { bus.history.sess.push(e); if (bus.history.sess.length > 300) bus.history.sess.shift(); for (const f of bus.sess) { try { f(e) } catch {} } }
 
   // ── 命门①读：未打 scope 标的全局 listener（宿主内零网络零盘读） ──
   ctx.on('session/created', (s) => {
@@ -572,6 +572,32 @@ export function apply(ctx, _config) {
       async get(id) { const l = await ensure(); return l.find((x) => x.id === id) || null },
       async all() { const l = await ensure(); return l.slice(0, 30) },
     }
+  })()
+
+
+  // ── 任务↔会话自动关联（cwd/项目名匹配 + 会话事件驱动） ──
+  const sessionLink = (() => {
+    // 项目名→仓库路径映射（首版：常见约定 D:/coding/<project>）
+    // 同步版（路由 handler 内用 fsSync/pathSync——在 async handler 上下文里先 import 好缓存到模块级）
+    let _mods = null
+    const M = async () => { if (!_mods) _mods = { fs: await import('node:fs'), path: await import('node:path'), os: await import('node:os'), cp: await import('node:child_process') }; return _mods }
+    const repoFor = async (project) => {
+      if (!project || project === '默认') return null
+      const m = await M()
+      const candidates = ['D:/coding/' + project, 'D:/codingprojects/' + project]
+      for (const c of candidates) { try { if (m.fs.existsSync(c + '/.git')) return c } catch {} }
+      return null
+    }
+    const matchTask = async (project) => {
+      if (!project) return []
+      try {
+        const m = await M()
+        const f = m.path.join(m.os.homedir(), '.dsh', 'termfleet', 'tasks.json')
+        const d = JSON.parse(m.fs.readFileSync(f, 'utf8'))
+        return (d.tasks || []).filter((t) => (t.project || '默认') === project && t.status !== 'done')
+      } catch { return [] }
+    }
+    return { repoFor, matchTask, M }
   })()
 
   // ── IM 出站桥 v1（M2 薄桥：审批卡通知走 webhook；人不在电脑前时的旁路入口） ──
@@ -1094,6 +1120,102 @@ ctx.inject(['webServer'], (host) => {
               imBridge.send('SOS', (busLink.cfg.name || '成员') + ' 呼叫 lead 协助：' + (msg || '-'))
               json(res, 200, { ok: true })
             } catch (e) { json(res, 400, { ok: false, error: String(e).slice(0, 300) }) }
+          },
+        }),
+
+        // ── M3：任务↔会话关联 / diff / 回放 / 成本 ──
+        host.webServer.register({
+          kind: 'exact',
+          path: '/dsh-termfleet/session-links',
+          handler: async (req, res) => {
+            if (guard(req, res)) return
+            if (req.method !== 'GET') { res.writeHead(405, { allow: 'GET' }); res.end(); return }
+            // 返回当前活跃会话与任务的匹配结果
+            const sessions = state.sessionEvents.slice(-5).map((e) => e.sessionId).filter((v, i, a) => a.indexOf(v) === i)
+            const links = []
+            for (const sid of sessions) {
+              const evts = state.sessionEvents.filter((e) => e.sessionId === sid)
+              const last = evts[evts.length - 1]
+              if (!last) continue
+              // 用会话 brief 中出现的项目名匹配
+              const text = evts.map((e) => e.brief || '').join(' ').toLowerCase()
+              const tasks = await taskStore.list()
+              for (const t of tasks) {
+                const proj = (t.project || '默认').toLowerCase()
+                if (proj !== '默认' && text.includes(proj)) {
+                  links.push({ sessionId: sid, taskId: t.id, taskTitle: t.title, project: t.project, lastEvent: last.type, eventCount: evts.length, lastAt: last.t })
+                }
+              }
+            }
+            json(res, 200, { ok: true, links, activeSessions: sessions.length })
+          },
+        }),
+        host.webServer.register({
+          kind: 'exact',
+          path: '/dsh-termfleet/diff',
+          handler: async (req, res) => {
+            if (guard(req, res)) return
+            if (req.method !== 'GET') { res.writeHead(405, { allow: 'GET' }); res.end(); return }
+            const u = new URL(req.url, 'http://localhost')
+            const project = u.searchParams.get('project') || ''
+            const repo = await sessionLink.repoFor(project)
+            if (!repo) { json(res, 200, { ok: true, diff: '(项目 ' + project + ' 未找到本地仓库)', repo: null }); return }
+            try {
+              const { execSync } = await import('node:child_process')
+              const stat = execSync('git diff --stat', { cwd: repo, encoding: 'utf8', timeout: 5000 }).trim()
+              const diff = execSync('git diff', { cwd: repo, encoding: 'utf8', timeout: 10000 }).slice(0, 20000)
+              const branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: repo, encoding: 'utf8' }).trim()
+              json(res, 200, { ok: true, stat, diff, branch, repo })
+            } catch (e) {
+              json(res, 200, { ok: true, diff: '(git diff 失败: ' + String(e).slice(0, 120) + ')', stat: '', branch: '', repo })
+            }
+          },
+        }),
+        host.webServer.register({
+          kind: 'exact',
+          path: '/dsh-termfleet/replay',
+          handler: async (req, res) => {
+            if (guard(req, res)) return
+            if (req.method !== 'GET') { res.writeHead(405, { allow: 'GET' }); res.end(); return }
+            json(res, 200, {
+              ok: true,
+              ptyHistory: bus.history.pty.slice(-200).map((x) => x.d).join(''),
+              sessHistory: bus.history.sess.slice(-100),
+              auditTrail: await auditStore.list(),
+            })
+          },
+        }),
+        host.webServer.register({
+          kind: 'exact',
+          path: '/dsh-termfleet/cost',
+          handler: async (req, res) => {
+            if (guard(req, res)) return
+            if (req.method !== 'GET') { res.writeHead(405, { allow: 'GET' }); res.end(); return }
+            // 从审计事件聚合：按人统计操作数+时长估算
+            const events = await auditStore.list()
+            const byActor = {}
+            for (const e of events) {
+              const a = e.actor || 'unknown'
+              if (!byActor[a]) byActor[a] = { operations: 0, channels: 0, tasks: 0, first: e.ts, last: e.ts }
+              byActor[a].operations++
+              byActor[a].last = e.ts
+              if ((e.action || '').includes('连接') || (e.action || '').includes('通道')) byActor[a].channels++
+              if ((e.action || '').includes('任务')) byActor[a].tasks++
+            }
+            for (const a of Object.keys(byActor)) {
+              byActor[a].durationMin = Math.round((byActor[a].last - byActor[a].first) / 60000)
+            }
+            // 从任务列表统计
+            const tasks = await taskStore.list()
+            const taskStats = {
+              total: tasks.length,
+              todo: tasks.filter((t) => t.status === 'todo').length,
+              doing: tasks.filter((t) => t.status === 'doing').length,
+              review: tasks.filter((t) => t.status === 'review').length,
+              done: tasks.filter((t) => t.status === 'done').length,
+              blocked: tasks.filter((t) => t.status === 'blocked').length,
+            }
+            json(res, 200, { ok: true, byActor, taskStats, sessionCount: state.sessionEvents.length, ptyBytes: state.pty ? state.pty.bytes : 0 })
           },
         }),
         // ── 同意总线 v0 路由 ──

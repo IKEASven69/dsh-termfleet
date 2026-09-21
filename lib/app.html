@@ -9,15 +9,16 @@
 body{--bg:var(--n950);--card:var(--n900);--card2:var(--n800);--label1:var(--n50);--label2:var(--n300);--label3:var(--n400);--caption:var(--n600);--brand:var(--n50);--brand-fg:var(--n1000);--border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.12);--hover:rgba(255,255,255,.24);--green:#4ed17e;--green-t:rgba(34,197,94,.14);--amber:#f59e0b;--amber-t:rgba(245,158,11,.14);--red:#f25a5a;--red-t:rgba(239,68,68,.14);--blue:#7fa7e8;--blue-t:rgba(59,130,246,.10);background:var(--bg);color:var(--label1)}
 body[data-light]{--bg:#fff;--card:var(--n60);--card2:#fff;--label1:var(--n1000);--label2:var(--n700);--label3:var(--n600);--caption:var(--n400);--brand:var(--n1000);--brand-fg:#fff;--border:rgba(0,0,0,.04);--border2:rgba(0,0,0,.1);--hover:rgba(38,49,72,.14);--green:#15803d;--green-t:rgba(34,197,94,.12);--amber:#b45309;--amber-t:rgba(245,158,11,.12);--red:#dc2626;--red-t:rgba(239,68,68,.10);--blue:#2563eb;--blue-t:rgba(59,130,246,.10)}
 *{box-sizing:border-box;margin:0;padding:0}
+:root{--ease:cubic-bezier(.4,0,.2,1);--dur:.18s;--dur-fast:.1s}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB',sans-serif;font-size:14px;line-height:1.55;transition:background .2s,color .2s}
 .wrap{max-width:1380px;margin:0 auto;padding:0 20px 46px}
 .topbar{display:flex;align-items:center;gap:12px;padding:13px 0 15px;flex-wrap:wrap}
 .logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px}
 .logo .mark{width:22px;height:22px;border-radius:7px;background:var(--brand);color:var(--brand-fg);display:grid;place-items:center;font-size:10.5px;font-weight:800}
 .nav{display:flex;gap:2px;margin-left:6px}
-.nav span{padding:7px 16px;border-radius:999px;font-size:13.5px;color:var(--label3);cursor:pointer;font-weight:500}
+.nav span{padding:7px 16px;border-radius:999px;font-size:13.5px;color:var(--label3);cursor:pointer;font-weight:500;transition:background var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease)}
 .nav span.on{background:var(--brand);color:var(--brand-fg);font-weight:600}
-.pill{display:inline-flex;align-items:center;justify-content:center;gap:5px;border-radius:999px;height:22px;padding:0 10px;box-sizing:border-box;font-size:11.5px;font-weight:600;color:var(--label2);border:1px solid var(--border2);white-space:nowrap}
+.pill{transition:all var(--dur-fast) var(--ease);display:inline-flex;align-items:center;justify-content:center;gap:5px;border-radius:999px;height:22px;padding:0 10px;box-sizing:border-box;font-size:11.5px;font-weight:600;color:var(--label2);border:1px solid var(--border2);white-space:nowrap}
 .pill.g{color:var(--green);background:var(--green-t);border-color:transparent}
 .pill.a{color:var(--amber);background:var(--amber-t);border-color:transparent}
 .pill.r{color:var(--red);background:var(--red-t);border-color:transparent}
@@ -39,9 +40,12 @@ button:active{opacity:.75}button:disabled{opacity:.4;cursor:not-allowed}
 .note{font-size:12px;color:var(--caption);margin-top:10px}
 .mono{font-family:'SF Mono',Consolas,monospace}
 svg.ic{display:inline-block;vertical-align:-3px}
-.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--brand);color:var(--brand-fg);padding:9px 18px;border-radius:12px;font-size:13px;font-weight:500;z-index:300;opacity:0;transition:all .22s;pointer-events:none;max-width:80vw}
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(12px);background:var(--brand);color:var(--brand-fg);padding:9px 18px;border-radius:12px;font-size:13px;font-weight:500;z-index:300;opacity:0;transition:all .22s;pointer-events:none;max-width:80vw}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
-.mask{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none}
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;transition:opacity var(--dur) var(--ease);opacity:0}
+.mask.on{display:flex;opacity:1}
+.mask .modal{transform:scale(.96);transition:transform var(--dur) var(--ease)}
+.mask.on .modal{transform:scale(1)}
 .mask.on{display:flex;align-items:center;justify-content:center}
 .modal{width:min(480px,92vw);background:var(--bg);border:1px solid var(--border2);border-radius:16px;padding:20px 22px}
 .modal h4{font-size:15px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
@@ -96,7 +100,9 @@ body[data-light] .term{background:var(--n1000)}
 .board{display:grid;grid-template-columns:repeat(5,minmax(196px,1fr));gap:10px;overflow-x:auto;padding-bottom:4px}
 .bcol h4{font-size:12.5px;color:var(--caption);font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px}
 .bcol h4 .cnt{font-size:11px;background:var(--card2);border-radius:6px;padding:0 7px}
-.bcard{position:relative;background:var(--card);border:1px solid var(--border);border-radius:11px;padding:11px 12px;margin-bottom:9px;cursor:pointer;transition:transform .1s}
+.bcard{position:relative;background:var(--card);border:1px solid var(--border);border-radius:11px;padding:11px 12px;margin-bottom:9px;cursor:pointer;transition:transform var(--dur-fast) var(--ease),border-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
+.bcard:hover{border-color:var(--border2);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.bcard:active{transform:translateY(0) scale(.995)}
 .bcard:hover{border-color:var(--border2);transform:translateY(-1px)}
 .bcard .chead{display:flex;align-items:flex-start;gap:6px}
 .bcard .chead .t{flex:1;min-width:0;font-size:13px;color:var(--label1);font-weight:500;margin-bottom:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -112,7 +118,7 @@ body[data-light] .term{background:var(--n1000)}
 .boardwrap{display:block}.boardwrap.off{display:none}
 .thead,.trow{display:grid;grid-template-columns:52px 42px 92px minmax(0,1fr) 92px 88px 76px 148px;gap:10px;align-items:center}
 .thead{padding:6px 10px;font-size:11.5px;color:var(--caption);font-weight:600}
-.trow{padding:9px 10px;border-top:1px solid var(--border);font-size:13px;background:var(--card)}
+.trow{padding:9px 10px;border-top:1px solid var(--border);font-size:13px;background:var(--card);transition:background var(--dur-fast) var(--ease)}
 .trow:hover{background:var(--hover)}
 .trow .title{color:var(--label1);font-weight:500;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .trow .who{font-size:12.5px;color:var(--label2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -122,7 +128,9 @@ body[data-light] .term{background:var(--n1000)}
 .empty{padding:50px 20px;text-align:center;color:var(--caption);font-size:13px}
 /* ── 避坑库 ── */
 .lesson-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
-.lcard{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:13px 14px;cursor:pointer}
+.lcard{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:13px 14px;cursor:pointer;transition:border-color var(--dur) var(--ease),transform var(--dur-fast) var(--ease)}
+.lcard:hover{border-color:var(--border2);transform:translateY(-1px)}
+.lcard:active{transform:translateY(0)}
 .lcard:hover{border-color:var(--border2)}
 .lcard .lt{font-size:13.5px;font-weight:600;color:var(--label1);margin-bottom:6px}
 .lcard .lb{font-size:12.5px;color:var(--label3);line-height:1.6;max-height:60px;overflow:hidden}
@@ -131,9 +139,11 @@ body[data-light] .term{background:var(--n1000)}
 .audline{display:flex;gap:10px;font-size:12.5px;padding:8px 2px;border-bottom:1px dashed var(--border);color:var(--label2)}
 .audline .ts{font-family:'SF Mono',Consolas,monospace;color:var(--caption);flex:none}
 /* ── 任务详情·居中大窗（v7 原型形态） ── */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;display:none}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;display:none;transition:opacity var(--dur) var(--ease);opacity:0}
+.overlay.on{display:block;opacity:1}
 .overlay.on{display:block}
-.drawer{position:fixed;top:3vh;left:50%;transform:translateX(-50%);width:min(1180px,94vw);height:92vh;background:var(--bg);border:1px solid var(--border2);border-radius:16px;z-index:100;display:none;flex-direction:column;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.drawer{position:fixed;top:3vh;left:50%;transform:translateX(-50%) scale(.97);width:min(1180px,94vw);height:92vh;background:var(--bg);border:1px solid var(--border2);border-radius:16px;z-index:100;display:none;flex-direction:column;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5);opacity:0;transition:opacity var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.drawer.on{display:flex;opacity:1;transform:translateX(-50%) scale(1)}
 .drawer.on{display:flex}
 .dhead{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--border)}
 .dhead h3{font-size:15.5px;font-weight:700}
@@ -220,7 +230,7 @@ body[data-light] .term{background:var(--n1000)}
           </div>
         </div>
         <h5 style="border-top:1px solid var(--border)">今日成本</h5>
-        <div style="padding:0 14px 12px;font-size:12.5px;color:var(--label2)">本机探针会话 · 跨机后按成员聚合</div>
+        <div style="padding:0 14px 12px;font-size:12.5px;color:var(--label2)" id="costSummary">加载中…</div>
       </div>
       <div>
         <div class="sessbar">
@@ -316,6 +326,7 @@ body[data-light] .term{background:var(--n1000)}
         </div>
         <span class="spacer"></span>
         <span class="pill" id="audCnt"></span>
+        <button class="btn ghost sm" id="audReplay"></button>
         <button class="btn ghost sm" id="audRefresh"></button>
       </div>
       <div id="auditList"></div>
@@ -347,10 +358,10 @@ body[data-light] .term{background:var(--n1000)}
   <div class="dbody">
     <div class="dpane on" id="dp-doc"><div class="doc-outline" id="docOutline"></div></div>
     <div class="dpane" id="dp-flow"><div class="flow" id="flowEl"></div></div>
-    <div class="dpane" id="dp-sess"><div id="dpSessBody"></div></div>
+    <div class="dpane" id="dp-sess"><div id="dpSessBody"><div class="ph">加载中…</div></div></div>
     <div class="dpane" id="dp-notes"><div id="taskNotes"></div></div>
     <div class="dpane" id="dp-wf"><div class="ph">dsh workflow run 步骤树——任务接工作流引擎后点亮</div></div>
-    <div class="dpane" id="dp-diff"><div class="ph">任务关联 diff（验收→蒸馏管线）——M3 落地后点亮</div></div>
+    <div class="dpane" id="dp-diff"><div id="dpDiffBody"><div class="ph">加载中…</div></div></div>
   </div>
 </div>
 
@@ -364,6 +375,22 @@ body[data-light] .term{background:var(--n1000)}
     <button class="btn danger" id="csDeny">拒绝</button>
   </div>
   <div class="note" style="margin-top:10px">成员侧视角（单机模拟）· 拒绝无需理由 · 同意后随时断开 · 全程留痕。</div>
+</div></div>
+
+<!-- 回放弹窗 -->
+<div class="mask" id="replayMask"><div class="modal" style="width:min(760px,94vw)">
+  <h4>回放 <span class="pill b" style="margin-left:auto">PTY 历史 + 审计时间线</span></h4>
+  <div style="display:flex;gap:12px;max-height:60vh">
+    <div style="flex:1;min-width:0">
+      <div style="font-size:11px;color:var(--caption);font-weight:600;margin-bottom:6px">终端输出（最近 200 帧）</div>
+      <div class="term" id="replayPty" style="margin:0;max-height:320px;min-height:120px;font-size:11.5px"></div>
+    </div>
+    <div style="width:280px;flex:none">
+      <div style="font-size:11px;color:var(--caption);font-weight:600;margin-bottom:6px">审计时间线</div>
+      <div id="replayAudit" style="max-height:320px;overflow-y:auto"></div>
+    </div>
+  </div>
+  <div class="acts"><button class="btn ghost" onclick="document.getElementById('replayMask').classList.remove('on')">关闭</button></div>
 </div></div>
 
 <!-- 新建任务 -->
@@ -636,7 +663,8 @@ function renderProjSeg(){
 function cardMeta(t){
   var own = t.owner ? '<span>'+esc(t.owner)+'</span>' : '<span class="claim" data-claim="'+t.id+'">◻ 认领</span>';
   var cli = t.cli ? '<span class="pill" style="border-style:dashed;padding:0 7px;height:18px">'+esc(t.cli)+'</span>' : '';
-  return '<span class="prio '+t.prio+'" style="flex:none">'+t.prio+'</span><span class="slot">'+own+'</span>'+cli
+  var sl = t._linkedSessions ? '<span class="pill b" style="padding:0 7px;height:18px">↔'+t._linkedSessions+'</span>' : '';
+  return '<span class="prio '+t.prio+'" style="flex:none">'+t.prio+'</span><span class="slot">'+own+'</span>'+cli+sl
     +(t.due?'<div class="m2"><span></span><span>'+esc(t.due)+'</span></div>':'');
 }
 function renderBoard(){
@@ -830,6 +858,75 @@ function renderAudit(){
     list.appendChild(d); });
 }
 
+/* ═══ M3：diff / 会话关联 / 回放 / 成本 ═══ */
+function renderDiff(project) {
+  var el = document.getElementById('dpDiffBody')
+  if (!el) return
+  api('/dsh-termfleet/diff?project=' + encodeURIComponent(project || ''))
+    .then(function(d) {
+      if (!d.ok) { el.innerHTML = '<div class="ph">加载失败</div>'; return }
+      if (!d.repo) { el.innerHTML = '<div class="ph">' + esc(d.diff || '未找到仓库') + '</div>'; return }
+      el.innerHTML =
+        '<div class="tbar"><span class="pill">' + esc(d.branch || '?') + '</span>'
+        + '<span class="pill g">' + esc(d.stat || '无变更') + '</span>'
+        + '<span class="spacer"></span><span style="font-size:11px;color:var(--caption)">' + esc(d.repo) + '</span></div>'
+        + '<div class="term" style="margin:0;font-size:11px;max-height:400px">' + esc((d.diff || '(无 diff)').slice(0, 8000)) + '</div>'
+    }).catch(function() { el.innerHTML = '<div class="ph">网络错误</div>' })
+}
+
+function renderSessionLinks(taskId) {
+  var el = document.getElementById('dpSessBody')
+  if (!el) return
+  api('/dsh-termfleet/session-links').then(function(d) {
+    if (!d.ok) { el.innerHTML = '<div class="ph">加载失败</div>'; return }
+    var linked = (d.links || []).filter(function(l) { return l.taskId === taskId })
+    if (!linked.length) {
+      el.innerHTML = '<div class="ph">暂无自动关联——会话中提到的项目名与任务项目匹配时自动关联（当前活跃会话 ' + d.activeSessions + ' 个）</div>'
+      return
+    }
+    el.innerHTML = '<div class="note" style="margin-bottom:10px">以下会话自动关联到本任务（项目名匹配）：</div>'
+      + linked.map(function(l) {
+        return '<div class="evrow"><span class="ts">' + new Date(l.lastAt).toLocaleTimeString() + '</span>'
+          + '<span class="ty mono">' + esc(l.sessionId ? l.sessionId.slice(0, 16) : '?') + '</span>'
+          + '<span>' + l.eventCount + ' 事件 · 最近 ' + esc(l.lastEvent || '?') + '</span></div>'
+      }).join('')
+  }).catch(function() { el.innerHTML = '<div class="ph">网络错误</div>' })
+}
+
+function openReplay() {
+  api('/dsh-termfleet/replay').then(function(d) {
+    if (!d.ok) return
+    document.getElementById('replayPty').textContent = (d.ptyHistory || '(无 PTY 历史)').slice(-3000)
+    var audit = d.auditTrail || []
+    document.getElementById('replayAudit').innerHTML = audit.slice(0, 40).map(function(e) {
+      return '<div class="audline"><span class="ts">' + new Date(e.ts).toLocaleTimeString() + '</span><span><b>' + esc(e.actor) + '</b> ' + esc(e.action) + '</span></div>'
+    }).join('') || '<div class="note">（无审计事件）</div>'
+    document.getElementById('replayMask').classList.add('on')
+  })
+}
+
+function loadCost() {
+  api('/dsh-termfleet/cost').then(function(d) {
+    if (!d.ok) return
+    var el = document.getElementById('costSummary')
+    if (!el) return
+    var actors = Object.entries(d.byActor || {}).map(function(a) {
+      return esc(a[0]) + ' ' + a[1].operations + 'op/' + a[1].durationMin + 'min'
+    }).join(' · ') || '暂无'
+    var ts = d.taskStats || {}
+    el.innerHTML = '<b>' + (ts.done || 0) + '</b> 完成 / <b>' + (ts.doing || 0) + '</b> 进行 / <b>' + (ts.todo || 0) + '</b> 待办'
+      + ' · ' + (d.sessionCount || 0) + ' 会话事件 · ' + actors
+  })
+}
+
+// dtab 切换时按需加载
+var _origDtab = dtab
+dtab = function(el, id) {
+  _origDtab(el, id)
+  if (id === 'dp-diff' && window.__t) renderDiff(window.__t.project)
+  if (id === 'dp-sess' && window.__t) renderSessionLinks(window.__t.id)
+}
+
 /* ═══ 表单与绑定 ═══ */
 document.getElementById('newBtn').innerHTML=ic('Plus',14)+' 新建任务';
 document.getElementById('newBtn').onclick=function(){
@@ -886,6 +983,9 @@ document.getElementById('sosBtn').onclick=function(){
   var msg=prompt('简要说明卡在哪（可空）：','') ;
   api('/dsh-termfleet/sos',{msg:msg||''}).then(function(d){ toast(d.ok?'已呼叫 lead（IM 已同步推送）':'发送失败'); });
 };
+document.getElementById('audReplay').innerHTML=ic('Play',14)+' 回放';
+document.getElementById('audReplay').onclick=openReplay;
+loadCost();
 document.getElementById('audRefresh').innerHTML=ic('Refresh',14)+' 刷新'; document.getElementById('audRefresh').onclick=loadAudit;
 document.querySelectorAll('#audSeg button').forEach(function(b){ b.onclick=function(){
   document.querySelectorAll('#audSeg button').forEach(function(x){x.classList.remove('on')}); b.classList.add('on');
@@ -896,6 +996,20 @@ document.getElementById('rtEndBtn').onclick=function(){
 
 /* ═══ 启动 ═══ */
 api('/dsh-termfleet/consent/list').then(function(d){ var c=(d.consents||[]).find(function(x){return x.type==='pty'&&(x.status==='pending'||x.status==='active')}); if(c){ CH=c; } renderChannel(); }).catch(function(){renderChannel()});
+// 键盘快捷键：Esc=关弹窗/抽屉, 1-4=切导航, /=聚焦搜索
+document.addEventListener('keydown', function(ev) {
+  if (ev.key === 'Escape') {
+    ['replayMask','formMask','lessonMask','consentMask'].forEach(function(id) { document.getElementById(id).classList.remove('on') });
+    closeDrawer();
+    document.getElementById('statMenu').classList.remove('on');
+  }
+  if (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA' || ev.target.tagName === 'SELECT') return;
+  if (ev.key === '1') pg('remote');
+  if (ev.key === '2') pg('task');
+  if (ev.key === '3') pg('mem');
+  if (ev.key === '4') pg('audit');
+  if (ev.key === '/') { ev.preventDefault(); var si = document.getElementById('searchInput'); if (si) { si.focus(); si.select(); } }
+});
 load(); loadMem(); startEvents();
 </script>
 </body>
