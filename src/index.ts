@@ -91,7 +91,21 @@ export function apply(ctx, _config) {
     return true
   }
 
-  // ── 任务库（M1 真实现：项目共享任务板，落盘 ~/.dsh/termfleet/tasks.json） ──
+  // ── 任务库 v2（对齐 unified-board：10 态转移表 + 验收编号 + 两盏灯 + 打回计数 + 待确认门禁 + 切片 + relates_to + Agent Brief） ──
+  const T_STATES = ['needs-triage', 'needs-info', 'ready-for-agent', 'ready-for-human', 'active', 'review', 'implemented', 'blocked', 'wontfix', 'archived']
+  const T_FLOW = {
+    'needs-triage': ['needs-info', 'ready-for-agent', 'ready-for-human', 'wontfix'],
+    'needs-info': ['needs-triage'],
+    'ready-for-agent': ['active', 'needs-triage'],
+    'ready-for-human': ['active', 'needs-triage'],
+    'active': ['review', 'needs-info', 'blocked', 'wontfix'],
+    'review': ['implemented', 'active'],
+    'implemented': ['archived'],
+    'blocked': ['needs-triage', 'wontfix'],
+    'wontfix': ['needs-triage'],
+    'archived': [],
+  }
+  const V1_MAP = { todo: 'needs-triage', doing: 'active', review: 'review', done: 'implemented', blocked: 'blocked' }
   const taskStore = (() => {
     let data = null
     let mods = null
@@ -102,6 +116,16 @@ export function apply(ctx, _config) {
         file = mods.path.join(mods.os.homedir(), '.dsh', 'termfleet', 'tasks.json')
         try { data = JSON.parse(mods.fs.readFileSync(file, 'utf8')) } catch { data = { seq: 0, tasks: [] } }
         if (!data || !Array.isArray(data.tasks)) data = { seq: 0, tasks: [] }
+        // v1→v2 迁移：旧状态映射 + 补 v2 字段
+        for (const t of data.tasks) {
+          if (!T_STATES.includes(t.status)) { t.status = V1_MAP[t.status] || 'needs-triage' }
+          if (!t.acceptance) t.acceptance = []
+          if (!t.pending) t.pending = []
+          if (!t.slices) t.slices = []
+          if (!t.relatesTo) t.relatesTo = []
+          if (!t.state) t.state = { selfcheck: 'pending', independentVerify: 'pending', returns: 0, next: '', gitBase: '' }
+          if (t.owner && !t.assignee) t.assignee = t.owner
+        }
       }
       return data
     }
@@ -110,11 +134,26 @@ export function apply(ctx, _config) {
       mods.fs.mkdirSync(mods.path.dirname(file), { recursive: true })
       mods.fs.writeFileSync(file, JSON.stringify(data, null, 2))
     }
+    const gateCheck = (t, to) => {
+      // unified-board 门禁：
+      // ① 待确认未清零不得越过 ready-for-human（wontfix/archived 豁免）
+      const blockers = ['implemented', 'archived']
+      if (blockers.includes(to) && (t.pending || []).some((c) => !c.done)) return '待确认 C 项未清零'
+      // ② review→implemented 需 independentVerify=pass 且验收全 pass
+      if (t.status === 'review' && to === 'implemented') {
+        if (t.state.independentVerify !== 'pass') return 'review→implemented 需 independent_verify=pass（两盏灯）'
+        const un = (t.acceptance || []).filter((a) => a.done !== true)
+        if ((t.acceptance || []).length && un.length) return '验收未全过: ' + un.map((a) => a.id).join(',')
+      }
+      // ③ implemented→archived 同上（归档脚本后续）
+      return null
+    }
     return {
       async list() { return (await ensure()).tasks },
       async create(input, by) {
         const d = await ensure()
         d.seq++
+        const st = T_STATES.includes(input.status) ? input.status : 'needs-triage'
         const t = {
           id: 'T-' + String(d.seq).padStart(3, '0'),
           title: String(input.title ?? '未命名').slice(0, 120),
@@ -123,7 +162,14 @@ export function apply(ctx, _config) {
           prio: (['P0', 'P1', 'P2'].includes(input.prio) ? input.prio : 'P2'),
           due: String(input.due ?? '').slice(0, 20),
           cli: String(input.cli ?? '').slice(0, 30),
-          status: 'todo', owner: null,
+          status: st, owner: input.owner || null,
+          // v2: 验收编号数组 [{id:'A1',text,done}]；待确认 [{id:'C1',text,done}]；切片 [{id:'S1',text,hitl:'AFK',covers:['A1'],touch:[],done}]；
+          acceptance: Array.isArray(input.acceptance) ? input.acceptance.slice(0, 26).map((a, i) => ({ id: 'A' + (i + 1), text: String(a.text || a).slice(0, 200), done: false })) : [],
+          pending: Array.isArray(input.pending) ? input.pending.slice(0, 26).map((c, i) => ({ id: 'C' + (i + 1), text: String(c.text || c).slice(0, 200), done: false })) : [],
+          slices: [],
+          relatesTo: Array.isArray(input.relatesTo) ? input.relatesTo.slice(0, 10) : [],
+          agentBrief: { progress: '', decisions: '', next: '', pitfalls: '' },
+          state: { selfcheck: 'pending', independentVerify: 'pending', returns: 0, next: st === 'needs-triage' ? 'triage' : '', gitBase: String(input.gitBase || '').slice(0, 10) },
           createdAt: Date.now(), updatedAt: Date.now(),
           history: [{ ts: Date.now(), by, what: '创建' }],
         }
@@ -143,9 +189,43 @@ export function apply(ctx, _config) {
             if (typeof patch?.[k] === 'string') { t[k] = String(patch[k]).slice(0, k === 'desc' ? 4000 : 120); H(`改 ${k}`) }
           if (['P0', 'P1', 'P2'].includes(patch?.prio)) { t.prio = patch.prio; H(`优先级 → ${patch.prio}`) }
           if (typeof patch?.owner === 'string') { t.owner = patch.owner; H(`指派 → ${patch.owner}`) }
+          // v2: Agent Brief 四行回写
+          if (patch?.brief && typeof patch.brief === 'object') {
+            t.agentBrief = { progress: String(patch.brief.progress || '').slice(0, 500), decisions: String(patch.brief.decisions || '').slice(0, 500), next: String(patch.brief.next || '').slice(0, 500), pitfalls: String(patch.brief.pitfalls || '').slice(0, 500) }
+            H('回写 Agent Brief')
+          }
+          // v2: 验收条目勾选 {acceptanceId:'A1', pass:true}
+          if (patch?.acceptanceId) {
+            const a = (t.acceptance || []).find((x) => x.id === patch.acceptanceId)
+            if (a) { a.done = !!patch.pass; H(`验收 ${a.id} ${a.done ? 'pass' : '重开'}`) }
+          }
+          // v2: 待确认清零/重开
+          if (patch?.pendingId) {
+            const c = (t.pending || []).find((x) => x.id === patch.pendingId)
+            if (c) { c.done = !!patch.done; H(`待确认 ${c.id} ${c.done ? '清零' : '重开'}`) }
+          }
+          // v2: 两盏灯
+          if (patch?.lamp === 'selfcheck' || patch?.lamp === 'independentVerify') {
+            t.state[patch.lamp] = patch.value === 'pass' ? 'pass' : 'pending'
+            H(`${patch.lamp} → ${t.state[patch.lamp]}`)
+          }
         } else if (op === 'status') {
           const to = String(patch?.status ?? '')
-          if (['todo', 'doing', 'review', 'done', 'blocked'].includes(to)) { t.status = to; H(`状态 → ${to}`) }
+          if (!T_STATES.includes(to)) return t
+          if (to === t.status) return t
+          const legal = (T_FLOW[t.status] || []).includes(to)
+          if (!legal) { t._gateError = `非法转移 ${t.status} → ${to}（unified-board 转移表）`; return t }
+          const gate = gateCheck(t, to)
+          if (gate) { t._gateError = gate; return t }
+          const from = t.status
+          t.status = to
+          // 打回回 active：returns+1，达 5 自动 blocked
+          if (to === 'active' && (from === 'review' || from === 'implemented')) {
+            t.state.returns = (t.state.returns || 0) + 1
+            H(`打回（第 ${t.state.returns} 次）回 active`)
+            if (t.state.returns >= 5) { t.status = 'blocked'; H('打回达上限 5 次 → blocked，交人裁决') }
+          }
+          H(`状态 ${from} → ${to}`)
         } else if (op === 'delete') { auditStore.add(by, '删除任务', id + ' ' + (t.title || '')); d.tasks = d.tasks.filter((x) => x.id !== id); save(); return t }
         else return t
         auditStore.add(by, '任务操作 ' + op, id + ' ' + (t.title || ''))
@@ -154,221 +234,7 @@ export function apply(ctx, _config) {
     }
   })()
 
-  // ── 探针状态（全部随路由回显） ──────────────────────────────
-  const state = {
-    pluginBootAt: bootAt,
-    probeSessionId: PROBE_SESSION_ID,
-    sessionCreated: [],
-    sessionEvents: [],        // {t, sessionId, seq, type, brief} 环形 500
-    streamFrames: 0,
-    lastStreamFrameAt: null,
-    agentEvents: [],
-    writes: [],               // 每次 followup 的完整记录（含回显延迟）
-    pty: null,                // ensurePty 填充
-    ptyTail: [],              // {t, d} 环形 400
-    llm: { loaded: false, source: null, error: null },
-    services: { ready: false, agents: 0, sessions: 0, at: null, error: null },
-  }
-
-  // ── 实时流总线（SSE 订阅源）：pty 输出与会话事件 ──
-  const bus = { pty: [], sess: [], history: { pty: [], sess: [] } }
-  const emitPty = (d) => { bus.history.pty.push(d); if (bus.history.pty.length > 500) bus.history.pty.shift(); for (const f of bus.pty) { try { f(d) } catch {} } }
-  const emitSess = (e) => { bus.history.sess.push(e); if (bus.history.sess.length > 300) bus.history.sess.shift(); for (const f of bus.sess) { try { f(e) } catch {} } }
-
-  // ── 命门①读：未打 scope 标的全局 listener（宿主内零网络零盘读） ──
-  ctx.on('session/created', (s) => {
-    state.sessionCreated.push({ t: Date.now(), id: s?.id })
-  })
-  ctx.on('session/event', (session, event) => {
-    let brief = ''
-    const data = event?.data
-    if (data && Array.isArray(data.content)) {
-      brief = data.content.filter((b) => b?.type === 'text').map((b) => b.text).join(' ').slice(0, 200)
-    }
-    const rec = { t: Date.now(), sessionId: session?.id, seq: event?.seq, type: event?.type, brief }
-    state.sessionEvents.push(rec)
-    emitSess(rec)
-    if (state.sessionEvents.length > 500) state.sessionEvents.shift()
-  })
-  ctx.on('agent/assistant-stream', () => { state.streamFrames++; state.lastStreamFrameAt = Date.now() })
-  ctx.on('agent/created', ({ agent }) => state.agentEvents.push({ t: Date.now(), kind: 'created', id: agent?.id, status: agent?.status }))
-  ctx.on('agent/status', ({ agent, status }) => state.agentEvents.push({ t: Date.now(), kind: 'status', id: agent?.id, status }))
-  ctx.on('agent/error', ({ agent, error }) => state.agentEvents.push({ t: Date.now(), kind: 'error', id: agent?.id, error: String(error).slice(0, 200) }))
-
-  // ── 服务注入：agents / sessions / agentLoop（真宿主里全部在册） ──
-  let svc = null
-  let agentRef = null
-  ctx.inject(['agents', 'sessions', 'agentLoop'], (c) => {
-    svc = c
-    state.services.ready = true
-    state.services.at = Date.now()
-    try {
-      state.services.agents = c.agents.list().length
-      state.services.sessions = c.sessions.list().length
-    } catch (e) { state.services.error = String(e).slice(0, 200) }
-    ctx.logger.info('dsh-termfleet: services injected (agents/sessions/agentLoop)')
-  })
-
-  // ── dsh-llm 装载：createUserMessage（与宿主同实例——相同 file URL 命中 ESM 模块缓存） ──
-  let llmMod = null
-  async function loadLlm() {
-    if (llmMod) return llmMod
-    const [{ pathToFileURL }, fs, path, os] = await Promise.all([
-      import('node:url'), import('node:fs'), import('node:path'), import('node:os'),
-    ])
-    const candidates = []
-    try {
-      if (process.argv[1]) {
-        // dsh bin = <install>/@deepseek-ai/dsh/lib/bin.js → 同级包目录
-        candidates.push(path.resolve(path.dirname(process.argv[1]), '../..', 'dsh-llm', 'lib', 'index.js'))
-      }
-    } catch { /* fallthrough */ }
-    // M0 探针机兜底（本机 dsh 安装树）
-    candidates.push(path.join(os.homedir(), '.version-fox/sdks/nodejs/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-llm/lib/index.js'))
-    for (const c of candidates) {
-      try {
-        if (!fs.existsSync(c)) continue
-        llmMod = await import(pathToFileURL(c).href)
-        state.llm = { loaded: true, source: c, error: null }
-        return llmMod
-      } catch (e) { state.llm.error = String(e).slice(0, 200) }
-    }
-    throw new Error(`dsh-llm not found; tried: ${candidates.join(' | ')}`)
-  }
-
-  // ── 命门①写：创建真 agent（假 provider → 请求快败，零 API 费用）+ followup ──
-  async function sessionWrite(text) {
-    const rec = { t: Date.now(), text, ok: false }
-    state.writes.push(rec)
-    if (!svc) { rec.error = 'services not ready (agents/sessions/agentLoop)'; return rec }
-    try {
-      if (!agentRef) {
-        // 第三个参数 meta.cwd 喂 system-prompt 的 {{cwd}} 变量（dsh-agent-loop
-        // types/index.d.ts:148 create(id, options?, meta?: Pick<SessionHeader,'cwd'>)）
-        const agent = await svc.agentLoop.create(PROBE_SESSION_ID, {
-          provider: 'termfleet-probe-noop',
-          model: 'termfleet-probe-m',
-        }, { cwd: process.cwd() })
-        agentRef = agent
-        rec.agentCreated = { id: agent.id, status: agent.status, at: Date.now() }
-      }
-      const m = await loadLlm()
-      rec.llmSource = state.llm.source
-      const msg = m.createUserMessage({
-        content: [{ type: 'text', text }],
-        source: { kind: 'user' },
-      })
-      rec.msgId = msg.id
-      const sentAt = Date.now()
-      agentRef.followup(msg) // 官方 prompt RPC 的同款内部调用（queue 模式）
-      const hit = await waitFor(
-        () => state.sessionEvents.find((e) => e.type === 'user/message' && typeof e.brief === 'string' && e.brief.includes(text)),
-        8000,
-      )
-      rec.ok = Boolean(hit)
-      if (hit) {
-        rec.echoAt = hit.t
-        rec.echoSeq = hit.seq
-        rec.echoSessionId = hit.sessionId
-        rec.echoLatencyMs = hit.t - sentAt
-      } else {
-        rec.error = 'timeout waiting for user/message echo in session/event stream'
-      }
-    } catch (e) {
-      rec.error = String(e?.stack || e).slice(0, 400)
-    }
-    return rec
-  }
-
-  // ── 命门②：PTY spawn（@lydell/node-pty，懒加载隔离故障） ──
-  let ptyProc = null
-  async function ensurePty() {
-    if (state.pty) return state.pty
-    const fs = await import('node:fs')
-    const path = await import('node:path')
-    const os = await import('node:os')
-    const st = {
-      ok: false, file: null, args: null, cwd: null, pid: null,
-      spawnAt: Date.now(), exited: false, exitCode: null, error: null,
-      bytes: 0, chunks: 0, firstDataAt: null, lastDataAt: null, markers: [],
-      moduleLoadedFrom: null,
-    }
-    state.pty = st
-    try {
-      const mod = await import('@lydell/node-pty')
-      st.moduleLoadedFrom = new URL('.', import.meta.resolve('@lydell/node-pty')).href
-      const candidates = [
-        'C:/Program Files/PowerShell/7/pwsh.exe',
-        'C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',
-      ]
-      const file = candidates.find((c) => { try { return fs.existsSync(c) } catch { return false } }) || 'powershell.exe'
-      const cwd = path.join(os.tmpdir(), 'termfleet-m0-pty')
-      fs.mkdirSync(cwd, { recursive: true })
-      const proc = mod.spawn(file, ['-NoLogo', '-NoProfile'], {
-        name: 'xterm-256color',
-        cols: 100,
-        rows: 30,
-        cwd,
-        env: process.env,
-      })
-      st.ok = true
-      st.file = file
-      st.args = ['-NoLogo', '-NoProfile']
-      st.cwd = cwd
-      st.pid = proc.pid
-      ptyProc = proc
-      const seen = new Set()
-      proc.onData((d) => {
-        const now = Date.now()
-        st.bytes += d.length
-        st.chunks++
-        if (!st.firstDataAt) st.firstDataAt = now
-        st.lastDataAt = now
-        state.ptyTail.push({ t: now, d: d.length > 2000 ? d.slice(0, 2000) : d })
-        emitPty({ t: now, d: d.length > 2000 ? d.slice(0, 2000) : d })
-        if (state.ptyTail.length > 400) state.ptyTail.shift()
-        let idx = d.indexOf('M0_PTY_OK')
-        while (idx !== -1) {
-          if (!seen.has(st.chunks + ':' + idx)) {
-            seen.add(st.chunks + ':' + idx)
-            st.markers.push({ t: now, marker: 'M0_PTY_OK' })
-          }
-          idx = d.indexOf('M0_PTY_OK', idx + 1)
-        }
-      })
-      proc.onExit(({ exitCode }) => { st.exited = true; st.exitCode = exitCode })
-    } catch (e) {
-      st.error = String(e?.stack || e).slice(0, 600)
-    }
-    return st
-  }
-
-  async function ptyWrite(data, expect) {
-    const st = await ensurePty()
-    if (!ptyProc) return { ok: false, error: st.error }
-    const sentAt = Date.now()
-    const before = st.markers.length
-    ptyProc.write(data)
-    const expectText = expect || 'M0_PTY_OK'
-    const hit = await waitFor(() => (expectText ? (st.markers.length > before || null) : true), 8000)
-    const latencyMs = st.markers.length > before ? st.markers[st.markers.length - 1].t - sentAt : null
-    return {
-      ok: Boolean(hit),
-      wrote: data,
-      sentAt,
-      latencyMs,
-      lastDataAt: st.lastDataAt,
-      tail: tailText(500),
-    }
-  }
-
-  function tailText(max = 500) {
-    const joined = state.ptyTail.map((x) => x.d).join('')
-    return joined.length > max ? joined.slice(-max) : joined
-  }
-
-  // ── webServer 路由 ─────────────────────────────────────────
-    // ── 决策笔记库 v2（write-notes-like-deepseek 治理产品化：目录即状态 + 六分类 + 合法流转 + 校验门） ──
+  // ── 决策笔记库 v2（write-notes-like-deepseek 治理产品化：目录即状态 + 六分类 + 合法流转 + 校验门） ──
   // 树：~/.dsh/termfleet/team-memory/{proposed|implemented|rejected|archived}/{category}/yyyy-mm-dd-slug.md
   // 旧扁平 md 首次访问自动迁入 implemented/process；真实项目决策种子一次。
   const NOTE_STATES = ['proposed', 'implemented', 'rejected', 'archived']
@@ -951,6 +817,7 @@ ctx.inject(['webServer'], (host) => {
               const body = JSON.parse((await readBody(req)) || '{}')
               const t = await taskStore.act(String(body.op ?? ''), String(body.id ?? ''), body.patch ?? {}, who(req))
               if (!t) { json(res, 404, { ok: false, error: 'task not found' }); return }
+              if (t && t._gateError) { const err = t._gateError; delete t._gateError; json(res, 409, { ok: false, error: err }); return }
               json(res, 200, { ok: true, task: t, tasks: await taskStore.list() })
             } catch (e) { json(res, 400, { ok: false, error: String(e).slice(0, 300) }) }
           },

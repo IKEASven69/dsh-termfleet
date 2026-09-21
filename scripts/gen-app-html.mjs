@@ -436,7 +436,10 @@ body[data-light] .term{background:var(--n1000)}
     <div><label>截止</label><input id="fDue" placeholder="如 周五 / 09-30"></div>
   </div>
   <label>指定 CLI（可空：dsh / kimi / codex / pwsh…）</label><input id="fCli" placeholder="dsh">
-  <label>描述（即任务文档正文）</label><textarea id="fDesc" rows="4" placeholder="背景、验收标准…"></textarea>
+  <label>验收条目（每行一条，自动编号 A1/A2…）</label><textarea id="fAcc" rows="2" placeholder="可执行/可观察的验收条件"></textarea>
+  <label>待确认（每行一条 C1/C2…；未清零不得进入实施）</label><textarea id="fPend" rows="2" placeholder="需要拍板的细节点+推荐答案"></textarea>
+  <label>描述（TL;DR+背景，即任务文档正文）</label><textarea id="fDesc" rows="4" placeholder="目标一段话+3-5 条重点；背景与决策可后续补"></textarea>
+  <div class="note" style="margin-top:6px">grill 九项自检：目标与验收？谁在用？不做什么？依赖？副作用？数据格式？测试面？可复用？性能安全？——机械改动请勿立项。</div>
   <div class="acts"><button class="btn ghost" onclick="document.getElementById('formMask').classList.remove('on')">取消</button><button class="btn" id="formSubmit">创建</button></div>
 </div></div>
 
@@ -481,7 +484,24 @@ var FLEET = { members: [], role: '?', name: '' }
 var NSTATE = { proposed: ['待定','a'], implemented: ['已生效','g'], rejected: ['已否决','r'], archived: ['已归档',''] };
 var NCATS = ['feature','bug-fix','simplification','architecture','process','testing'];
 var NFLOW = { proposed: ['implemented','rejected'], implemented: ['archived'], rejected: ['archived'], archived: [] };            // 当前同意通道 {id,status,mode,expireAt,...}
-var STATUSES = [['todo','待办'],['doing','进行中'],['review','待验收'],['done','完成'],['blocked','阻塞']];
+var STATUSES = [['needs-triage','待分诊'],['ready','就绪'],['active','进行中'],['review','待验收'],['implemented','已实施'],['blocked','阻塞']];
+var UB_STATES = ['needs-triage','needs-info','ready-for-agent','ready-for-human','active','review','implemented','blocked','wontfix','archived'];
+var UB_FLOW = {
+  'needs-triage': ['needs-info','ready-for-agent','ready-for-human','wontfix'],
+  'needs-info': ['needs-triage'],
+  'ready-for-agent': ['active','needs-triage'],
+  'ready-for-human': ['active','needs-triage'],
+  'active': ['review','needs-info','blocked','wontfix'],
+  'review': ['implemented','active'],
+  'implemented': ['archived'],
+  'blocked': ['needs-triage','wontfix'],
+  'wontfix': ['needs-triage'],
+  'archived': []
+};
+var UB_BOARD = [['needs-triage','待分诊'],['ready','就绪'],['active','进行中'],['review','待验收'],['implemented','已实施']];
+function stLabel(s){ var M={'needs-triage':'待分诊','needs-info':'缺信息','ready-for-agent':'就绪(A)','ready-for-human':'就绪(H)','active':'进行中','review':'待验收','implemented':'已实施','blocked':'阻塞','wontfix':'不做','archived':'归档','todo':'待办','doing':'进行中','done':'完成'}; return M[s]||s; }
+function stClass(s){ return s==='implemented'||s==='done'?'g':s==='blocked'||s==='wontfix'?'r':s==='review'?'a':s==='active'||s==='doing'?'b':''; }
+function boardOf(s){ if(['ready-for-agent','ready-for-human'].indexOf(s)>=0)return 'ready'; if(['todo'].indexOf(s)>=0)return 'needs-triage'; if(['doing'].indexOf(s)>=0)return 'active'; if(['done'].indexOf(s)>=0)return 'implemented'; return s; }
 
 function api(path, body){
   return fetch(path, body ? { method:'POST', headers:{ 'content-type':'application/json','authorization':'Bearer '+TOK,'x-tf-user':encodeURIComponent(ME) }, body: JSON.stringify(body) }
@@ -780,7 +800,14 @@ function openDrawer(id){
     +'<div class="ot">关联物</div><a class="lnk" data-pane="dp-sess">▸ 会话事件</a></div>'
     +'<div class="doc-body"><h1>'+esc(t.title)+'</h1><div class="meta">'+t.id+' · 创建 '+new Date(t.createdAt).toLocaleString()+' · 更新 '+new Date(t.updatedAt).toLocaleString()+'</div>'
     +'<h2>基本信息</h2><p>'+'状态 '+stLabel(t.status)+' · 优先级 '+t.prio+(t.project?' · 项目 '+esc(t.project):'')+(t.due?' · 截止 '+esc(t.due):'')+(t.cli?' · CLI '+esc(t.cli):'')+(t.owner?' · 认领 '+esc(t.owner):' · 未认领')+'</p>'
-    +'<h2>描述（文档正文）</h2><p>'+esc(t.desc||'（空）')+'</p></div>';
+    +'<h2>描述（文档正文）</h2><p>'+esc(t.desc||'（空）')+'</p>'
+    +'<h2>验收条目</h2><p>' + ((t.acceptance||[]).length ? (t.acceptance||[]).map(function(a){
+        return '<label style="display:flex;gap:6px;align-items:baseline;padding:2px 0"><input type="checkbox" '+(a.done?'checked':'')+' data-acc="'+t.id+'|'+a.id+'|'+(!a.done)+'"><span>'+(a.done?'✓ ':'')+esc(a.id)+' '+esc(a.text)+'</span></label>'
+      }).join('') : '<span style="color:var(--caption)">无验收条目</span>') + '</p>'
+    +'<h2>待确认（未清零不得进入实施）</h2><p>' + ((t.pending||[]).length ? (t.pending||[]).map(function(c){
+        return '<label style="display:flex;gap:6px;align-items:baseline;padding:2px 0"><input type="checkbox" '+(c.done?'checked':'')+' data-pend="'+t.id+'|'+c.id+'|'+(!c.done)+'"><span>'+(c.done?'✓ ':'')+esc(c.id)+' '+esc(c.text)+'</span></label>'
+      }).join('') : '<span style="color:var(--caption)">无待确认</span>') + '</p>'
+    +'<h2>两盏灯与打回</h2><p>自检 '+(t.state&&t.state.selfcheck==='pass'?'✓ pass':'○ pending')+' · 独立验收 '+(t.state&&t.state.independentVerify==='pass'?'✓ pass':'○ pending')+' · 打回 '+(t.state&&t.state.returns||0)+'/5 次</p></div>';
   document.getElementById('flowEl').innerHTML=t.history.map(function(h){
     return '<div class="fe"><span class="ft">'+new Date(h.ts).toLocaleTimeString()+'</span><span class="fx"><b>'+esc(h.by)+'</b> '+esc(h.what)+'</span></div>';
   }).join('')||'<div class="note">（无轨迹）</div>';

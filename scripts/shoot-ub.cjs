@@ -1,0 +1,23 @@
+const { chromium } = require('playwright')
+const { readFileSync } = require('node:fs')
+const TOK = JSON.parse(readFileSync(process.env.USERPROFILE + '/.dsh/termfleet/token.json', 'utf8')).token
+const OUT = 'D:/coding/dsh-termfleet/docs/audit/screens'
+;(async () => {
+  const b = await chromium.launch()
+  const p = await b.newPage({ viewport: { width: 1600, height: 950 } })
+  await p.goto('http://127.0.0.1:3180/dsh-termfleet/app?token=' + TOK)
+  await p.waitForTimeout(1500)
+  await p.evaluate(() => { localStorage.setItem('tf_user', '张三'); pg('task') })
+  await p.waitForTimeout(800)
+  await p.screenshot({ path: OUT + '/40-ub-board.png' })
+  const card = p.locator('.bcard', { hasText: '统一看板对齐实测' }).first()
+  await card.click()
+  await p.waitForTimeout(800)
+  await p.screenshot({ path: OUT + '/41-ub-detail.png' })
+  await p.evaluate(() => closeDrawer())
+  await p.evaluate(() => document.getElementById('newBtn').click())
+  await p.waitForTimeout(500)
+  await p.screenshot({ path: OUT + '/42-ub-newform.png' })
+  await b.close()
+  console.log('40-42 done')
+})()
