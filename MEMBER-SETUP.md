@@ -5,8 +5,8 @@
 ## ① 拉代码装依赖（只做一次）
 
 ```cmd
-git clone https://github.com/IKEASven69/dsh-plugin.git
-cd dsh-plugin\plugins\dsh-termfleet
+git clone --depth 1 https://github.com/IKEASven69/dsh-termfleet.git
+cd dsh-termfleet
 npm install
 ```
 
