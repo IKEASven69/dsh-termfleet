@@ -91,6 +91,47 @@ export function apply(ctx, _config) {
     return true
   }
 
+  // ── 探针状态（全部随路由回显） ──────────────────────────────
+  const state = {
+    pluginBootAt: bootAt,
+    probeSessionId: PROBE_SESSION_ID,
+    sessionCreated: [],
+    sessionEvents: [],        // {t, sessionId, seq, type, brief} 环形 500
+    streamFrames: 0,
+    lastStreamFrameAt: null,
+    agentEvents: [],
+    writes: [],               // 每次 followup 的完整记录（含回显延迟）
+    pty: null,                // ensurePty 填充
+    ptyTail: [],              // {t, d} 环形 400
+    llm: { loaded: false, source: null, error: null },
+    services: { ready: false, agents: 0, sessions: 0, at: null, error: null },
+  }
+
+  // ── 实时流总线（SSE 订阅源）：pty 输出与会话事件 ──
+  const bus = { pty: [], sess: [], history: { pty: [], sess: [] } }
+  const emitPty = (d) => { bus.history.pty.push(d); if (bus.history.pty.length > 500) bus.history.pty.shift(); for (const f of bus.pty) { try { f(d) } catch {} } }
+  const emitSess = (e) => { bus.history.sess.push(e); if (bus.history.sess.length > 300) bus.history.sess.shift(); for (const f of bus.sess) { try { f(e) } catch {} } }
+
+  ctx.on('session/created', (s) => {
+    state.sessionCreated.push({ t: Date.now(), id: s?.id })
+  })
+  ctx.on('session/event', (session, event) => {
+    let brief = ''
+    const data = event?.data
+    if (data && Array.isArray(data.content)) {
+      brief = data.content.filter((b) => b?.type === 'text').map((b) => b.text).join(' ').slice(0, 200)
+    }
+    const rec = { t: Date.now(), sessionId: session?.id, seq: event?.seq, type: event?.type, brief }
+    state.sessionEvents.push(rec)
+    emitSess(rec)
+    if (state.sessionEvents.length > 500) state.sessionEvents.shift()
+  })
+  ctx.on('agent/assistant-stream', () => { state.streamFrames++; state.lastStreamFrameAt = Date.now() })
+  ctx.on('agent/created', ({ agent }) => state.agentEvents.push({ t: Date.now(), kind: 'created', id: agent?.id, status: agent?.status }))
+  ctx.on('agent/status', ({ agent, status }) => state.agentEvents.push({ t: Date.now(), kind: 'status', id: agent?.id, status }))
+  ctx.on('agent/error', ({ agent, error }) => state.agentEvents.push({ t: Date.now(), kind: 'error', id: agent?.id, error: String(error).slice(0, 200) }))
+
+
   // ── 任务库 v2（对齐 unified-board：10 态转移表 + 验收编号 + 两盏灯 + 打回计数 + 待确认门禁 + 切片 + relates_to + Agent Brief） ──
   const T_STATES = ['needs-triage', 'needs-info', 'ready-for-agent', 'ready-for-human', 'active', 'review', 'implemented', 'blocked', 'wontfix', 'archived']
   const T_FLOW = {
@@ -626,6 +667,185 @@ export function apply(ctx, _config) {
       memberSend: (obj) => { if (member.ws && member.connected) send(member.ws, obj) },
     }
   })()
+
+
+  // ── 命门②：PTY spawn（@lydell/node-pty，懒加载隔离故障） ──
+  let ptyProc = null
+  async function ensurePty() {
+    if (state.pty) return state.pty
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const os = await import('node:os')
+    const st = {
+      ok: false, file: null, args: null, cwd: null, pid: null,
+      spawnAt: Date.now(), exited: false, exitCode: null, error: null,
+      bytes: 0, chunks: 0, firstDataAt: null, lastDataAt: null, markers: [],
+      moduleLoadedFrom: null,
+    }
+    state.pty = st
+    try {
+      const mod = await import('@lydell/node-pty')
+      st.moduleLoadedFrom = new URL('.', import.meta.resolve('@lydell/node-pty')).href
+      const candidates = [
+        'C:/Program Files/PowerShell/7/pwsh.exe',
+        'C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',
+      ]
+      const file = candidates.find((c) => { try { return fs.existsSync(c) } catch { return false } }) || 'powershell.exe'
+      const cwd = path.join(os.tmpdir(), 'termfleet-m0-pty')
+      fs.mkdirSync(cwd, { recursive: true })
+      const proc = mod.spawn(file, ['-NoLogo', '-NoProfile'], {
+        name: 'xterm-256color',
+        cols: 100,
+        rows: 30,
+        cwd,
+        env: process.env,
+      })
+      st.ok = true
+      st.file = file
+      st.args = ['-NoLogo', '-NoProfile']
+      st.cwd = cwd
+      st.pid = proc.pid
+      ptyProc = proc
+      const seen = new Set()
+      proc.onData((d) => {
+        const now = Date.now()
+        st.bytes += d.length
+        st.chunks++
+        if (!st.firstDataAt) st.firstDataAt = now
+        st.lastDataAt = now
+        state.ptyTail.push({ t: now, d: d.length > 2000 ? d.slice(0, 2000) : d })
+        emitPty({ t: now, d: d.length > 2000 ? d.slice(0, 2000) : d })
+        if (state.ptyTail.length > 400) state.ptyTail.shift()
+        let idx = d.indexOf('M0_PTY_OK')
+        while (idx !== -1) {
+          if (!seen.has(st.chunks + ':' + idx)) {
+            seen.add(st.chunks + ':' + idx)
+            st.markers.push({ t: now, marker: 'M0_PTY_OK' })
+          }
+          idx = d.indexOf('M0_PTY_OK', idx + 1)
+        }
+      })
+      proc.onExit(({ exitCode }) => { st.exited = true; st.exitCode = exitCode })
+    } catch (e) {
+      st.error = String(e?.stack || e).slice(0, 600)
+    }
+    return st
+  }
+
+  async function ptyWrite(data, expect) {
+    const st = await ensurePty()
+    if (!ptyProc) return { ok: false, error: st.error }
+    const sentAt = Date.now()
+    const before = st.markers.length
+    ptyProc.write(data)
+    const expectText = expect || 'M0_PTY_OK'
+    const hit = await waitFor(() => (expectText ? (st.markers.length > before || null) : true), 8000)
+    const latencyMs = st.markers.length > before ? st.markers[st.markers.length - 1].t - sentAt : null
+    return {
+      ok: Boolean(hit),
+      wrote: data,
+      sentAt,
+      latencyMs,
+      lastDataAt: st.lastDataAt,
+      tail: tailText(500),
+    }
+  }
+
+  function tailText(max = 500) {
+    const joined = state.ptyTail.map((x) => x.d).join('')
+    return joined.length > max ? joined.slice(-max) : joined
+  }
+
+  // ── webServer 路由 ─────────────────────────────────────────
+    // ── 决策笔记库 v2（write-notes-like-deepseek 治理产品化：目录即状态 + 六分类 + 合法流转 + 校验门） ──
+  // 树：~/.dsh/termfleet/team-memory/{proposed|implemented|rejected|archived}/{category}/yyyy-mm-dd-slug.md
+  // 旧扁平 md 首次访问自动迁入 implemented/process；真实项目决策种子一次。
+
+
+  // ── 服务注入：agents / sessions / agentLoop（真宿主里全部在册） ──
+  let svc = null
+  let agentRef = null
+  ctx.inject(['agents', 'sessions', 'agentLoop'], (c) => {
+    svc = c
+    state.services.ready = true
+    state.services.at = Date.now()
+    try {
+      state.services.agents = c.agents.list().length
+      state.services.sessions = c.sessions.list().length
+    } catch (e) { state.services.error = String(e).slice(0, 200) }
+    ctx.logger.info('dsh-termfleet: services injected (agents/sessions/agentLoop)')
+  })
+
+  // ── dsh-llm 装载：createUserMessage（与宿主同实例——相同 file URL 命中 ESM 模块缓存） ──
+  let llmMod = null
+  async function loadLlm() {
+    if (llmMod) return llmMod
+    const [{ pathToFileURL }, fs, path, os] = await Promise.all([
+      import('node:url'), import('node:fs'), import('node:path'), import('node:os'),
+    ])
+    const candidates = []
+    try {
+      if (process.argv[1]) {
+        // dsh bin = <install>/@deepseek-ai/dsh/lib/bin.js → 同级包目录
+        candidates.push(path.resolve(path.dirname(process.argv[1]), '../..', 'dsh-llm', 'lib', 'index.js'))
+      }
+    } catch { /* fallthrough */ }
+    // M0 探针机兜底（本机 dsh 安装树）
+    candidates.push(path.join(os.homedir(), '.version-fox/sdks/nodejs/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-llm/lib/index.js'))
+    for (const c of candidates) {
+      try {
+        if (!fs.existsSync(c)) continue
+        llmMod = await import(pathToFileURL(c).href)
+        state.llm = { loaded: true, source: c, error: null }
+        return llmMod
+      } catch (e) { state.llm.error = String(e).slice(0, 200) }
+    }
+    throw new Error(`dsh-llm not found; tried: ${candidates.join(' | ')}`)
+  }
+
+  // ── 命门①写：创建真 agent（假 provider → 请求快败，零 API 费用）+ followup ──
+  async function sessionWrite(text) {
+    const rec = { t: Date.now(), text, ok: false }
+    state.writes.push(rec)
+    if (!svc) { rec.error = 'services not ready (agents/sessions/agentLoop)'; return rec }
+    try {
+      if (!agentRef) {
+        // 第三个参数 meta.cwd 喂 system-prompt 的 {{cwd}} 变量（dsh-agent-loop
+        // types/index.d.ts:148 create(id, options?, meta?: Pick<SessionHeader,'cwd'>)）
+        const agent = await svc.agentLoop.create(PROBE_SESSION_ID, {
+          provider: 'termfleet-probe-noop',
+          model: 'termfleet-probe-m',
+        }, { cwd: process.cwd() })
+        agentRef = agent
+        rec.agentCreated = { id: agent.id, status: agent.status, at: Date.now() }
+      }
+      const m = await loadLlm()
+      rec.llmSource = state.llm.source
+      const msg = m.createUserMessage({
+        content: [{ type: 'text', text }],
+        source: { kind: 'user' },
+      })
+      rec.msgId = msg.id
+      const sentAt = Date.now()
+      agentRef.followup(msg) // 官方 prompt RPC 的同款内部调用（queue 模式）
+      const hit = await waitFor(
+        () => state.sessionEvents.find((e) => e.type === 'user/message' && typeof e.brief === 'string' && e.brief.includes(text)),
+        8000,
+      )
+      rec.ok = Boolean(hit)
+      if (hit) {
+        rec.echoAt = hit.t
+        rec.echoSeq = hit.seq
+        rec.echoSessionId = hit.sessionId
+        rec.echoLatencyMs = hit.t - sentAt
+      } else {
+        rec.error = 'timeout waiting for user/message echo in session/event stream'
+      }
+    } catch (e) {
+      rec.error = String(e?.stack || e).slice(0, 400)
+    }
+    return rec
+  }
 
 
 ctx.inject(['webServer'], (host) => {

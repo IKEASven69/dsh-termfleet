@@ -165,6 +165,33 @@ body[data-light] .term{background:var(--n1000)}
 .arow .adet{color:var(--label3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .acat{cursor:pointer}
 .acat:hover{text-decoration:underline}
+/* ── 响应式紧凑模式（侧边栏 iframe / 窄屏自动生效） ── */
+@media (max-width: 700px) {
+  .wrap{padding:0 10px 30px}
+  .topbar{gap:6px;padding:10px 0 10px}
+  .logo{font-size:14px}
+  .nav span{padding:5px 10px;font-size:12px}
+  /* 远程页：设备列改顶部横条，会话窗单栏 */
+  .rem{grid-template-columns:1fr !important}
+  .rem > .panel{max-height:150px;overflow-y:auto}
+  .rtoolbar{flex-wrap:wrap;gap:6px}
+  /* 任务看板：横滚保留，卡片窄内边距 */
+  .bcard{padding:9px 10px}
+  /* 任务列表：隐藏次要列（截止/CLI/关联），只留 编号/优先级/状态/任务/认领/操作 */
+  .thead,.trow{grid-template-columns:44px 40px 76px minmax(0,1fr) 76px 92px}
+  .thead span:nth-child(6),.trow .due,.thead span:nth-child(7),.trow .cli{display:none}
+  .trow .who{display:block}
+  /* 任务详情大窗 → 全屏化 */
+  .drawer{top:0;left:0;transform:none;width:100vw;height:100vh;border-radius:0;border:0}
+  .drawer.on{transform:none}
+  .doc-outline{grid-template-columns:1fr !important}
+  .doc-outline .ol{position:static;display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}
+  .doc-outline .ol a{border-left:0;border-radius:6px;padding:3px 8px}
+  .doc-body{max-width:none}
+  /* 成本/设置块折叠 */
+  .setblk{display:none}
+  .setblk.open{display:grid}
+}
 /* ── 任务详情·居中大窗（v7 原型形态） ── */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;display:none;transition:opacity var(--dur) var(--ease);opacity:0}
 .overlay.on{display:block;opacity:1}
@@ -231,8 +258,8 @@ body[data-light] .term{background:var(--n1000)}
           <div class="mach">127.0.0.1 · dsh 宿主内</div><div class="sessn" id="devLocalSub">pwsh 通道未建立</div></div>
         </div>
         <div id="memberDevs"></div>
-        <h5 style="border-top:1px solid var(--border)">总线设置</h5>
-        <div style="padding:0 14px 14px;font-size:12.5px;display:grid;gap:6px">
+        <h5 style="border-top:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:6px" id="setToggle">总线与 IM 设置 <span id="setArrow" style="margin-left:auto;font-size:10px">▸</span></h5>
+        <div class="setblk" id="setblk" style="padding:0 14px 14px;font-size:12.5px;display:grid;gap:6px">
           <div style="color:var(--label3)">角色：<b id="pairRole">?</b> <span id="pairName" style="color:var(--caption)"></span></div>
           <select id="pairSel" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px">
             <option value="">— 改角色 —</option><option value="lead">lead（被连端）</option><option value="member">member（连接端）</option><option value="off">off</option>
@@ -1081,6 +1108,12 @@ document.getElementById('pairSave').onclick=function(){
 var imWeb=document.getElementById('imWebhook'), imTg=document.getElementById('imToggle');
 function loadIm(){ api('/dsh-termfleet/im').then(function(d){ imWeb.value=(d.im&&d.im.webhook)||''; imTg.textContent=(d.im&&d.im.enabled)?'已启用 · 关闭':'已停用 · 启用'; }); }
 loadIm();
+// 设置块折叠开关
+document.getElementById('setToggle').onclick=function(){
+  var blk=document.getElementById('setblk'); var open=blk.style.display!=='none' && blk.classList.contains('setblk')===false || blk.style.display==='grid';
+  blk.style.display=(blk.style.display==='none'||!blk.style.display)?'grid':'none';
+  document.getElementById('setArrow').textContent=(blk.style.display==='grid')?'▾':'▸';
+};
 document.getElementById('imSave').onclick=function(){ api('/dsh-termfleet/im',{webhook:imWeb.value.trim()}).then(function(d){ toast(d.ok?'IM webhook 已保存':'保存失败'); }); };
 imTg.onclick=function(){ api('/dsh-termfleet/im',{enabled:true}).then(function(){ loadIm(); toast('IM 已启用'); }); };
 document.getElementById('imTest').onclick=function(){ api('/dsh-termfleet/im',{test:true}).then(function(d){ toast(d.test&&d.test.sent?'测试消息已发出 ✓':'发送失败: '+JSON.stringify(d.test||{})); }); };
