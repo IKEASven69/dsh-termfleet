@@ -13,7 +13,7 @@ generator: doclib
 - open bugs: 0
 - partial bugs: 0
 - stale specs: 3
-- active changes: 0
+- active changes: 1
 
 ## Bug 追踪
 
@@ -24,6 +24,7 @@ generator: doclib
 
 | ID | 标题 | 状态 | 进度 |
 |----|------|------|------|
+| [001](changes/001/proposal.md) | v2 sidebar 补齐：挂官方 sidebar-right + 与 dsh-better-sidebar 共存 | complete | 28/31 |
 
 ## Spec 健康
 
@@ -33,7 +34,7 @@ generator: doclib
 | [host](specs/host.md) | fresh | 2026-09-19 |
 | [imbridge](specs/imbridge.md) | stale |  |
 | [membridge](specs/membridge.md) | fresh | 2026-09-19 |
-| [panels](specs/panels.md) | fresh | 2026-09-19 |
+| [panels](specs/panels.md) | fresh | 2026-09-23 |
 | [relay](specs/relay.md) | fresh | 2026-09-19 |
 | [screen](specs/screen.md) | stale |  |
 

@@ -1,10 +1,10 @@
 ---
 module: panels
 status: active
-last-updated: 2026-09-19
-last-verified: 2026-09-19
-verified-by: task-panel-v1-real
-cover-files: ["src/client.ts", "web/"]
+last-updated: 2026-09-23
+last-verified: 2026-09-23
+verified-by: sidebar-right-v2.1-banner-and-coexist
+cover-files: ["src/client.ts", "lib/client.js", "web/"]
 ---
 
 # panels 规格书（client 半面板）
@@ -47,3 +47,40 @@ mockup：docs/mockups/m1-mockups.html 任务详情抽屉（v3 四 tab 实测截�
 
 ## 错题记录
 （暂无）
+
+## ✅ v2 补齐：官方右侧栏挂载（2026-09-23）
+
+侧边栏 TBD #7 提前消化：lib/client.js v2 同时挂三处槽位（与 dsh-client-ui-sidebar-files 同款 API）。
+
+- `sidebarRightTabs.register({id:"dsh-termfleet", kind:"termfleet", priority:"builtin", title, guide:[…]})` —— tab 类型定义（effect 包裹，描述"团队驾驶舱"，图标=TfGuideIcon 字母方块）
+- `sidebar.right.pane.tab` key=`dsh-termfleet` —— TfTabBody（撑满侧栏，iframe 嵌 /dsh-termfleet/app）
+- `sidebar.right.pane.tab.title` key=`dsh-termfleet` —— TfTabTitle（chip icon + "TermFleet"）
+- `conversation.session.header.utilities` 原状保留（v1 TF 浮层入口）
+
+**401 banner（v2.1，2026-09-23 补）**：`TfTabBody` + `EntryPanel` 浮层加 401 banner。fetch 探测 `/dsh-termfleet/app`，401 时在 iframe 之上显示黄底警告（`[data-tf-status="auth"]`），文案含根因（dsh launch token ≠ host token.json）+ 临时绕过 + TBD 编号（change-002）。host 鉴权门不动（CLAUDE.md 硬约束守住）。
+
+未做：iframe 形态过渡，M3 视觉收口期换真 React 组件（dsh-client-ui-primitives 原子 + 主题变量）。iframe 鉴权 token 联动根治放 change-002。
+验证：起 dsh web（`scripts/boot.patch.yml`）→ 浏览器看会话头 TF 浮层 + 官方侧栏 TF tab + 引导胶囊 + 401 banner；截图 `docs/audit/screens/sidebar-right-v2-*.png`、`banner-{1,2}-*.png`。
+
+## dsh-better-sidebar 共存（2026-09-23 实测 ✅）
+
+better-sidebar v0.19.0+ 也走官方 sidebar-right API（独立 key 互不抢位）；本插件 key=`dsh-termfleet`，共存冲突面窄。
+
+**实测结果（playwright headless，2026-09-23）**：
+- 引导页共 7 个胶囊并排：`files` / `git` / `subagent` / `sidechat` / `terminal` / `termfleet`（本插件） / `browser`
+- 引导页容器是**官方** sidebar-right 模块（class `P3OORG_panel` + `geFEbW_guide`，不是 BS 自造的）
+- BS 装上不影响 TF tab body（DOM 干净，只有 banner + iframe；diagsc 排除 BS 污染）
+- TF tab 激活后官方 DockSurface tab strip 出现 TermFleet chip + 官方 chrome（分栏/全屏/收起）
+- BS 自家 files tab 工作正常（显示完整 coding/ 目录树，截图 `each-tab-0-files.png`）
+
+**截图**：`docs/audit/screens/sidebar-coexist-{1..8}.png`（共存 8 张）
+
+## iframe 鉴权 token 联动（待 change-002 根治）
+
+**问题**：dsh web BrowserAuth（cookie 鉴权，token query 仅首次有效）与 termfleet host `~/.dsh/termfleet/token.json` 鉴权门**完全不联动** —— 两套 token 各管各的。
+- dsh 启动时生成 `launchToken`，URL 暴露给浏览器
+- termfleet host 启动时生成 token（存 `~/.dsh/termfleet/token.json`）
+- 浏览器 iframe 加载 `/dsh-termfleet/app` 时带 `?token=<localStorage.tf_token>`，但与 host token.json 不一致 → 401
+
+**当前 UX**（v2.1 兜底）：401 banner 明确提示用户，便于排查。
+**根治路径**（change-002）：让 host 端接受 dsh launch token（同步或共享 secret），浏览器侧 `localStorage.tf_token` 直接读 URL 的 `?token=`，即可过 host 鉴权门。CLAUDE.md "插件路由必须过鉴权门"硬约束保持——只是把两套 token 联动起来。
