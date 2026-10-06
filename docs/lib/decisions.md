@@ -86,3 +86,7 @@ dsh 宿主明示禁绑 0.0.0.0（防 RCE 暴露，安全设计）——不绕宿
 ## 2026-09-20 · 本机 LAN-IP 自测噪音：Clash TUN 劫持（重要教训）
 
 本机 curl 经 192.168.1.x 访问本机转发器：TCP 握手被 TUN/fake-ip 应答（curl 显示 Connected），载荷进代理栈被丢弃（empty reply）——极像服务端 bug，实为本机代理环境。判定法：127.0.0.1 同转发器同端口 200 而 LAN IP 000，即环境噪音。跨机验收以成员机发起为准。forwarder v2 保留首请求头 Host 改写（对 dsh fence 稳妥）。
+
+## 2026-10-05 · dsh 0.2.0-rc.2 兼容性回归结论
+
+本机 dsh 已是 0.2.0-rc.2（此前五件套全部隐式在 0.2.0 上验证）。显式回归补测：host 13 路由全 200、鉴权门 401、client 半加载 ok、manifest 收录、PTY 通道全链通（V020_OK 回显）。**唯一不兼容点：conversation.session.header.utilities 槽在 0.2.0 已删**（0.2.0 DOM 实测只剩 corner，且 rightbar.session 已被 mf 占用）。修复=双通道入口：0.1.x utilities 槽注册 + 全版本 DOM 兜底 TF 按钮（fixed 右下角，零框架依赖）。0.2.0 桌面 UI 改版（左侧新导航+预览版弹窗），TermFleet 面板在同框下工作正常（43/44-v020 截图）。
