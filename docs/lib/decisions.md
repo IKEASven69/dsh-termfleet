@@ -90,3 +90,15 @@ dsh 宿主明示禁绑 0.0.0.0（防 RCE 暴露，安全设计）——不绕宿
 ## 2026-10-05 · dsh 0.2.0-rc.2 兼容性回归结论
 
 本机 dsh 已是 0.2.0-rc.2（此前五件套全部隐式在 0.2.0 上验证）。显式回归补测：host 13 路由全 200、鉴权门 401、client 半加载 ok、manifest 收录、PTY 通道全链通（V020_OK 回显）。**唯一不兼容点：conversation.session.header.utilities 槽在 0.2.0 已删**（0.2.0 DOM 实测只剩 corner，且 rightbar.session 已被 mf 占用）。修复=双通道入口：0.1.x utilities 槽注册 + 全版本 DOM 兜底 TF 按钮（fixed 右下角，零框架依赖）。0.2.0 桌面 UI 改版（左侧新导航+预览版弹窗），TermFleet 面板在同框下工作正常（43/44-v020 截图）。
+
+## 2026-10-07 · P0 会话流镜像 v1：契约 A/B/C 三帧 + 服务端三态门控（E2E 全绿）
+
+会话流上行（契约 A）：成员机仅在本机 sess 同意激活期间（rw/ro 且 target 匹配本成员）把会话事件上行，帧 `{t:'sess-event', member, consentId, ev:{type,text,ts,sessionId,seq}}`，type 四桶映射 user/assistant/tool/status、text=brief 截 200 字（lib/index.js:722-730、evBucket :108-115）；lead 侧转入 member-stream 环形缓冲并实时转发订阅者（:584-591），面板经 SSE `/dsh-termfleet/member-stream` 消费。插话（契约 C）：lead 下行 `{t:'followup', member, text}`，成员端二次验证（active sess 通道+rw+target 匹配，与 PTY 双端验证同款）后 injectFollowup 注入本机 dsh 会话，回执 `{t:'followup-ack', member, ok, via, reason}` 存 lastFollowupAck 并转 member-stream 供面板显示「✓ 已送达」（:677-689）。断开传播（契约 B）：成员机（独立同意库）/consent/end 经总线使 lead 同库同 id 收口 ended，member-stream 即时收 event:'end'，重连 403 拒绝旧缓冲重放（:606-619、:748-749）。**门控在服务端**：member-stream/interject 按成员粒度查激活同意——无同意 403 no-consent、ro 流可见但插话 403 readonly-channel、rw 才放行（:481、:1334-1364）。坑：followup 处理闭包内曾裸调 busLink.memberSend（未定义）把成员宿主打崩（dsh fatal load failure），回执必须用当前连接 `send(member.ws,...)`（:681）。S2 注：助手回合由 dsh 假 provider（termfleet-probe-noop，M0 同款）产生，非真实 LLM 文本，零 API 费。
+
+## 2026-10-07 · 契约 D：TF-JOIN 邀请码格式 = 'TF1-' + base64url(JSON{u,t,n})
+
+愿望机原则落地（粘贴即配对，不填 URL/token）。码 = `'TF1-' + base64url(JSON{u:总线地址, t:团队令牌, n:lead 名})`（lib/index.js:1262-1284）。总线地址取值优先级：`?u=` 显式覆盖（跨机经 lan-forwarder 时由面板传）> `TERMFLEET_LEAD_ADVERTISE_URL` > 本请求 Host 头——端口无关，换端口/转发不废码。join 路由校验 TF1- 前缀+u/t 必填（坏码 400 bad-code / bad-code-payload 带原因），写 pairing.json 后 memberStart+memberReconnect 立即按新配置重连（:1286-1311）；**TERMFLEET_* 环境变量仍优先于 pairing.json**（loadCfg 既有覆盖逻辑，被 env 接管的实例 join 后以 env 为准）。E2E 实测：配对前 role=off（env 隔离）→ 粘贴 TF1-码（len=115）→ toast 已加入 → 2045ms 内 lead 成员列表出现该成员。
+
+## 2026-10-07 · 契约 E：面板通知 = bus.notify 队列 + SSE event:'tf-notify'
+
+通知统一走 `bus.notify` 订阅列表，`emitNotify(kind, text≤200)` 产生 `{kind, text, ts}`（lib/index.js:103-108）；`/stream?k=events` 附加订阅 bus.notify，以 `event:'tf-notify'` 转发面板（:1627、:1644）。事件种类：member-join（成员上线，:577）、consent-request（连接请求，带「去处理」跳转）、interject、task。面板渲染 .tfnotif 弹条 + `[data-tfgo]` 去处理按钮；E2E 实测两种弹条 DOM 均出现（「P0-MEMBER 上线」/「me 请求连接 sess → member:P0-MEMBER」hasGo=true），7s 窗口内截图 p0-4-tf-notify.png。IM 卡（既有）与系统通知（可选，dsh 0.2.0 notification surface 待查）另行补充，面板弹条为保底通道。

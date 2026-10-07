@@ -90,6 +90,26 @@ body[data-light] .term{background:var(--n1000)}
 .ccard .who{font-size:13px;color:var(--label2);margin-bottom:12px}
 .ccard .acts{display:flex;gap:9px;flex-wrap:wrap}
 .ph{padding:26px 20px;text-align:center;color:var(--caption);font-size:13px;border:1px dashed var(--border2);border-radius:12px}
+/* ── 成员会话对话流（P0：member-stream 镜像 + 插话） ── */
+.sflist{display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto;padding:6px 2px}
+.sfmsg{max-width:86%;padding:8px 12px;border-radius:12px;font-size:12.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.sfmsg .who{font-size:10.5px;margin-bottom:3px;font-family:'SF Mono',Consolas,monospace;opacity:.72}
+.sf-user{align-self:flex-end;background:var(--brand);color:var(--brand-fg);border-bottom-right-radius:4px}
+.sf-assistant{align-self:flex-start;background:var(--card2);border:1px solid var(--border);border-bottom-left-radius:4px;color:var(--label1)}
+.sf-tool{align-self:flex-start;background:var(--blue-t);color:var(--blue);border:1px dashed var(--border2);border-radius:10px;cursor:pointer}
+.sf-tool .head{display:flex;gap:8px;align-items:baseline}
+.sf-tool .head .ar{margin-left:auto;flex:none}
+.sf-tool .body{display:none;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border2);color:var(--label2);font-family:'SF Mono',Consolas,monospace;font-size:11.5px;white-space:pre-wrap}
+.sf-tool.open .body{display:block}
+.sf-status{align-self:center;background:var(--card2);border:1px dashed var(--border2);border-radius:999px;color:var(--caption);font-size:11.5px;padding:2px 12px}
+.sfend{display:none;align-items:center;gap:8px;background:var(--amber-t);color:var(--amber);border:1px solid var(--border2);border-radius:10px;padding:8px 12px;font-size:12.5px;font-weight:600;margin-bottom:8px}
+.sfend.on{display:flex}
+.sfack{display:inline-block;margin-top:5px}
+/* ── tf-notify 右下弹条 ── */
+.tfnotifwrap{position:fixed;right:16px;bottom:22px;z-index:320;display:flex;flex-direction:column;gap:8px;width:min(330px,86vw)}
+.tfnotif{background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:10px 12px;box-shadow:0 12px 40px rgba(0,0,0,.4);font-size:12.5px;color:var(--label2);animation:tfnotiin var(--dur) var(--ease)}
+.tfnotif .tx{color:var(--label1);margin-top:4px;word-break:break-word}
+@keyframes tfnotiin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 /* ── 任务页 ── */
 .tbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 .seg{display:flex;background:var(--card2);border:1px solid var(--border);border-radius:999px;padding:2px;flex-wrap:wrap}
@@ -159,6 +179,8 @@ body[data-light] .term{background:var(--n1000)}
   .rem{grid-template-columns:1fr !important}
   .rem > .panel{max-height:150px;overflow-y:auto}
   .rtoolbar{flex-wrap:wrap;gap:6px}
+  /* 会话对话流：窄屏压低高度 */
+  .sflist{max-height:240px}
   /* 任务看板：横滚保留，卡片窄内边距 */
   .bcard{padding:9px 10px}
   /* 任务列表：隐藏次要列（截止/CLI/关联），只留 编号/优先级/状态/任务/认领/操作 */
@@ -254,6 +276,19 @@ body[data-light] .term{background:var(--n1000)}
           <button class="btn sm" id="pairSave" style="justify-self:start">保存配对</button>
           <div class="note" style="margin:0">member 保存后 5 秒内出站连接 lead；本机测试用两个端口各开一实例。</div>
           <div style="border-top:1px dashed var(--border);margin-top:8px;padding-top:8px;display:grid;gap:6px">
+            <div style="color:var(--label3)">邀请码 · 一句话入队（TF-JOIN：粘贴即配对，无需手填 URL/令牌）</div>
+            <div style="display:flex;gap:6px">
+              <input id="pairCode" readonly placeholder="lead 侧：点「取码」生成 TF1-…" class="mono" style="flex:1;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:11.5px;min-width:0">
+              <button class="btn ghost sm" id="pairCodeBtn">取码</button>
+              <button class="btn ghost sm" id="pairCodeCopy">复制</button>
+            </div>
+            <div style="display:flex;gap:6px">
+              <input id="joinCode" placeholder="member 侧：粘贴邀请码 TF1-…" style="flex:1;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px;min-width:0">
+              <button class="btn sm" id="joinBtn">入队</button>
+            </div>
+            <div class="note" id="pairNote" style="margin:0">lead 取码发给成员 → 成员粘贴点「入队」→ 5s 内连上（码含 lead 地址+团队令牌，请勿外传）。</div>
+          </div>
+          <div style="border-top:1px dashed var(--border);margin-top:8px;padding-top:8px;display:grid;gap:6px">
             <div style="color:var(--label3)">IM 出站（审批卡/通知走 webhook）</div>
             <input id="imWebhook" placeholder="webhook URL（飞书机器人/自定义）" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px">
             <div style="display:flex;gap:6px">
@@ -302,6 +337,26 @@ body[data-light] .term{background:var(--n1000)}
             <span class="pill" id="evCnt">0 条</span>
           </div>
           <div id="evList" style="min-height:60px"><div class="note">（本宿主的 dsh 会话一有事件就实时出现在这里——可在 3180 的 dsh web 里发条消息试试）</div></div>
+        </div>
+
+        <div class="panel" style="padding:14px 16px;margin-top:14px" id="sfPanel">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+            <b style="font-size:14px">会话对话流</b>
+            <span class="pill g" id="sfMemberPill" style="display:none"></span>
+            <span class="pill b">member-stream · 重放+实时</span>
+            <span class="spacer"></span>
+            <span class="pill" id="sfCnt">0 条</span>
+            <span class="pill" id="sfState">未选择成员</span>
+          </div>
+          <div class="sfend" id="sfEnd">▪ 已结束——该成员的会话同意通道已关闭，镜像停止。</div>
+          <div class="sflist" id="sfList"><div class="ph">点选上方成员设备 → 订阅 TA 的会话对话流（TA 同意会话镜像后才可见；先重放最近 ≤300 条，后实时）</div></div>
+          <button class="btn ghost sm" id="sfJump" style="display:none;margin:6px auto 0">↓ 回到底部（最新消息）</button>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <input id="sfInput" placeholder="插话将注入成员的活动 dsh 会话（Enter 发送）…" disabled style="flex:1;background:var(--card2);border:1px solid var(--border2);border-radius:10px;color:var(--label1);padding:8px 12px;font-size:12.5px;outline:none">
+            <button class="btn ghost sm" id="sfReqSess" style="display:none">请求会话镜像</button>
+            <button class="btn sm" id="sfSend" disabled>插话</button>
+          </div>
+          <div class="note" id="sfWhy" style="margin:6px 0 0">未选择成员。</div>
         </div>
 
         <div class="panel" style="padding:16px;margin-top:14px" id="consentPanel">
@@ -474,6 +529,7 @@ body[data-light] .term{background:var(--n1000)}
 
 <div class="menu" id="statMenu"></div>
 <div class="toast" id="toastEl"></div>
+<div class="tfnotifwrap" id="tfNotifWrap"></div>
 
 <script>
 var NL=String.fromCharCode(10),CR=String.fromCharCode(13),NL2=NL+NL,LF3=new RegExp(NL+'{3,}','g');
@@ -551,13 +607,14 @@ function renderChannel(){
     st.className='pill a'; st.textContent='◌ 等待成员确认';
     meta.textContent='成员侧同意卡已弹出（本页下方/弹窗）';
     mb.disabled=true; eb.disabled=false; eb.textContent='取消请求';
-    cl.classList.remove('on'); sub.textContent='pwsh 通道：等待确认';
+    cl.classList.remove('on'); sub.textContent='通道：等待确认';
+    var sessObj=(CH&&CH.type==='sess')?'dsh 会话（镜像+插话）':'pwsh 会话';
     document.getElementById('csTitle').innerHTML=(CH&&CH.remote
       ? '⚑ 收到连接请求（来自 lead）'
       : '你发起的连接 · 等待被控方确认')+' <span class="pill a" style="margin-left:auto">待确认</span>';
     document.getElementById('csWho').innerHTML=(CH&&CH.remote
-      ? '<b>'+esc(CH.requester||'lead')+'</b> 请求连接 <b>你的 pwsh 会话</b>（仅此会话，不碰桌面）。你的答复：'
-      : '<b>'+esc(CH?CH.requester:ME)+'</b>（你）→ <b>本机 pwsh 会话</b>（仅此会话）。下方按钮=被控方答复：');
+      ? '<b>'+esc(CH.requester||'lead')+'</b> 请求连接 <b>你的 '+sessObj+'</b>（仅此会话，不碰桌面）。你的答复：'
+      : '<b>'+esc(CH?CH.requester:ME)+'</b>（你）→ <b>本机 '+sessObj+'</b>（仅此会话）。下方按钮=被控方答复：');
     document.getElementById('csActs').innerHTML='<button class="btn sm" id="csA">允许</button><button class="btn ghost sm" id="csR">仅只读</button><button class="btn danger sm" id="csD">拒绝</button>';
     bindDecide(); document.getElementById('consentMask').classList.toggle('on', !!mine);
     pill.className='pill a'; pill.textContent='等确认';
@@ -570,12 +627,14 @@ function renderChannel(){
       pill.className='pill g'; pill.textContent='通道开放中'; return; }
     st.className='pill '+(CH.mode==='rw'?'g':'a'); st.textContent='● 已连接 · '+(CH.mode==='rw'?'可操作':'只读');
     mb.disabled=false; mb.textContent=CH.mode==='rw'?'切只读':'（只读中）'; eb.disabled=false; eb.textContent='断开';
-    cl.classList.add('on');
-    var i=document.getElementById('cmdInput'); i.disabled=(CH.mode!=='rw'); i.placeholder=CH.mode==='rw'?'输入指令回车发送（写入带 actor·留痕）…':'只读通道——服务端禁写（403）';
-    sub.textContent='pwsh 通道：'+CH.mode+' · 剩 '+fmtRemain(CH.expireAt-Date.now());
+    var chLabel=(CH.type==='sess')?'会话镜像':'pwsh';
+    if(CH.type==='sess'){ cl.classList.remove('on'); }
+    else{ cl.classList.add('on');
+      var i=document.getElementById('cmdInput'); i.disabled=(CH.mode!=='rw'); i.placeholder=CH.mode==='rw'?'输入指令回车发送（写入带 actor·留痕）…':'只读通道——服务端禁写（403）'; }
+    sub.textContent=chLabel+'通道：'+CH.mode+' · 剩 '+fmtRemain(CH.expireAt-Date.now());
     tick=setInterval(function(){ if(!CH||CH.status!=='active'){clearInterval(tick);return}
       meta.innerHTML='剩余 <b class="mono" style="color:var(--label1)">'+fmtRemain(CH.expireAt-Date.now())+'</b> · 仅此会话 · 随时可断';
-      sub.textContent='pwsh 通道：'+CH.mode+' · 剩 '+fmtRemain(CH.expireAt-Date.now());
+      sub.textContent=chLabel+'通道：'+CH.mode+' · 剩 '+fmtRemain(CH.expireAt-Date.now());
       if(CH.expireAt<=Date.now()){ CH.status='expired'; renderChannel(); toast('限时到——通道自动断开（服务端已失效）'); } },1000);
     meta.innerHTML='剩余 <b class="mono" style="color:var(--label1)">'+fmtRemain(CH.expireAt-Date.now())+'</b> · 仅此会话 · 随时可断';
     document.getElementById('consentMask').classList.remove('on');
@@ -608,7 +667,7 @@ function pollFleet(){
       return '<div class="dev '+(selMember===m.name?'sel':'')+'" data-member="'+esc(m.name)+'"><span class="dot on"></span><div class="av">'+esc(m.name.slice(0,1))+'</div><div style="min-width:0"><div class="nm">'+esc(m.name)+' <span class="pill g" style="margin-left:2px">在线</span></div><div class="mach" style="font-family:SF Mono,Consolas,monospace;font-size:11.5px;color:var(--caption)">bus 已连 · '+esc((m.sessions||[]).map(function(s){return s.tag}).join(','))+'</div><div class="sessn">'+(m.recentEvents||[]).length+(m.summary?(' · <b style="color:var(--label2)">'+m.summary.state+'</b> '+esc((m.summary.line||'').slice(0,34))):(' · '+(m.recentEvents||[]).length+' 条近期事件'))+(m.lastSos?' <span class="pill r">SOS '+(m.lastSos.msg||'').slice(0,10)+'</span>':'')+'</div></div></div>';
     }).join('');
     box.querySelectorAll('[data-member]').forEach(function(el){ el.onclick=function(){ selMember=el.getAttribute('data-member');
-      document.getElementById('sessMember').style.display='flex'; document.getElementById('sessMemberName').textContent=selMember+' · pwsh'; pollFleet(); toast('已选中成员机：'+selMember+'（请求连接将发给 TA）'); }; });
+      document.getElementById('sessMember').style.display='flex'; document.getElementById('sessMemberName').textContent=selMember+' · pwsh'; sfOpen(selMember); pollFleet(); toast('已选中成员机：'+selMember+'（会话对话流订阅中…）'); }; });
     // 远端通道 active：拉成员 pty 尾流显示
     if(CH && CH.status==='active' && CH.target && CH.target.indexOf('member:')===0){
       var m2=FLEET.members.filter(function(x){return x.name===CH.target.slice(7)})[0];
@@ -623,7 +682,8 @@ function pollFleet(){
   if(CH && CH.status==='pending'){
     api('/dsh-termfleet/consent/list').then(function(d){
       var c=(d.consents||[]).filter(function(x){return x.id===CH.id})[0];
-      if(c && c.status!=='pending'){ CH=c; renderChannel(); if(c.status==='active') toast('成员机已答复：'+(c.mode==='rw'?'允许（可操作）':'仅只读')); else if(c.status==='denied') toast('成员机已拒绝'); }
+      if(c && c.status!=='pending'){ CH=c; renderChannel(); if(c.status==='active') toast('成员机已答复：'+(c.mode==='rw'?'允许（可操作）':'仅只读')); else if(c.status==='denied') toast('成员机已拒绝');
+        if(c.status==='active' && c.target && c.target.indexOf('member:')===0){ selMember=c.target.slice(7); sfOpen(selMember); } }
     }).catch(function(){});
   } else if(!CH && FLEET.role==='member'){
     api('/dsh-termfleet/consent/list').then(function(d){
@@ -631,6 +691,7 @@ function pollFleet(){
       if(c){ CH=c; CH._mine=false; renderChannel(); }
     }).catch(function(){});
   }
+  sfGate();
 }
 function requestChannel(){
   var target = selMember ? ('member:'+selMember) : 'pwsh7·本机';
@@ -641,7 +702,8 @@ function decide(dec){
   api('/dsh-termfleet/consent/decide',{id:CH.id,decision:dec}).then(function(d){
     if(d.ok){ CH=d.consent; renderChannel();
       if(dec==='deny'){ toast('已拒绝——无需理由，入审计'); }
-      else { toast('通道建立：'+(CH.mode==='rw'?'可操作':'只读')+' · 30 分钟'); startPty(); } }});
+      else { toast('通道建立：'+(CH.mode==='rw'?'可操作':'只读')+' · 30 分钟'); startPty();
+        if(CH.target && CH.target.indexOf('member:')===0){ selMember=CH.target.slice(7); sfOpen(selMember); } } }});
 }
 document.getElementById('rtEndBtn').onclick=function(){
   if(!CH) return;
@@ -692,6 +754,7 @@ function startEvents(){
   evES=new EventSource('/dsh-termfleet/stream?k=events&token='+encodeURIComponent(TOK));
   evES.addEventListener('sess',function(ev){ var d=JSON.parse(ev.data);
     evBuf.unshift(d); if(evBuf.length>30)evBuf.pop(); evSeen++; drawEvents(); });
+  evES.addEventListener('tf-notify',function(ev){ try{ tfNotify(JSON.parse(ev.data)); }catch(e){} });
 }
 function drawEvents(){
   document.getElementById('evCnt').textContent=evSeen+' 条';
@@ -701,6 +764,152 @@ function drawEvents(){
     return '<div class="evrow"><span class="ts">'+new Date(e.t).toLocaleTimeString()+'</span><span class="ty mono">'+esc(e.type||'')+(e.seq!=null?' #'+e.seq:'')+'</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(e.brief||'')+'</span></div>';
   }).join('');
 }
+
+/* ═══ tf-notify 通知弹条（右下 · consent-request 带去处理 · 同类 30s 去重） ═══ */
+var tfSeen={}
+function tfNotify(d){
+  d=d||{}; var now=Date.now();
+  var key=(d.kind||'')+'|'+(d.text||'');
+  if(tfSeen[key]&&now-tfSeen[key]<30000)return;
+  tfSeen[key]=now;
+  for(var k in tfSeen){ if(now-tfSeen[k]>120000)delete tfSeen[k] }
+  var K={'member-join':['成员上线','g'],'consent-request':['连接请求','a'],'interject':['插话','b'],'task':['任务','']};
+  var kk=K[d.kind]||[d.kind||'通知',''];
+  var wrap=document.getElementById('tfNotifWrap');
+  var el=document.createElement('div'); el.className='tfnotif';
+  el.innerHTML='<div style="display:flex;align-items:center;gap:8px"><span class="pill '+kk[1]+'">'+kk[0]+'</span><span class="spacer"></span><span class="mono" style="font-size:10.5px;color:var(--caption)">'+new Date(d.ts||now).toLocaleTimeString()+'</span><span data-tfx style="cursor:pointer;color:var(--caption);padding:0 2px">✕</span></div>'
+    +'<div class="tx">'+esc(d.text||'')+'</div>'
+    +(d.kind==='consent-request'?'<div style="margin-top:8px;text-align:right"><button class="btn sm" data-tfgo>去处理</button></div>':'');
+  el.querySelector('[data-tfx]').onclick=function(){ el.remove() };
+  var go=el.querySelector('[data-tfgo]'); if(go)go.onclick=function(){ el.remove(); pg('remote'); toast('已切到远程页——在成员列表处理连接请求') };
+  wrap.appendChild(el);
+  while(wrap.children.length>4)wrap.removeChild(wrap.firstChild);
+  setTimeout(function(){ if(el.parentNode)el.remove() },7000);
+}
+
+/* ═══ 成员会话对话流（P0：member-stream SSE 重放+实时 · 插话 · followup-ack） ═══ */
+var SF={ member:null, es:null, n:0, stick:true, ended:false, pending:null, lastGate:0 }
+function sfListEl(){ return document.getElementById('sfList') }
+function sfAtBottom(){ var el=sfListEl(); return el.scrollHeight-el.scrollTop-el.clientHeight<48 }
+function sfSetState(txt,cls){ var s=document.getElementById('sfState'); s.className='pill '+(cls||''); s.textContent=txt }
+function sfScroll(){ var el=sfListEl();
+  if(SF.stick){ el.scrollTop=el.scrollHeight; document.getElementById('sfJump').style.display='none'; }
+  else if(SF.n){ document.getElementById('sfJump').style.display='inline-flex'; } }
+function sfOpen(name){
+  if(SF.es){ SF.es.close(); SF.es=null }
+  SF.member=name; SF.n=0; SF.stick=true; SF.ended=false; SF.pending=null; SF.lastGate=0;
+  document.getElementById('sfEnd').classList.remove('on');
+  document.getElementById('sfJump').style.display='none';
+  var mp=document.getElementById('sfMemberPill'); mp.style.display=''; mp.textContent=name;
+  sfListEl().innerHTML='<div class="ph" id="sfPh">正在订阅 '+esc(name)+' 的会话对话流（先重放缓冲，后实时）…</div>';
+  document.getElementById('sfCnt').textContent='0 条';
+  sfSetState('连接中…','a');
+  var es=new EventSource('/dsh-termfleet/member-stream?m='+encodeURIComponent(name)+'&token='+encodeURIComponent(TOK));
+  SF.es=es;
+  es.onopen=function(){ if(SF.es!==es)return; sfListEl().innerHTML=''; SF.n=0; SF.stick=true;
+    sfSetState('订阅中','g'); document.getElementById('sfCnt').textContent='0 条'; sfGate(true); };
+  es.addEventListener('sess',function(ev){ if(SF.es!==es)return; var d=null; try{ d=JSON.parse(ev.data) }catch(e){ return }
+    if(d===null){ sfGone(); return }
+    if(d&&d.__tf==='ack'){ sfAck(d); return }
+    var e=d&&d.ev?d.ev:d; sfPush(e); });
+  // 插话回执：member-stream event:'ack'（服务端实现）；兼容 event:'followup-ack'（契约别名）
+  es.addEventListener('ack',function(ev){ if(SF.es!==es)return; var d=null; try{ d=JSON.parse(ev.data) }catch(e){ return } sfAck(d); });
+  es.addEventListener('followup-ack',function(ev){ if(SF.es!==es)return; var d=null; try{ d=JSON.parse(ev.data) }catch(e){ return } sfAck(d); });
+  es.addEventListener('end',function(ev){ if(SF.es!==es)return; var d=null; try{ d=JSON.parse(ev.data) }catch(e){}
+    SF.ended=true; document.getElementById('sfEnd').classList.add('on');
+    var why=(d&&d.reason)==='member-offline'?'成员离线，流结束':'会话同意已结束/过期，镜像停止';
+    sfSetState('已结束','a');
+    document.getElementById('sfEnd').textContent='▪ 已结束——'+why+'。重新请求会话镜像并获同意后可再订阅。';
+    document.getElementById('sfWhy').textContent='通道已结束——插话关闭。';
+    if(SF.pending){ var pa=SF.pending.querySelector('.ack'); if(pa){ pa.className='ack pill r sfack'; pa.textContent='✗ 未送达（流已结束）'; } SF.pending=null; }
+    try{ es.close() }catch(e){} if(SF.es===es)SF.es=null; });
+  es.onerror=function(){ if(SF.es!==es)return;
+    if(es.readyState===2){ sfSetState('无法订阅','r');
+      if(!SF.n) sfListEl().innerHTML='<div class="ph">订阅被拒（403）——TA 尚无激活的会话同意，或服务端通道未部署；同意开放后重新点选成员即可。</div>';
+      sfGate(true); }
+    else sfSetState('重连中…','a'); };
+  sfGate(true);
+}
+function sfPush(e){
+  var ph=document.getElementById('sfPh'); if(ph)ph.remove();
+  var el=sfListEl(); var ty=(e&&e.type)||'status';
+  var tstr=(e&&e.ts)?new Date(e.ts).toLocaleTimeString():'';
+  var row=document.createElement('div');
+  if(ty==='user'){ row.className='sfmsg sf-user'; row.innerHTML='<div class="who">成员输入 · '+tstr+'</div>'+esc((e&&e.text)||''); }
+  else if(ty==='assistant'){ row.className='sfmsg sf-assistant'; row.innerHTML='<div class="who">助手 · '+tstr+'</div>'+esc((e&&e.text)||''); }
+  else if(ty==='tool'){
+    row.className='sfmsg sf-tool'; var full=(e&&e.text)||''; var first=full.split('\n')[0].slice(0,90);
+    row.innerHTML='<div class="head"><span>🔧 工具 · '+tstr+' · '+esc(first)+(full.length>first.length?' …':'')+'</span><span class="ar">▸</span></div><div class="body">'+esc(full)+'</div>';
+    row.onclick=function(){ row.classList.toggle('open'); var a=row.querySelector('.ar'); if(a)a.textContent=row.classList.contains('open')?'▾':'▸'; };
+  }
+  else { row.className='sfmsg sf-status'; row.textContent=(tstr?tstr+' · ':'')+(e&&e.text||'状态同步'); }
+  el.appendChild(row); SF.n++;
+  while(el.children.length>320)el.removeChild(el.firstChild);
+  document.getElementById('sfCnt').textContent=SF.n+' 条';
+  sfScroll();
+}
+sfListEl().onscroll=function(){ SF.stick=sfAtBottom();
+  document.getElementById('sfJump').style.display=(SF.stick||!SF.n)?'none':'inline-flex'; };
+document.getElementById('sfJump').onclick=function(){ SF.stick=true; sfScroll(); };
+function sfGate(force){
+  var now=Date.now(); if(!force&&now-SF.lastGate<4000)return; SF.lastGate=now;
+  var inp=document.getElementById('sfInput'), btn=document.getElementById('sfSend');
+  var rq=document.getElementById('sfReqSess');
+  rq.style.display=(SF.member&&!SF.ended)?'':'none';
+  var setok=function(on,hint){ inp.disabled=!on; btn.disabled=!on; if(on)rq.style.display='none';
+    inp.placeholder=on?('向 '+(SF.member||'成员')+' 的 dsh 会话插话（Enter 发送）…'):'插话不可用';
+    document.getElementById('sfWhy').textContent=hint; };
+  if(!SF.member){ setok(false,'未选择成员——点上方成员设备，订阅其会话流后可插话（需 rw 会话通道）。'); return }
+  if(SF.ended){ setok(false,'通道已结束——插话关闭。重新请求会话镜像并获同意后恢复。'); return }
+  api('/dsh-termfleet/consent/list').then(function(d){
+    if(SF.ended)return;
+    var c=(d.consents||[]).filter(function(x){return x.type==='sess'&&x.status==='active'&&x.target==='member:'+SF.member})[0];
+    if(!c){ setok(false,'未建立会话镜像通道（type=sess）——点「请求会话镜像」，TA 同意后对话流与插话同时开放。'); return }
+    if(c.mode!=='rw'){ setok(false,'只读（ro）会话通道——插话需 rw；服务端对 ro 插话返回 403 readonly-channel。'); return }
+    setok(true,'rw 会话通道 · 剩 '+fmtRemain(c.expireAt-Date.now())+' · 插话注入 TA 的活动 dsh 会话，回执经 followup-ack 显示。');
+  }).catch(function(){ setok(false,'通道状态查询失败——稍后自动重试。') });
+}
+document.getElementById('sfReqSess').onclick=function(){
+  if(!SF.member)return;
+  api('/dsh-termfleet/consent/request',{type:'sess',target:'member:'+SF.member}).then(function(d){
+    if(d&&d.ok) toast('已请求会话镜像——等 TA 在成员页同意（30 分钟限时）');
+    else toast('请求失败：'+((d&&d.error)||'未知'));
+  }).catch(function(e){ toast('请求失败：'+e); });
+};
+function sfSend(){
+  var i=document.getElementById('sfInput'); var v=i.value.trim(); if(!v||!SF.member)return;
+  var btn=document.getElementById('sfSend'); btn.disabled=true;
+  api('/dsh-termfleet/interject',{member:SF.member,text:v}).then(function(d){
+    btn.disabled=false;
+    if(d&&d.ok){ sfLocalEcho(v); document.getElementById('sfWhy').textContent='已发往成员会话——等待回执（followup-ack）…'; }
+    else{ var er=(d&&d.error)||'未知原因';
+      document.getElementById('sfWhy').textContent='插话被拒：'+er+(er==='readonly-channel'?'（只读通道）':er==='no-consent'?'（无激活同意）':'');
+      toast('插话被拒：'+er); sfGate(true); }
+  }).catch(function(e){ btn.disabled=false; document.getElementById('sfWhy').textContent='插话发送失败：'+e; });
+}
+function sfLocalEcho(v){
+  var el=sfListEl(); var ph=document.getElementById('sfPh'); if(ph)ph.remove();
+  var row=document.createElement('div'); row.className='sfmsg sf-user';
+  row.innerHTML='<div class="who">我 · 插话 · '+new Date().toLocaleTimeString()+'</div>'+esc(v)+'<div class="ack pill a sfack">发送中…</div>';
+  el.appendChild(row); SF.n++;
+  document.getElementById('sfCnt').textContent=SF.n+' 条';
+  SF.pending=row; sfScroll();
+}
+function sfAck(d){
+  var ok=!!(d&&d.ok);
+  if(SF.pending){ var a=SF.pending.querySelector('.ack');
+    if(a){ a.className='ack pill '+(ok?'g':'r')+' sfack'; a.textContent=ok?('✓ 已送达'+(d&&d.via?'（'+d.via+'）':'')):'✗ 未送达'+(d&&d.reason?'（'+d.reason+'）':''); }
+    SF.pending=null; }
+  document.getElementById('sfWhy').textContent=ok?'最近插话已送达 ✓':'最近插话未送达 ✗——成员侧注入失败或会话已关。';
+  if(!ok)toast('插话回执：未送达');
+}
+function sfGone(){
+  sfSetState('成员离线','r');
+  document.getElementById('sfWhy').textContent='成员总线连接断开——流已收口；TA 回线后重新点选即可恢复订阅。';
+}
+document.getElementById('sfSend').innerHTML=ic('Send',13)+' 插话';
+document.getElementById('sfSend').onclick=sfSend;
+document.getElementById('sfInput').addEventListener('keydown',function(ev){ if(ev.key==='Enter'&&!ev.shiftKey){ ev.preventDefault(); sfSend(); } });
 
 /* ═══ 任务 ═══ */
 function load(){ return api('/dsh-termfleet/tasks').then(function(d){ ST.tasks=d.tasks||[]; render(); }).catch(function(){}); }
@@ -1089,6 +1298,32 @@ document.getElementById('pairSave').onclick=function(){
   if(!Object.keys(body).length){ toast('未填任何项'); return; }
   api('/dsh-termfleet/pairing',body).then(function(d){ if(d.ok){ toast('配对已保存：'+d.pairing.role+(d.pairing.name?' · '+d.pairing.name:'')+'（member 5s 内连上）'); pollFleet(); } });
 };
+/* 邀请码（lead 侧取码/复制）与一句话入队（member 侧粘贴即配对） */
+document.getElementById('pairCodeBtn').onclick=function(){
+  api('/dsh-termfleet/pairing/code').then(function(d){
+    if(d&&d.code){ document.getElementById('pairCode').value=d.code;
+      document.getElementById('pairNote').textContent='邀请码已生成——发给成员，粘贴点「入队」即配对（码含 lead 地址+团队令牌，请勿外传）。'; toast('邀请码已生成'); }
+    else toast('取码失败：'+((d&&d.error)||'未知'));
+  }).catch(function(e){ toast('取码失败：'+e); });
+};
+document.getElementById('pairCodeCopy').onclick=function(){
+  var inp=document.getElementById('pairCode'); var v=inp.value;
+  if(!v){ toast('先点「取码」生成邀请码'); return; }
+  var done=function(){ toast('邀请码已复制——发给成员即可入队'); };
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(v).then(done,function(){ inp.select(); document.execCommand('copy'); done(); }); }
+  else{ inp.select(); document.execCommand('copy'); done(); }
+};
+document.getElementById('joinBtn').onclick=function(){
+  var code=document.getElementById('joinCode').value.trim();
+  if(!code){ toast('先粘贴邀请码（TF1-…）'); return; }
+  var st=document.getElementById('pairNote');
+  st.textContent='入队中…';
+  api('/dsh-termfleet/pairing/join',{code:code}).then(function(d){
+    if(d&&d.ok){ st.innerHTML='已加入 <b>'+esc(d.lead||d.leadName||'lead')+'</b>——正在连接，5s 内上线。';
+      toast('已加入 '+(d.lead||d.leadName||'lead')); document.getElementById('joinCode').value=''; pollFleet(); }
+    else st.textContent='入队失败：'+((d&&d.error)||'原因未知（码无效/已过期/lead 不可达）');
+  }).catch(function(e){ st.textContent='入队失败：'+e; });
+};
 var imWeb=document.getElementById('imWebhook'), imTg=document.getElementById('imToggle');
 function loadIm(){ api('/dsh-termfleet/im').then(function(d){ imWeb.value=(d.im&&d.im.webhook)||''; imTg.textContent=(d.im&&d.im.enabled)?'已启用 · 关闭':'已停用 · 启用'; }); }
 loadIm();
@@ -1115,7 +1350,7 @@ document.querySelectorAll('#audSeg button').forEach(function(b){ b.onclick=funct
   AUD.k=b.getAttribute('data-k'); renderAudit(); }; });
 
 /* ═══ 启动 ═══ */
-api('/dsh-termfleet/consent/list').then(function(d){ var c=(d.consents||[]).find(function(x){return x.type==='pty'&&(x.status==='pending'||x.status==='active')}); if(c){ CH=c; } renderChannel(); }).catch(function(){renderChannel()});
+api('/dsh-termfleet/consent/list').then(function(d){ var c=(d.consents||[]).find(function(x){return (x.type==='pty'||x.type==='sess')&&(x.status==='pending'||x.status==='active')}); if(c){ CH=c; } renderChannel(); }).catch(function(){renderChannel()});
 // 键盘快捷键：Esc=关弹窗/抽屉, 1-4=切导航, /=聚焦搜索
 document.addEventListener('keydown', function(ev) {
   if (ev.key === 'Escape') {
