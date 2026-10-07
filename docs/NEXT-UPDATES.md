@@ -22,7 +22,15 @@
 - **做法**：client 半注册 dsh 通知槽位（0.2.0 有 notification surface 待查）+ 有请求时宿主弹条
 - **✅ 实测结论（2026-10-07）**：契约 E 生效——lead 面板 tf-notify 弹条实测 DOM：member-join「P0-MEMBER 上线」、consent-request「me 请求连接 sess → member:P0-MEMBER」带「去处理」按钮（hasGo=true），7s 窗口内截图 p0-4-tf-notify.png 留存；成员侧同意卡（ro/rw）同轮实测出现（p0-5-*.png）。事件种类与下发通道见 decisions「契约 E」
 
+## ⚠️ 兼容观察：dsh 0.2.1-alpha.1（2026-10-07 调研轮，详见 COMPETITOR-SCAN-1006.md）
+
+- 上游 2026-10-03 发 0.2.1-alpha.1：两条破坏性变更（`invariant` 导出移除、输入区 stats 拆为 activity/usage）——**本仓 grep 实证两者均未使用**（2026-10-07）
+- 兼容守卫会按 peer 声明线**静默跳过**插件（nanmicoder 已中招）；本仓 peerDependencies 未声明宿主版本线、现装 0.2.0-rc.2 加载正常（verify-p0 E2E 即实证）——**0.2.1 稳定后第一件事**：真机回归 + 实证守卫对「无宿主版本声明插件」的语义，必要时补声明
+- 0.2.0 正式版仍未发布（npm latest 仍 0.2.0-rc.2）；dsh-team-rooms 已于 2026-10-05 宣布 RETIRED（官方 agent-team 收编赛道，无新版）——「人对人 via 会话」生态位仍空
+
 ## P1 —— 让日常使用顺手
+
+> **2026-10-07 调研轮排序调整**：任务板已是三方供给（官方 agent-team 收编 team-rooms + linxin666 ≈3.5万/wk + nanmicoder ≈1.3万/wk），无稀缺性；TermFleet 的稀缺位=**人对人会话层**。#4 强关联升为 P1 首位（wowyuarm 2026-09-27「谁在做什么」issue=人类版需求实证）；#5 摘要推送次之（feishu-bot/astrbot 审批卡验证 IM 需求）；竞品健壮性坑（team.json 损坏炸宿主、WAL 陈旧备份）转化为 TermFleet 稳定性对照卖点。
 
 ### 4. 任务↔会话强关联
 - 创建任务时"绑定当前会话"；lead 的任务详情里直接看该会话实时流（和 #1 共用管道）
@@ -39,7 +47,7 @@
 
 - 面板原生化（iframe → slots React 组件，主题/导航全原生融合；0.2.0 rightbar 布局研究）
 - 成本接 dsh-cost-meter 价目表（当前只有操作数/时长估算）
-- 接管回放升级：按审计事件切片跳转
+- 接管回放升级：按审计事件切片跳转（2026-10-07 调研降级：无稀缺性、需求实证弱，排 P2 末位）
 - 封印 manifest（归档防篡改，unified-board 对齐收尾）
 - 向量查重（hippo 向量能力接入，新建任务查重）
 
