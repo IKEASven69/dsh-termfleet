@@ -114,3 +114,11 @@ Host 头回落（优先级第三）在跨机经 lan-forwarder 时不可达——
 ## 2026-10-07 · auditStore.add 永不 reject（评审 #4 修复）
 
 审计写盘 writeFileSync 包 try/catch（lib/index.js:425-427），失败降级 console.error+内存留存——add 永不 reject，全文件约 20 个调用点（含十余处未 await 的 fire-and-forget）一次性根治 unhandled rejection 击穿宿主的风险。副作用改善：以往 `await add` 在 try 内的路由（/consent/request 等）写盘失败会把**已成功的操作**误响应 400，现在不会。
+
+## 2026-10-07 · 契约 F：任务↔会话强关联 = task.session 显式绑定 + 弱匹配兜底（P1 首位落地）
+
+绑定载体存 **id 不存名字**（生态共识：官方 agent-team `TeamTaskSnapshot.ownerId: SessionId`；nanmicoder #203 实证按名字绑定在 Unicode 下永不命中）。`task.session = {member, sessionId, label, boundBy, boundAt}`（normSession 校验，sessionId 必填；member=''=本机）。操作：`tasks/action op=bind-session|unbind-session`（坏参数 _gateError→409）；创建表单勾选「绑定本机当前 dsh 会话」（probe-session 最后 sessionId 预填，成员端自动带 FLEET.name 归属）。**弱匹配兜底升级**：成员 sess-event 镜像进 lead state.sessionEvents 时带 `member` 归属 → session-links 命中含归属 → 详情「会话」tab 一键转正（不带归属会把成员会话误标本机）。**会话已结束≠解绑**（调研定调：冻结可回看，绝不静默改绑/清绑）；解绑仅显式。详情「▶ 实时看」跳远程页按 member 粒度订阅（与 #1 会话流镜像共用管道，同意门照常生效）。成员 hello/presence 上报真实 dsh 会话 id（dshSessions：环形缓冲去重后 3 条）。已知后续项：subagent 会话过滤（需 header.origin 透出到 sessionEvents）、时钟偏移下 sessionId 跨重启稳定性观察。
+
+## 2026-10-07 · 契约 G：任务板跨机同步 v1 = op 上行 + 全量广播 + 墓碑 + 上线对账（lead 权威）
+
+发现前提缺口：任务板原本只在单机（/tasks 全走本地 tasks.json，总线零任务帧）——「共享任务板」跨机不成立，本契约补上。**协议**：①成员本地乐观执行后上行 `{t:'task-op', kind:'create'|'action', body, by}`（role!=='member' 或断线 no-op）→ lead 过**同一套门禁**应用（by=名@成员机，门禁拒绝时审计+广播真相，成员按 updatedAt 自愈）→ `broadcastTasks` 全量广播 `{t:'tasks', tasks, tombstones}`；②成员收 tasks 走 `taskStore.mergeFrom(remote, tombstones)` 按 updatedAt **后写赢**合并（走闭包内存+save，不绕缓存直写——requestRemote 短路同款教训）；③**删除墓碑**：delete 推 `{id, deletedAt, by}`（cap 50）随广播走，成员据此清本地幽灵任务（mergeFrom 无墓碑无法区分「从没有」和「被删」——独立复审抓出的高危缺口，S11 回归锁）；④**上线对账**：成员 open 后上行 `{t:'task-report', tasks}`，lead `importFrom` 收编它没有的离线任务（不复活墓碑任务）再广播。**id 防撞**：id 追加舰队名标签（`T-001-P0LEAD`，boot 同步注入 setIdTag；create 帧沿用来源 id 但需格式+库内查重双校验，防同任务双 id 与伪造重复）。已知取舍：后写赢基于跨机墙钟（时钟偏移会逆转真实后写，v1 接受，文档标注）；成员断线期间的 op 补报=上线 task-report 对账（E2E 未模拟断线创建，跨机真机验收覆盖）。

@@ -20,6 +20,12 @@
 //      tfAdvertise() 按浏览器 location 计算——非本机打开时给可达 ws 地址、本机回落 Host 头。
 //   S8 成员面板自持静默：成员答复同意后不自开 pty、不自订阅 member-stream（全程 0 请求）、
 //      不误弹「成员机不在线」toast（评审 #2 回归锁）。
+//   S9 任务板跨机同步+会话强绑定（契约 F/G）：member 建任务绑定本机会话 → task-op 上行 →
+//      lead 权威库同 id 可见（绑定字段完整）；lead 建任务 → 广播 → member 合并；id 舰队名标签
+//      防撞、来源 id 沿用防重复。
+//   S10 弱匹配→强关联全链：session-links 命中（镜像事件的 member 归属为真门禁）→ 转正 bind →
+//      unbind → null；坏参数 409。
+//   S11 删除跨机传播（墓碑）：lead 建任务广播可见 → lead 删 → 墓碑随广播，member 板清幽灵任务。
 //
 // 隔离纪律：
 //   - 双实例 DSH_HOME 指向本次运行的临时目录（os.tmpdir()），且 lead/member 各持
@@ -177,7 +183,7 @@ async function main() {
 
   const children = []
   let browser = null
-  const SCEN = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8']
+  const SCEN = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10', 'S11']
   try {
     // ── 拉 lead（env 指定角色/令牌；契约启动式同 ACCEPTANCE-M1，仅 HOME 隔离） ──
     const lead = launchDsh({ port: leadPort, patchFile, dshHome: dshHomeLead, userProfile: userProfileLead, envExtra: { TERMFLEET_ROLE: 'lead', TERMFLEET_TOKEN: TEAM_TOKEN, TERMFLEET_NAME: 'P0-LEAD' }, tag: 'lead' })
@@ -467,10 +473,76 @@ async function main() {
     R('S8 成员面板自持静默(成员答复后0次自订阅member-stream+无误弹)',
       s8Ok, `member 页全程 member-stream 请求数=${memberMsReqs}(期望0)；member 页 toasts=[${memberToasts.slice(0, 200)}]`)
 
+    // ═══ S9 任务板跨机同步 + 会话强绑定（契约 F/G）：member 建任务(绑定本机会话)→task-op 上行→lead 权威库；
+    //     lead 建任务→广播→member 合并；双方 id 不撞（舰队名标签），绑定字段跨机完整 ═══
+    let s9Ok = false, s9Ev = '未执行'
+    try {
+      const pm9 = await apiJson(memberPort, 'probe-session')
+      const mSid9 = ((pm9.j?.sessionEvents || []).slice(-1)[0] || {}).sessionId || ''
+      const mk9 = 'P0E2E-' + RUN + '-S9成员绑定任务'
+      const ct9 = await apiJson(memberPort, 'tasks/create', 'POST', { title: mk9, project: '默认', session: { member: MEMBER_NAME, sessionId: mSid9, label: 'S9 绑定' } })
+      const seen9 = await waitFor(async () => {
+        const l = await apiJson(leadPort, 'tasks')
+        return (l.j?.tasks || []).find((t) => t.title === mk9) || null
+      }, 15000, 500, 'lead 收到成员任务(task-op 上行)')
+      const mk9b = 'P0E2E-' + RUN + '-S9lead任务'
+      await apiJson(leadPort, 'tasks/create', 'POST', { title: mk9b })
+      const seen9b = await waitFor(async () => {
+        const l = await apiJson(memberPort, 'tasks')
+        return (l.j?.tasks || []).find((t) => t.title === mk9b) || null
+      }, 15000, 500, 'member 收到 lead 任务(tasks 广播)')
+      const l9 = await apiJson(memberPort, 'tasks')
+      const dup9 = (l9.j?.tasks || []).filter((t) => t.title === mk9)
+      const okBind = seen9.v?.session?.sessionId === mSid9 && seen9.v?.session?.member === MEMBER_NAME
+      s9Ok = ct9.status === 200 && !!seen9.v && okBind && !!seen9b.v && dup9.length === 1
+      s9Ev = `member 建任务(id=${ct9.j?.task?.id})绑定本机会话 ${mSid9.slice(0, 20)} → task-op 上行，lead ${seen9.ms}ms 内可见且沿用同一 id=${seen9.v?.id}（session.member=${seen9.v?.session?.member} sessionId 一致=${okBind}）；lead 建任务 → 广播，member ${seen9b.ms}ms 内可见(id=${seen9b.v?.id})；member 板上该任务仅 ${dup9.length} 份（防双 id 重复）`
+    } catch (e) { s9Ev = '卡点：' + e.message }
+    R('S9 任务板跨机同步+会话强绑定(task-op上行/广播下行/绑定跨机完整/id不撞不重)', s9Ok, s9Ev)
+
+    // ═══ S10 弱匹配→强关联全链 + 绑定生命周期 + 门禁 ═══
+    // 弱匹配真实门禁：项目名取本轮 E2E 标记前缀——S2/S3 成员会话 brief 已镜像进 lead 环形缓冲且带 member 归属，
+    // session-links 必须命中该任务且 link.member===成员名，转正后 session.member 正确（此前为证据性断言，评审指出后升级）。
+    let s10Ok = false, s10Ev = '未执行'
+    try {
+      const t10 = await apiJson(leadPort, 'tasks/create', 'POST', { title: 'P0E2E-' + RUN + '-S10弱匹配转正', project: 'P0E2E-' + RUN })
+      const id10 = t10.j?.task?.id
+      const sl10 = await apiJson(leadPort, 'session-links')
+      const link10 = (sl10.j?.links || []).find((x) => x.taskId === id10)
+      const b1 = link10 ? await apiJson(leadPort, 'tasks/action', 'POST', { op: 'bind-session', id: id10, patch: { session: { member: link10.member || '', sessionId: link10.sessionId, label: 'S10 弱匹配转正' } } }) : { status: 0 }
+      const t1 = ((await apiJson(leadPort, 'tasks')).j?.tasks || []).find((x) => x.id === id10)
+      const b2 = await apiJson(leadPort, 'tasks/action', 'POST', { op: 'unbind-session', id: id10 })
+      const t2 = ((await apiJson(leadPort, 'tasks')).j?.tasks || []).find((x) => x.id === id10)
+      const b3 = await apiJson(leadPort, 'tasks/action', 'POST', { op: 'bind-session', id: id10, patch: { session: { member: '', sessionId: '', label: '缺id' } } })
+      const goodLink = !!link10 && link10.member === MEMBER_NAME
+      s10Ok = t10.status === 200 && goodLink && b1.status === 200 && t1?.session?.member === MEMBER_NAME && t1?.session?.sessionId === link10?.sessionId && b2.status === 200 && t2?.session === null && b3.status === 409
+      s10Ev = `弱匹配：session-links=${sl10.status} 命中 ${id10}（sessionId=${(link10?.sessionId || '').slice(0, 20)} member=${link10?.member}——镜像归属真门禁）→ 转正 bind ${b1.status}（session.member=${t1?.session?.member}，sessionId 一致=${t1?.session?.sessionId === link10?.sessionId}）→ unbind ${b2.status}(session=${JSON.stringify(t2?.session)}) → 坏参数=${b3.status}(${b3.j?.error})`
+    } catch (e) { s10Ev = '卡点：' + e.message }
+    R('S10 弱匹配→强关联全链(归属真门禁)+绑定生命周期+门禁', s10Ok, s10Ev)
+
+    // ═══ S11 删除跨机传播（墓碑）：lead 建任务→member 可见→lead 删→member 板清掉（幽灵任务回归锁） ═══
+    let s11Ok = false, s11Ev = '未执行'
+    try {
+      const mk11 = 'P0E2E-' + RUN + '-S11删除传播'
+      const c11 = await apiJson(leadPort, 'tasks/create', 'POST', { title: mk11 })
+      const id11 = c11.j?.task?.id
+      const seen11 = await waitFor(async () => {
+        const l = await apiJson(memberPort, 'tasks')
+        return (l.j?.tasks || []).some((t) => t.id === id11) ? true : null
+      }, 15000, 500, 'member 收到待删任务')
+      const d11 = await apiJson(leadPort, 'tasks/action', 'POST', { op: 'delete', id: id11 })
+      const gone = await waitFor(async () => {
+        const l = await apiJson(memberPort, 'tasks')
+        return (l.j?.tasks || []).every((t) => t.id !== id11) ? true : null
+      }, 15000, 500, 'member 板上该任务已被墓碑清掉')
+      s11Ok = c11.status === 200 && !!seen11.v && d11.status === 200 && !!gone.v
+      s11Ev = `lead 建 ${id11} → member ${seen11.ms}ms 可见；lead delete ${d11.status} → 墓碑随广播，member ${gone.ms}ms 内该任务消失`
+    } catch (e) { s11Ev = '卡点：' + e.message }
+    R('S11 删除跨机传播(墓碑随广播/member板清幽灵任务)', s11Ok, s11Ev)
+
     // 汇总（每场景一行）
     console.log('\n═══ P0 E2E 结果 ═══')
     for (const r of results) console.log(`${r.name}→${r.ok ? 'PASS' : 'FAIL'} 证据: ${r.evidence}`)
-    const allPass = results.length === 8 && results.every((r) => r.ok)
+    const allPass = results.length === 11 && results.every((r) => r.ok)
     console.log(`[exit] ${allPass ? 0 : 1}（全 PASS=0）`)
     return allPass ? 0 : 1
   } catch (e) {

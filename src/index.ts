@@ -160,16 +160,28 @@ export function apply(ctx, _config) {
     'archived': [],
   }
   const V1_MAP = { todo: 'needs-triage', doing: 'active', review: 'review', done: 'implemented', blocked: 'blocked' }
+  // 任务↔会话强关联 v1（契约 F）：task.session = {member, sessionId, label, boundBy, boundAt} | null。
+  // member='' 表示本机会话；sessionId 是 dsh 会话 id（seq 级事件流都带，跨重启不保证稳定——绑定存当时 id，实时看走成员粒度流）。
+  const normSession = (s, by) => {
+    if (!s || typeof s !== 'object') return null
+    const sid = String(s.sessionId || '').slice(0, 80).trim()
+    if (!sid) return null
+    return { member: String(s.member || '').slice(0, 30), sessionId: sid, label: String(s.label || '').slice(0, 80), boundBy: String(by || '').slice(0, 40), boundAt: Date.now() }
+  }
   const taskStore = (() => {
     let data = null
     let mods = null
     let file = ''
+    // id 防撞：任务板跨机同步后各实例 seq 独立，id 追加舰队名标签（busLink 起来后注入；旧任务 id 不动）
+    let idTagFn = () => ''
+    const idTag = () => { try { return idTagFn() } catch { return '' } }
     const ensure = async () => {
       if (!mods) mods = { fs: await import('node:fs'), path: await import('node:path'), os: await import('node:os') }
       if (!data) {
         file = mods.path.join(mods.os.homedir(), '.dsh', 'termfleet', 'tasks.json')
         try { data = JSON.parse(mods.fs.readFileSync(file, 'utf8')) } catch { data = { seq: 0, tasks: [] } }
         if (!data || !Array.isArray(data.tasks)) data = { seq: 0, tasks: [] }
+        if (!Array.isArray(data.tombstones)) data.tombstones = [] // 任务板同步 v1：删除墓碑（随广播走，成员据此清本地）
         // v1→v2 迁移：旧状态映射 + 补 v2 字段
         for (const t of data.tasks) {
           if (!T_STATES.includes(t.status)) { t.status = V1_MAP[t.status] || 'needs-triage' }
@@ -177,6 +189,7 @@ export function apply(ctx, _config) {
           if (!t.pending) t.pending = []
           if (!t.slices) t.slices = []
           if (!t.relatesTo) t.relatesTo = []
+          if (!('session' in t)) t.session = null
           if (!t.state) t.state = { selfcheck: 'pending', independentVerify: 'pending', returns: 0, next: '', gitBase: '' }
           if (t.owner && !t.assignee) t.assignee = t.owner
         }
@@ -203,13 +216,55 @@ export function apply(ctx, _config) {
       return null
     }
     return {
+      setIdTag(fn) { idTagFn = fn || (() => '') },
+      // 任务板同步 v1（member 侧）：lead 全量合并进本库——按 updatedAt 后写赢；墓碑随广播清本地幽灵任务。
+      // 走本闭包内存+save，不绕过缓存直写文件。
+      async mergeFrom(remote, tombstones) {
+        const d = await ensure()
+        let changed = 0
+        const byId = new Map(d.tasks.map((x) => [x.id, x]))
+        for (const r of (Array.isArray(remote) ? remote : [])) {
+          if (!r || !r.id) continue
+          const l = byId.get(r.id)
+          if (!l || (r.updatedAt || 0) >= (l.updatedAt || 0)) { byId.set(r.id, r); changed++ }
+        }
+        for (const tb of (Array.isArray(tombstones) ? tombstones : [])) {
+          if (!tb || !tb.id) continue
+          const l = byId.get(tb.id)
+          if (l && (l.updatedAt || 0) <= (tb.deletedAt || 0)) { byId.delete(tb.id); changed++ } // 删除后本地又改过的不清（复活冲突交人工，v1 保守）
+        }
+        if (changed) { d.tasks = [...byId.values()]; save() }
+        return d.tasks
+      },
+      // 任务板同步 v1（lead 侧）：成员上线对账（task-report）——收编 lead 没有的离线任务 + 后写赢合并；不复活墓碑任务
+      async importFrom(remote, by) {
+        const d = await ensure()
+        let changed = 0
+        const byId = new Map(d.tasks.map((x) => [x.id, x]))
+        const tombs = new Map((d.tombstones || []).map((x) => [x.id, x.deletedAt || 0]))
+        for (const r of (Array.isArray(remote) ? remote : [])) {
+          if (!r || typeof r.id !== 'string' || !/^T-\d{3}-[A-Za-z0-9]{1,8}$/.test(r.id)) continue
+          if ((r.updatedAt || 0) <= (tombs.get(r.id) || 0)) continue // 已删任务不收编（成员断线前的旧副本）
+          const l = byId.get(r.id)
+          if (!l || (r.updatedAt || 0) > (l.updatedAt || 0)) { byId.set(r.id, r); changed++ }
+        }
+        if (changed) {
+          d.tasks = [...byId.values()]; save()
+          auditStore.add(by || '成员', '上线对账收编任务', changed + ' 条')
+        }
+        return d.tasks
+      },
+      async tombstones() { return (await ensure()).tombstones || [] },
       async list() { return (await ensure()).tasks },
       async create(input, by) {
         const d = await ensure()
         d.seq++
         const st = T_STATES.includes(input.status) ? input.status : 'needs-triage'
         const t = {
-          id: 'T-' + String(d.seq).padStart(3, '0'),
+          // 任务板同步 v1：bus 上行的 create 带来源实例已生成的 id（防同任务双 id 重复）——格式校验+库内查重都过才沿用，否则本机生成
+          id: (typeof input.id === 'string' && /^T-\d{3}-[A-Za-z0-9]{1,8}$/.test(input.id) && !d.tasks.some((x) => x.id === input.id))
+            ? input.id
+            : 'T-' + String(d.seq).padStart(3, '0') + idTag(),
           title: String(input.title ?? '未命名').slice(0, 120),
           desc: String(input.desc ?? '').slice(0, 4000),
           project: String(input.project ?? '默认').slice(0, 60),
@@ -222,6 +277,7 @@ export function apply(ctx, _config) {
           pending: Array.isArray(input.pending) ? input.pending.slice(0, 26).map((c, i) => ({ id: 'C' + (i + 1), text: String(c.text || c).slice(0, 200), done: false })) : [],
           slices: [],
           relatesTo: Array.isArray(input.relatesTo) ? input.relatesTo.slice(0, 10) : [],
+          session: normSession(input.session, by),
           agentBrief: { progress: '', decisions: '', next: '', pitfalls: '' },
           state: { selfcheck: 'pending', independentVerify: 'pending', returns: 0, next: st === 'needs-triage' ? 'triage' : '', gitBase: String(input.gitBase || '').slice(0, 10) },
           createdAt: Date.now(), updatedAt: Date.now(),
@@ -238,6 +294,13 @@ export function apply(ctx, _config) {
         const H = (what) => { t.history.push({ ts: Date.now(), by, what }); t.updatedAt = Date.now() }
         if (op === 'claim') { const from = t.owner; t.owner = by; H(`认领 ${from ?? '无人'} → ${by}`) }
         else if (op === 'release') { t.owner = null; H('取消认领') }
+        else if (op === 'bind-session') {
+          const ns = normSession(patch?.session, by)
+          if (!ns) { t._gateError = 'bind-session 需要 patch.session.sessionId'; return t }
+          t.session = ns
+          H('绑定会话 ' + (ns.member ? ns.member + ' · ' : '本机 · ') + ns.sessionId.slice(0, 20))
+        }
+        else if (op === 'unbind-session') { if (t.session) { t.session = null; H('解绑会话') } }
         else if (op === 'update') {
           for (const k of ['title', 'desc', 'project', 'due', 'cli'])
             if (typeof patch?.[k] === 'string') { t[k] = String(patch[k]).slice(0, k === 'desc' ? 4000 : 120); H(`改 ${k}`) }
@@ -280,7 +343,15 @@ export function apply(ctx, _config) {
             if (t.state.returns >= 5) { t.status = 'blocked'; H('打回达上限 5 次 → blocked，交人裁决') }
           }
           H(`状态 ${from} → ${to}`)
-        } else if (op === 'delete') { auditStore.add(by, '删除任务', id + ' ' + (t.title || '')); d.tasks = d.tasks.filter((x) => x.id !== id); save(); return t }
+        } else if (op === 'delete') {
+          auditStore.add(by, '删除任务', id + ' ' + (t.title || ''))
+          d.tasks = d.tasks.filter((x) => x.id !== id)
+          // 任务板同步 v1：墓碑随广播走——否则成员板上残留幽灵任务且可继续操作
+          d.tombstones = (d.tombstones || []).filter((x) => x.id !== id)
+          d.tombstones.push({ id, deletedAt: Date.now(), by: String(by || '').slice(0, 40) })
+          if (d.tombstones.length > 50) d.tombstones.splice(0, d.tombstones.length - 50)
+          save(); return t
+        }
         else return t
         auditStore.add(by, '任务操作 ' + op, id + ' ' + (t.title || ''))
         save(); return t
@@ -588,6 +659,8 @@ export function apply(ctx, _config) {
               lead.conns.set(name, { ws, lastSeen: Date.now(), sessions: m.sessions || [], events: [], ptyOut: [], sessSubs: [], lastFollowupAck: null })
               ctx.logger.info('dsh-termfleet bus: 成员上线 ' + name)
               emitNotify('member-join', name + ' 上线')
+              // 任务板同步 v1：成员上线即推送当前任务全量+墓碑（成员按 updatedAt 合并、按墓碑清幽灵）
+              void Promise.all([taskStore.list(), taskStore.tombstones()]).then(([tasks, tombstones]) => send(ws, { t: 'tasks', tasks, tombstones, at: Date.now() })).catch(() => { /* 就算了 */ })
               return
             }
             if (!name) return
@@ -600,6 +673,9 @@ export function apply(ctx, _config) {
               if (ev) {
                 if (m.consentId && !ev.consentId) ev.consentId = m.consentId
                 c.events.push(ev); if (c.events.length > 300) c.events.shift() // 契约 B：环形缓冲 ≤300
+                // 弱匹配跨机：成员会话事件镜像进本地环形缓冲（session-links 按项目名匹配成员会话用；member 字段供转正时归属）
+                state.sessionEvents.push({ t: ev.ts || Date.now(), sessionId: ev.sessionId, seq: ev.seq, type: ev.type, brief: ev.text, member: name })
+                if (state.sessionEvents.length > 500) state.sessionEvents.shift()
                 for (const f of c.sessSubs) { try { f(ev) } catch {} } // 实时转发 member-stream 订阅者
               }
             }
@@ -624,6 +700,31 @@ export function apply(ctx, _config) {
                   if (c2) { notifyConsentEnd(c2); auditStore.add(name, '断开通道(成员机上行)', m.id) }
                 })
               }).catch(() => { /* 单帧收口失败不拖垮总线，心跳兜底 */ })
+            }
+            else if (m.t === 'task-op') {
+              // 任务板同步 v1：成员 op 上行 → lead 过同一套门禁应用（by=成员名@成员机）→ 全量广播真相。
+              // 成员端已乐观执行；lead 门禁拒绝时广播回真相，成员按 updatedAt 自愈。
+              void (async () => {
+                const by = name + '@成员机'
+                try {
+                  if (m.kind === 'create') {
+                    const t = await taskStore.create(m.body || {}, by)
+                    if (t) emitNotify('task', by + ' 新建 ' + t.id + ' ' + String(t.title || '').slice(0, 50))
+                  } else if (m.kind === 'action') {
+                    const t = await taskStore.act(String((m.body || {}).op ?? ''), String((m.body || {}).id ?? ''), (m.body || {}).patch ?? {}, by)
+                    if (t && t._gateError) { const err = t._gateError; delete t._gateError; auditStore.add(by, '拒任务操作(门禁)', String((m.body || {}).id ?? '') + ' ' + err) }
+                    else if (t) emitNotify('task', by + ' 任务操作 ' + String((m.body || {}).op ?? '') + ' ' + String((m.body || {}).id ?? ''))
+                  }
+                } catch (e) { auditStore.add(by, '任务操作失败', String(e).slice(0, 120)) }
+                await broadcastTasks()
+              })().catch(() => { /* 单帧失败不拖垮总线 */ })
+            }
+            else if (m.t === 'task-report') {
+              // 任务板同步 v1：成员上线对账——收编 lead 没有的离线任务（后写赢），广播给全员
+              void (async () => {
+                await taskStore.importFrom(m.tasks, name + '@成员机')
+                await broadcastTasks()
+              })().catch(() => { /* 单帧失败不拖垮总线 */ })
             }
           })
           ws.on('close', () => {
@@ -664,7 +765,9 @@ export function apply(ctx, _config) {
           let settled = false
           ws.on('open', () => {
             settled = true; member.connected = true
-            send(ws, { t: 'hello', name: cfg.name, token: cfg.token, sessions: [{ id: 'pwsh', tag: 'cli', label: 'pwsh 会话' }] })
+            send(ws, { t: 'hello', name: cfg.name, token: cfg.token, sessions: [...dshSessions(), { id: 'pwsh', tag: 'cli', label: 'pwsh 会话' }] })
+            // 任务板同步 v1：上线对账——本机全量任务上报（lead 收编它没有的离线任务，后写赢合并）
+            void taskStore.list().then((tasks) => send(ws, { t: 'task-report', tasks, by: cfg.name, ts: Date.now() })).catch(() => { /* 就算了 */ })
             // 契约 B 跨机段兜底：断线期间成员侧已结束的远端同意补报（lead 侧重连后也能即时收口；lead 侧幂等去重）
             void consentStore.all().then((l) => {
               for (const c of l) if (c.remote && c.status === 'ended') send(ws, { t: 'consent-end', member: cfg.name, id: c.id, ts: Date.now() })
@@ -701,6 +804,9 @@ export function apply(ctx, _config) {
                 ack(!!r.ok, r.via, r.reason)
                 if (r.ok) auditStore.add(cfg.name || '成员', '收到插话(' + (r.via || '?') + ')', text.slice(0, 60))
               })().catch(() => ack(false, null, 'inject-crash'))
+            } else if (m.t === 'tasks') {
+              // 任务板同步 v1：lead 权威全量+墓碑 → 本地后写赢合并（离线期间本地操作的 updatedAt 更新，不会被覆盖；被删任务按墓碑清掉）
+              void taskStore.mergeFrom(m.tasks, m.tombstones).catch(() => { /* 单帧失败等下轮同步 */ })
             }
           })
           ws.on('close', () => { if (member.ws === ws) { member.connected = false; member.ws = null } scheduleReconnect() })
@@ -729,7 +835,9 @@ export function apply(ctx, _config) {
         }
         return { state: stt, line, at: last ? last.t : 0, events: evs.length }
       }
-      setInterval(() => { if (member.connected && member.ws) send(member.ws, { t: 'presence', sessions: [{ id: 'pwsh', tag: 'cli', label: 'pwsh 会话' }], summary: summarize() }) }, 30000)
+      // 真实 dsh 会话 id 上报（hello/presence）——任务↔会话绑定与 fleet 卡片用（M0 起 seq 级事件都带 sessionId）
+      const dshSessions = () => state.sessionEvents.slice(-12).map((e) => e.sessionId).filter((v, i, a) => a.indexOf(v) === i).slice(-3).map((id) => ({ id, tag: 'dsh', label: 'dsh 会话 ' + String(id || '').slice(0, 14) }))
+      setInterval(() => { if (member.connected && member.ws) send(member.ws, { t: 'presence', sessions: [...dshSessions(), { id: 'pwsh', tag: 'cli', label: 'pwsh 会话' }], summary: summarize() }) }, 30000)
       bus.sess.push(() => { if (member.connected && member.ws) send(member.ws, { t: 'presence', summary: summarize() }) })
       // 本机会话事件与 PTY 输出上报（宿主内已有钩子，挂转发）
       // 契约 A：sess-event 上行——仅在本机 sess 同意激活期间(rw/ro)且 target 匹配本成员时上行；
@@ -745,11 +853,29 @@ export function apply(ctx, _config) {
       })
       bus.pty.push((d) => { if (member.connected && member.ws) send(member.ws, { t: 'pty-out', d }) })
     }
+    // ── 任务板同步 v1（契约 G）──
+    // lead 权威：本地或成员 op 应用后全量广播 {t:'tasks', tasks}；成员端 mergeFrom 按 updatedAt 后写赢合并。
+    // 成员端本地先乐观执行再上行 {t:'task-op', kind, body}（lead 离线时本机照常用，上线后对账）。
+    const broadcastTasks = async () => {
+      try {
+        const tasks = await taskStore.list()
+        const tombstones = await taskStore.tombstones()
+        for (const [, c] of lead.conns) send(c.ws, { t: 'tasks', tasks, tombstones, at: Date.now() })
+      } catch { /* 读库失败就算了，下个操作再同步 */ }
+    }
+    const memberPushTask = async (kind, body) => {
+      try {
+        const c = await loadCfg()
+        if (c.role !== 'member' || !member.connected || !member.ws) return
+        send(member.ws, { t: 'task-op', kind, body, by: c.name || '成员', ts: Date.now() })
+      } catch { /* 上行失败不拖垮本机操作（后写赢对账兜底） */ }
+    }
     return {
       loadCfg, saveCfg,
       get role() { return cfg ? cfg.role : '?' },
       get cfg() { return cfg },
       leadUpgrade, leadFleet, toMember,
+      broadcastTasks, memberPushTask,
       leadConn: (name) => lead.conns.get(name) || null, // P0：member-stream 取成员环形缓冲/订阅列表
       memberStart: memberLoop,
       memberConnected: () => member.connected,
@@ -1165,8 +1291,11 @@ ctx.inject(['webServer'], (host) => {
             if (req.method !== 'POST') { res.writeHead(405, { allow: 'POST' }); res.end(); return }
             try {
               const body = JSON.parse((await readBody(req)) || '{}')
+              await busLink.loadCfg() // 任务 id 舰队名标签需要 cfg（跨机同步防 id 撞）
               const t = await taskStore.create(body, who(req))
               emitNotify('task', who(req) + ' 新建 ' + t.id + ' ' + String(t.title || '').slice(0, 60))
+              void busLink.memberPushTask('create', { ...body, id: t.id }) // 任务板同步 v1：成员端乐观执行后上行（带已生成 id，lead 沿用防双 id）；lead 端为 no-op
+              void busLink.broadcastTasks()               // lead 端权威广播（成员端 conns 空为 no-op）
               json(res, 200, { ok: true, task: t })
             } catch (e) { json(res, 400, { ok: false, error: String(e).slice(0, 300) }) }
           },
@@ -1183,6 +1312,8 @@ ctx.inject(['webServer'], (host) => {
               if (!t) { json(res, 404, { ok: false, error: 'task not found' }); return }
               if (t && t._gateError) { const err = t._gateError; delete t._gateError; json(res, 409, { ok: false, error: err }); return }
               emitNotify('task', who(req) + ' 任务操作 ' + String(body.op ?? '') + ' ' + String(body.id ?? ''))
+              void busLink.memberPushTask('action', body) // 任务板同步 v1：成功操作才上行/广播（门禁拒绝不同步，两库各自成立）
+              void busLink.broadcastTasks()
               json(res, 200, { ok: true, task: t, tasks: await taskStore.list() })
             } catch (e) { json(res, 400, { ok: false, error: String(e).slice(0, 300) }) }
           },
@@ -1503,7 +1634,7 @@ ctx.inject(['webServer'], (host) => {
               for (const t of tasks) {
                 const proj = (t.project || '默认').toLowerCase()
                 if (proj !== '默认' && text.includes(proj)) {
-                  links.push({ sessionId: sid, taskId: t.id, taskTitle: t.title, project: t.project, lastEvent: last.type, eventCount: evts.length, lastAt: last.t })
+                  links.push({ sessionId: sid, taskId: t.id, taskTitle: t.title, project: t.project, lastEvent: last.type, eventCount: evts.length, lastAt: last.t, member: last.member || '' })
                 }
               }
             }
@@ -1666,6 +1797,12 @@ ctx.inject(['webServer'], (host) => {
       )
       ctx.logger.info('dsh-termfleet: 34 routes registered on webServer (probe/tasks/memory/audit/consent+SSE/bus/member-stream/pairing-code)')
       // lead 角色注册 WS 升级路由；member 角色启动出站连接（跨机总线）
+      // 任务板同步 v1：任务 id 追加舰队名标签——同步注册（不等 boot 异步段，/tasks/create 早期调用也有标签；cfg 名由路由内 loadCfg 保证）
+      taskStore.setIdTag(() => {
+        const c = busLink.cfg
+        const n = String((c && c.name) || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 6)
+        return n ? '-' + n.toUpperCase() : ''
+      })
       ;(async () => {
         await busLink.loadCfg()
         if (busLink.role === 'lead') {

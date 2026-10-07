@@ -502,6 +502,7 @@ body[data-light] .term{background:var(--n1000)}
     <div><label>截止</label><input id="fDue" placeholder="如 周五 / 09-30"></div>
   </div>
   <label>指定 CLI（可空：dsh / kimi / codex / pwsh…）</label><input id="fCli" placeholder="dsh">
+  <label style="display:flex;gap:8px;align-items:center;margin-top:2px"><input type="checkbox" id="fSessOn" checked style="width:auto"> 绑定本机当前 dsh 会话 <span id="fSessHint" style="color:var(--caption);font-size:11.5px">（检测中…）</span></label>
   <label>验收条目（每行一条，自动编号 A1/A2…）</label><textarea id="fAcc" rows="2" placeholder="可执行/可观察的验收条件"></textarea>
   <label>待确认（每行一条 C1/C2…；未清零不得进入实施）</label><textarea id="fPend" rows="2" placeholder="需要拍板的细节点+推荐答案"></textarea>
   <label>描述（TL;DR+背景，即任务文档正文）</label><textarea id="fDesc" rows="4" placeholder="目标一段话+3-5 条重点；背景与决策可后续补"></textarea>
@@ -944,7 +945,8 @@ function cardMeta(t){
   var own = t.owner ? '<span>'+esc(t.owner)+'</span>' : '<span class="claim" data-claim="'+t.id+'">◻ 认领</span>';
   var cli = t.cli ? '<span class="pill" style="border-style:dashed;padding:0 7px;height:18px">'+esc(t.cli)+'</span>' : '';
   var sl = t._linkedSessions ? '<span class="pill b" style="padding:0 7px;height:18px">↔'+t._linkedSessions+'</span>' : '';
-  return '<span class="prio '+t.prio+'" style="flex:none">'+t.prio+'</span><span class="slot">'+own+'</span>'+cli+sl
+  var sb = t.session ? '<span class="pill g" style="padding:0 7px;height:18px" title="绑定会话 '+esc(t.session.sessionId)+'">⚡会话</span>' : '';
+  return '<span class="prio '+t.prio+'" style="flex:none">'+t.prio+'</span><span class="slot">'+own+'</span>'+cli+sl+sb
     +(t.due?'<div class="m2"><span></span><span>'+esc(t.due)+'</span></div>':'');
 }
 function renderBoard(){
@@ -1036,7 +1038,7 @@ function openDrawer(id){
   document.getElementById('flowEl').innerHTML=t.history.map(function(h){
     return '<div class="fe"><span class="ft">'+new Date(h.ts).toLocaleTimeString()+'</span><span class="fx"><b>'+esc(h.by)+'</b> '+esc(h.what)+'</span></div>';
   }).join('')||'<div class="note">（无轨迹）</div>';
-  document.getElementById('dpSessBody').innerHTML='<div class="note" style="margin-bottom:10px">任务关联会话的事件流（seq 级）——M1 接任务↔会话绑定后点亮；当前可在「远程」页看宿主实时事件流。</div><div id="dpSessFeed"></div>';
+  renderSessTab(t); // 会话 tab：绑定卡/弱匹配候选（定义见 renderSessionLinks 原位置，函数声明提升）
   loadMem().then(function(){
     var rel=MEM.lessons.filter(function(l){ return l['source-task']===t.id; });
     document.getElementById('taskNotes').innerHTML=rel.length
@@ -1178,23 +1180,52 @@ function renderDiff(project) {
     }).catch(function() { el.innerHTML = '<div class="ph">网络错误</div>' })
 }
 
-function renderSessionLinks(taskId) {
-  var el = document.getElementById('dpSessBody')
-  if (!el) return
-  api('/dsh-termfleet/session-links').then(function(d) {
-    if (!d.ok) { el.innerHTML = '<div class="ph">加载失败</div>'; return }
-    var linked = (d.links || []).filter(function(l) { return l.taskId === taskId })
-    if (!linked.length) {
-      el.innerHTML = '<div class="ph">暂无自动关联——会话中提到的项目名与任务项目匹配时自动关联（当前活跃会话 ' + d.activeSessions + ' 个）</div>'
-      return
-    }
-    el.innerHTML = '<div class="note" style="margin-bottom:10px">以下会话自动关联到本任务（项目名匹配）：</div>'
-      + linked.map(function(l) {
-        return '<div class="evrow"><span class="ts">' + new Date(l.lastAt).toLocaleTimeString() + '</span>'
-          + '<span class="ty mono">' + esc(l.sessionId ? l.sessionId.slice(0, 16) : '?') + '</span>'
-          + '<span>' + l.eventCount + ' 事件 · 最近 ' + esc(l.lastEvent || '?') + '</span></div>'
-      }).join('')
-  }).catch(function() { el.innerHTML = '<div class="ph">网络错误</div>' })
+// 会话 tab（P1 强关联）：显式绑定卡 → 「实时看」跳远程页共用镜像管道；无绑定时给弱匹配候选一键转正。
+// 会话已结束≠解绑（调研定调：官方 agent-team 存 SessionId 引用、ended 冻结不静默改绑）。
+function renderSessTab(t) {
+  var sessBody=document.getElementById('dpSessBody');
+  if(!sessBody) return;
+  if(t.session){
+    sessBody.innerHTML='<div class="note-card"><h6>绑定会话</h6><div class="meta">'+esc(t.session.member?(t.session.member+'（成员机）'):'本机')+' · <span class="mono">'+esc(String(t.session.sessionId).slice(0,24))+'</span></div>'
+      +(t.session.label?'<div class="meta">'+esc(t.session.label)+'</div>':'')
+      +'<div class="meta">绑定 '+esc(t.session.boundBy||'?')+' · '+new Date(t.session.boundAt).toLocaleString()+'</div>'
+      +'<div style="margin-top:8px;display:flex;gap:8px"><button class="btn sm" id="dpWatch">▶ 实时看该会话</button><button class="btn ghost sm" id="dpUnbind">解绑</button></div></div>'
+      +'<div class="note" style="margin-top:8px">会话已结束≠解绑——绑定保留可回看；成员离线时「实时看」会提示，TA 上线并同意后在远程页即可看。</div>';
+    document.getElementById('dpWatch').onclick=function(){
+      closeDrawer();
+      document.getElementById('navRemote').click();
+      if(t.session.member){
+        selMember=t.session.member;
+        var card=document.querySelector('#memberDevs [data-member="'+esc(t.session.member)+'"]');
+        if(card){ card.click(); } else { toast('成员 '+t.session.member+' 不在线——TA 上线后点选即可（需 TA 同意会话镜像）'); }
+      } else { toast('本机会话——右侧「dsh 会话事件流」即实时视图'); }
+    };
+    document.getElementById('dpUnbind').onclick=function(){
+      api('/dsh-termfleet/tasks/action',{op:'unbind-session',id:t.id}).then(function(d){
+        if(d.ok){ toast('已解绑'); load();
+          setTimeout(function(){ var t2=(ST.tasks||[]).filter(function(x){return x.id===t.id})[0]; if(t2){ window.__t=t2; renderSessTab(t2); } }, 500); }
+      });
+    };
+  } else {
+    sessBody.innerHTML='<div class="note" style="margin-bottom:10px">未显式绑定会话。下方是按项目名弱匹配的候选（本机/成员会话事件里出现项目名时出现）——「转为正式绑定」升级为强关联。</div><div id="dpWeak"><div class="ph">检测中…</div></div>';
+    api('/dsh-termfleet/session-links').then(function(d){
+      var ls=(d.links||[]).filter(function(l){return l.taskId===t.id});
+      var box=document.getElementById('dpWeak'); if(!box) return;
+      box.innerHTML=ls.length?ls.map(function(l){
+        return '<div class="note-card"><h6><span class="mono">'+esc(String(l.sessionId).slice(0,24))+'</span></h6><div class="meta">'+esc(l.member?(l.member+'（成员机）'):'本机')+' · 最近 '+esc(l.lastEvent)+' · '+l.eventCount+' 条 · '+new Date(l.lastAt).toLocaleTimeString()+'</div><button class="btn sm" data-bind="'+esc(l.sessionId)+'" data-mem="'+esc(l.member||'')+'">转为正式绑定</button></div>';
+      }).join(''):'<div class="ph">暂无弱匹配候选——会话事件里出现项目名「'+esc(t.project||'默认')+'」后这里会出现。</div>';
+      box.querySelectorAll('[data-bind]').forEach(function(b){
+        b.onclick=function(){
+          var sid=b.getAttribute('data-bind'), mem=b.getAttribute('data-mem')||'';
+          api('/dsh-termfleet/tasks/action',{op:'bind-session',id:t.id,patch:{session:{member:mem,sessionId:sid,label:mem?(mem+' · 弱匹配转正'):'弱匹配转正'}}}).then(function(d){
+            if(d.ok){ toast('已绑定 '+sid.slice(0,16)); load();
+              setTimeout(function(){ var t2=(ST.tasks||[]).filter(function(x){return x.id===t.id})[0]; if(t2){ window.__t=t2; renderSessTab(t2); } }, 500); }
+            else toast('绑定失败：'+((d&&d.error)||'?'));
+          });
+        };
+      });
+    }).catch(function(){ var box=document.getElementById('dpWeak'); if(box) box.innerHTML='<div class="ph">检测失败</div>'; });
+  }
 }
 
 var REP = { ptyRaw: [], audit: [], filter: 'all', step: 0 }
@@ -1255,7 +1286,7 @@ var _origDtab = dtab
 dtab = function(el, id) {
   _origDtab(el, id)
   if (id === 'dp-diff' && window.__t) renderDiff(window.__t.project)
-  if (id === 'dp-sess' && window.__t) renderSessionLinks(window.__t.id)
+  if (id === 'dp-sess' && window.__t) renderSessTab(window.__t)
 }
 
 /* ═══ 表单与绑定 ═══ */
@@ -1263,14 +1294,26 @@ document.getElementById('newBtn').innerHTML=ic('Plus',14)+' 新建任务';
 document.getElementById('newBtn').onclick=function(){
   ['fTitle','fProject','fDue','fCli','fDesc'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('fPrio').value='P2';
-  document.getElementById('formMask').classList.add('on'); document.getElementById('fTitle').focus(); };
+  document.getElementById('fSessOn').checked=true;
+  document.getElementById('formMask').classList.add('on'); document.getElementById('fTitle').focus();
+  // 绑定会话预填：本机最近活动的 dsh 会话 id（probe-session 全局环形缓冲最后一条）
+  api('/dsh-termfleet/probe-session').then(function(d){
+    var sid=((d.sessionEvents||[]).slice(-1)[0]||{}).sessionId||'';
+    window.__tfSelfSess=sid;
+    document.getElementById('fSessHint').textContent=sid?('：'+sid.slice(0,20)+(sid.length>20?'…':'')+(FLEET.role==='member'?'（'+FLEET.name+'）':'')):'（本机暂无会话活动，不绑定）';
+    if(!sid) document.getElementById('fSessOn').checked=false;
+  }).catch(function(){ window.__tfSelfSess=''; document.getElementById('fSessHint').textContent='（检测失败，不绑定）'; document.getElementById('fSessOn').checked=false; }); };
 document.getElementById('formSubmit').onclick=function(){
   var title=document.getElementById('fTitle').value.trim();
   if(!title){ toast('标题必填'); return; }
-  api('/dsh-termfleet/tasks/create',{title:title,project:document.getElementById('fProject').value.trim(),
+  var body={title:title,project:document.getElementById('fProject').value.trim(),
     prio:document.getElementById('fPrio').value,due:document.getElementById('fDue').value.trim(),
-    cli:document.getElementById('fCli').value.trim(),desc:document.getElementById('fDesc').value})
-    .then(function(d){ if(d.ok){ document.getElementById('formMask').classList.remove('on'); toast('已创建 '+d.task.id); load(); } }); };
+    cli:document.getElementById('fCli').value.trim(),desc:document.getElementById('fDesc').value};
+  if(document.getElementById('fSessOn').checked&&window.__tfSelfSess){
+    body.session={member:(FLEET.role==='member'?FLEET.name:''),sessionId:window.__tfSelfSess,
+      label:(FLEET.role==='member'?FLEET.name+' · ':'本机 · ')+window.__tfSelfSess.slice(0,16)}; }
+  api('/dsh-termfleet/tasks/create',body)
+    .then(function(d){ if(d.ok){ document.getElementById('formMask').classList.remove('on'); toast('已创建 '+d.task.id+(d.task.session?'（已绑定会话）':'')); load(); } }); };
 document.getElementById('newLessonBtn').innerHTML=ic('Plus',14)+' 新增笔记';
 document.getElementById('memVerifyBtn').innerHTML=ic('Check',14)+' 校验';
 document.getElementById('memVerifyBtn').onclick=function(){
