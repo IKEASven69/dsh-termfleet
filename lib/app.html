@@ -682,8 +682,8 @@ function pollFleet(){
   if(CH && CH.status==='pending'){
     api('/dsh-termfleet/consent/list').then(function(d){
       var c=(d.consents||[]).filter(function(x){return x.id===CH.id})[0];
-      if(c && c.status!=='pending'){ CH=c; renderChannel(); if(c.status==='active') toast('成员机已答复：'+(c.mode==='rw'?'允许（可操作）':'仅只读')); else if(c.status==='denied') toast('成员机已拒绝');
-        if(c.status==='active' && c.target && c.target.indexOf('member:')===0){ selMember=c.target.slice(7); sfOpen(selMember); } }
+      if(c && c.status!=='pending'){ var mine=CH._mine!==false; CH=c; CH._mine=mine; renderChannel(); if(c.status==='active') toast('成员机已答复：'+(c.mode==='rw'?'允许（可操作）':'仅只读')); else if(c.status==='denied') toast('成员机已拒绝');
+        if(c.status==='active' && mine && c.target && c.target.indexOf('member:')===0){ selMember=c.target.slice(7); sfOpen(selMember); } }
     }).catch(function(){});
   } else if(!CH && FLEET.role==='member'){
     api('/dsh-termfleet/consent/list').then(function(d){
@@ -699,11 +699,16 @@ function requestChannel(){
     if(d.ok){ CH=d.consent; CH._mine=true; renderChannel(); toast('已发起连接请求（入审计）'); }});
 }
 function decide(dec){
+  // 先取「是否 lead 侧发起」——服务端回包会整体替换 CH，本地 _mine 标记必须捕获后回填
+  var mine=CH&&CH._mine!==false;
   api('/dsh-termfleet/consent/decide',{id:CH.id,decision:dec}).then(function(d){
-    if(d.ok){ CH=d.consent; renderChannel();
+    if(d.ok){ CH=d.consent; CH._mine=mine; renderChannel();
       if(dec==='deny'){ toast('已拒绝——无需理由，入审计'); }
-      else { toast('通道建立：'+(CH.mode==='rw'?'可操作':'只读')+' · 30 分钟'); startPty();
-        if(CH.target && CH.target.indexOf('member:')===0){ selMember=CH.target.slice(7); sfOpen(selMember); } } }});
+      else { toast('通道建立：'+(CH.mode==='rw'?'可操作':'只读')+' · 30 分钟');
+        // lead 侧才开 pty/订阅成员流；成员面板答复(mine=false)后不动作——开了只会撞出
+        // 「成员机不在线」误弹与对本机 member-stream 的 403 噪音（本机没有自己的 member 流）。
+        if(mine){ startPty();
+          if(CH.target && CH.target.indexOf('member:')===0){ selMember=CH.target.slice(7); sfOpen(selMember); } } } }});
 }
 document.getElementById('rtEndBtn').onclick=function(){
   if(!CH) return;
@@ -1299,8 +1304,17 @@ document.getElementById('pairSave').onclick=function(){
   api('/dsh-termfleet/pairing',body).then(function(d){ if(d.ok){ toast('配对已保存：'+d.pairing.role+(d.pairing.name?' · '+d.pairing.name:'')+'（member 5s 内连上）'); pollFleet(); } });
 };
 /* 邀请码（lead 侧取码/复制）与一句话入队（member 侧粘贴即配对） */
+// 非 127.0.0.1/localhost/::1 打开面板时，浏览器地址本身就是成员可达地址（含经 lan-forwarder：
+// WS Upgrade 同样透传）——显式传 ?u=，避免服务端回落到 Host 头（常被改写为 127.0.0.1，跨机不可达）。
+function tfAdvertise(loc){
+  try{ var h=String(loc.hostname||'');
+    if(h.charAt(0)==='[')h=h.slice(1); if(h.charAt(h.length-1)===']')h=h.slice(0,-1);
+    if(!h||h==='127.0.0.1'||h==='localhost'||h==='::1') return '';
+    return (loc.protocol==='https:'?'wss://':'ws://')+loc.host+'/dsh-termfleet/bus'; }catch(e){ return '' }
+}
 document.getElementById('pairCodeBtn').onclick=function(){
-  api('/dsh-termfleet/pairing/code').then(function(d){
+  var adv=tfAdvertise(location);
+  api('/dsh-termfleet/pairing/code'+(adv?('?u='+encodeURIComponent(adv)):'')).then(function(d){
     if(d&&d.code){ document.getElementById('pairCode').value=d.code;
       document.getElementById('pairNote').textContent='邀请码已生成——发给成员，粘贴点「入队」即配对（码含 lead 地址+团队令牌，请勿外传）。'; toast('邀请码已生成'); }
     else toast('取码失败：'+((d&&d.error)||'未知'));
@@ -1350,7 +1364,7 @@ document.querySelectorAll('#audSeg button').forEach(function(b){ b.onclick=funct
   AUD.k=b.getAttribute('data-k'); renderAudit(); }; });
 
 /* ═══ 启动 ═══ */
-api('/dsh-termfleet/consent/list').then(function(d){ var c=(d.consents||[]).find(function(x){return (x.type==='pty'||x.type==='sess')&&(x.status==='pending'||x.status==='active')}); if(c){ CH=c; } renderChannel(); }).catch(function(){renderChannel()});
+api('/dsh-termfleet/consent/list').then(function(d){ var c=(d.consents||[]).find(function(x){return (x.type==='pty'||x.type==='sess')&&(x.status==='pending'||x.status==='active')}); if(c){ CH=c; CH._mine=!c.remote; } renderChannel(); }).catch(function(){renderChannel()});
 // 键盘快捷键：Esc=关弹窗/抽屉, 1-4=切导航, /=聚焦搜索
 document.addEventListener('keydown', function(ev) {
   if (ev.key === 'Escape') {

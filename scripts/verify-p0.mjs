@@ -16,6 +16,10 @@
 //   S6 成员侧断开传播：双实例各自独立同意库（跨机现实），成员机 /consent/end 断开 rw
 //      通道 → lead 实时 member-stream 即时收 event:'end'、lead 同意库同步 ended、
 //      重连 member-stream 403（旧环形缓冲不可重放）。
+//   S7 邀请码跨机地址：pairing/code?u=<局域网总线地址> 显式进码（解码一致）；面板
+//      tfAdvertise() 按浏览器 location 计算——非本机打开时给可达 ws 地址、本机回落 Host 头。
+//   S8 成员面板自持静默：成员答复同意后不自开 pty、不自订阅 member-stream（全程 0 请求）、
+//      不误弹「成员机不在线」toast（评审 #2 回归锁）。
 //
 // 隔离纪律：
 //   - 双实例 DSH_HOME 指向本次运行的临时目录（os.tmpdir()），且 lead/member 各持
@@ -173,7 +177,7 @@ async function main() {
 
   const children = []
   let browser = null
-  const SCEN = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6']
+  const SCEN = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8']
   try {
     // ── 拉 lead（env 指定角色/令牌；契约启动式同 ACCEPTANCE-M1，仅 HOME 隔离） ──
     const lead = launchDsh({ port: leadPort, patchFile, dshHome: dshHomeLead, userProfile: userProfileLead, envExtra: { TERMFLEET_ROLE: 'lead', TERMFLEET_TOKEN: TEAM_TOKEN, TERMFLEET_NAME: 'P0-LEAD' }, tag: 'lead' })
@@ -205,6 +209,9 @@ async function main() {
     const ctx = await browser.newContext({ viewport: { width: 1600, height: 950 }, locale: 'zh-CN' })
     const leadPage = await ctx.newPage()
     const memberPage = await ctx.newPage()
+    // S8 证据采集：member 页对 member-stream 的全部请求计数（期望恒 0——成员不订阅自己）
+    let memberMsReqs = 0
+    memberPage.on('request', (r) => { if (r.url().includes('/dsh-termfleet/member-stream')) memberMsReqs++ })
     const hookNotify = (page) => page.evaluate(() => {
       window.__tfNotes = window.__tfNotes || []
       const seen = window.__tfSeen || (window.__tfSeen = new Set())
@@ -437,10 +444,33 @@ async function main() {
     } catch (e) { s6Ev = '卡点：' + e.message }
     R('S6 成员侧断开跨总线传播(成员机断开→lead流即时end+库同步ended+重连403)', s6Ok, s6Ev)
 
+    // ═══ S7 邀请码跨机地址：?u= 显式进码 + 面板 tfAdvertise 按 location 计算 ═══
+    let s7Ok = false, s7Ev = '未执行'
+    try {
+      const advUrl = 'ws://192.168.7.20:3182/dsh-termfleet/bus'
+      const codeU = await apiJson(leadPort, 'pairing/code?u=' + encodeURIComponent(advUrl))
+      let decU = null
+      try { decU = JSON.parse(Buffer.from(String(codeU.j?.code || '').slice(4), 'base64url').toString('utf8')).u } catch {}
+      // 面板决策函数真测：非本机打开 → 可达 ws 地址；本机打开 → ''（回落 Host 头）
+      const advLan = await leadPage.evaluate(() => tfAdvertise({ hostname: '192.168.7.20', host: '192.168.7.20:3182', protocol: 'http:' }))
+      const advLocal = await leadPage.evaluate(() => tfAdvertise({ hostname: '127.0.0.1', host: '127.0.0.1:3180', protocol: 'http:' }))
+      const advLoop = await leadPage.evaluate(() => tfAdvertise({ hostname: 'localhost', host: 'localhost:3180', protocol: 'http:' }))
+      const advV6 = await leadPage.evaluate(() => tfAdvertise({ hostname: '[::1]', host: '[::1]:3180', protocol: 'http:' }))
+      s7Ok = codeU.status === 200 && decU === advUrl && advLan === advUrl && advLocal === '' && advLoop === '' && advV6 === ''
+      s7Ev = `GET pairing/code?u=${advUrl} → ${codeU.status} 码内解码 u=${decU}（一致=${decU === advUrl}）；面板 tfAdvertise(局域网)=${advLan}、(127.0.0.1)='${advLocal}'、(localhost)='${advLoop}'、([::1]带括号)='${advV6}'——跨机时码内地址成员可达，不再被 Host 头改写困在 127.0.0.1`
+    } catch (e) { s7Ev = '卡点：' + e.message }
+    R('S7 邀请码跨机地址(?u=显式进码+面板按location算可达地址)', s7Ok, s7Ev)
+
+    // ═══ S8 成员面板自持静默：答复同意后不自开 pty/不自订阅/不误弹（评审 #2 回归锁） ═══
+    const memberToasts = await memberPage.evaluate(() => (window.__toasts || []).join(' | '))
+    const s8Ok = memberMsReqs === 0 && !memberToasts.includes('成员机不在线')
+    R('S8 成员面板自持静默(成员答复后0次自订阅member-stream+无误弹)',
+      s8Ok, `member 页全程 member-stream 请求数=${memberMsReqs}(期望0)；member 页 toasts=[${memberToasts.slice(0, 200)}]`)
+
     // 汇总（每场景一行）
     console.log('\n═══ P0 E2E 结果 ═══')
     for (const r of results) console.log(`${r.name}→${r.ok ? 'PASS' : 'FAIL'} 证据: ${r.evidence}`)
-    const allPass = results.length === 6 && results.every((r) => r.ok)
+    const allPass = results.length === 8 && results.every((r) => r.ok)
     console.log(`[exit] ${allPass ? 0 : 1}（全 PASS=0）`)
     return allPass ? 0 : 1
   } catch (e) {

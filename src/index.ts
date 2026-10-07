@@ -433,7 +433,9 @@ export function apply(ctx, _config) {
         const d = await ensure()
         d.push({ ts: Date.now(), actor: String(actor).slice(0, 40), action: String(action).slice(0, 60), detail: String(detail || '').slice(0, 200) })
         if (d.length > 500) d.splice(0, d.length - 500)
-        mods.fs.writeFileSync(file, JSON.stringify(d, null, 1))
+        // 审计写盘失败只降级为内存留存——add 永不 reject，全部调用点（含未 await 的
+        // fire-and-forget 处）都不会因磁盘满/文件锁变成 unhandled rejection 击穿宿主。
+        try { mods.fs.writeFileSync(file, JSON.stringify(d, null, 1)) } catch (e) { console.error('[termfleet] audit 写盘失败(仅存内存): ' + ((e && e.message) || e)) }
       },
       async list() { return (await ensure()).slice().reverse() },
     }

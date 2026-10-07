@@ -102,3 +102,15 @@ dsh 宿主明示禁绑 0.0.0.0（防 RCE 暴露，安全设计）——不绕宿
 ## 2026-10-07 · 契约 E：面板通知 = bus.notify 队列 + SSE event:'tf-notify'
 
 通知统一走 `bus.notify` 订阅列表，`emitNotify(kind, text≤200)` 产生 `{kind, text, ts}`（lib/index.js:103-108）；`/stream?k=events` 附加订阅 bus.notify，以 `event:'tf-notify'` 转发面板（:1627、:1644）。事件种类：member-join（成员上线，:577）、consent-request（连接请求，带「去处理」跳转）、interject、task。面板渲染 .tfnotif 弹条 + `[data-tfgo]` 去处理按钮；E2E 实测两种弹条 DOM 均出现（「P0-MEMBER 上线」/「me 请求连接 sess → member:P0-MEMBER」hasGo=true），7s 窗口内截图 p0-4-tf-notify.png。IM 卡（既有）与系统通知（可选，dsh 0.2.0 notification surface 待查）另行补充，面板弹条为保底通道。
+
+## 2026-10-07 · 面板角色标记 _mine：CH 被替换/恢复时必须回填（评审 #2 修复）
+
+成员面板答复同意后不得自开 pty、不自订阅 member-stream（开了只会撞出「成员机不在线」误弹与对本机 member-stream 的 403 噪音）——lead 专属动作以 `CH._mine` 门控。语义链（gen-app-html.mjs）：lead 发起=true（requestChannel :715）、成员收卡=false（:707）、**decide() 进函数先捕获 `mine` 再回填**（:717-728，服务端回包 `CH=d.consent` 整体替换会丢本地标记）、轮询分支同款（:701）、启动恢复由服务端权威字段派生 `CH._mine=!c.remote`（:1382，remote 仅成员实例 WS 路径会置，lead 实例恒无——双向误判均无通路，独立复审穷举 7 个 CH= 赋值点确认闭环）。教训：首轮修复直接查替换后的 `CH._mine`，S8 抓出仍 2 次自订阅；二跑仍漏启动恢复路径——**标记必须随对象生命周期走，不能只看替换后的字段**。
+
+## 2026-10-07 · 邀请码地址契约升级：面板 tfAdvertise(location) 显式传 `?u=`（评审 #3 修复）
+
+Host 头回落（优先级第三）在跨机经 lan-forwarder 时不可达——forwarder 首请求 Host 改写为 127.0.0.1，码内地址成员机连不上。修复：面板按浏览器 location 计算 `tfAdvertise()`（gen-app-html.mjs:1318-1324）——hostname **先去 `[` `]` 括号归一**（`'[::1]'`→`'::1'`，浏览器 IPv6 回环带括号，独立复审实证）后属 {空, 127.0.0.1, localhost, ::1} 判本机返回 ''（回落 Host 头），否则 `ws(s)://<host>/dsh-termfleet/bus` 显式作 `?u=` 传给 pairing/code。lan-forwarder 对 WS Upgrade 同样透传（scripts/lan-forwarder.mjs 头注释），跨机成立。S7 回归锁：?u= 进码解码一致 + tfAdvertise 三组求值；已知覆盖缺口：?u= 拼接链路未在非回环 origin 实点 pairCodeBtn（提示级）。
+
+## 2026-10-07 · auditStore.add 永不 reject（评审 #4 修复）
+
+审计写盘 writeFileSync 包 try/catch（lib/index.js:425-427），失败降级 console.error+内存留存——add 永不 reject，全文件约 20 个调用点（含十余处未 await 的 fire-and-forget）一次性根治 unhandled rejection 击穿宿主的风险。副作用改善：以往 `await add` 在 try 内的路由（/consent/request 等）写盘失败会把**已成功的操作**误响应 400，现在不会。
