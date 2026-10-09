@@ -34,3 +34,40 @@
 - subagent 会话过滤（绑定时排除 origin:'subagent' 会话）：需宿主把 header.origin 透出到 sessionEvents，登记为后续项。
 - 时钟偏移场景的后写赢逆转：v1 取舍，未做 NTP/逻辑时钟。
 - 真两台物理机验收（ACCEPTANCE-M1 #0-#10）：仍待用户 B 机。
+
+═══════════════════════════════════════════
+
+# P1 #5 进度摘要推送 验收记录（2026-10-09）
+
+> 复跑命令：`node scripts/verify-p0.mjs`（12 场景）。本轮 **12/12 全绿连续两轮**（exit 0），诊断脚本 scripts/dbg-progress.mjs 入库。
+
+## 本轮交付（契约 H，详见 docs/lib/decisions.md）
+
+- 成员侧五态状态机（3s tick，迁移才推）：idle/working/waiting-input/waiting-reply/stuck；阈值 env（STUCK_MIN=10min/WAIT_SECS=30s/NOTIFY_COOLDOWN_MIN=30min，支持小数，下限 1s）；presence summarize 与推送共用 STUCK_MS。
+- 分级频控（调研回灌）：waiting-input 仅 `approval/asked`、豁免同类冷却；启发式类 30min 同类冷却。
+- lead 侧：lastProgress 入 /fleet（成员卡徽标）+ tf-notify 弹条 + IM 转发；忙碌抑制（lead 正订阅该成员流→IM 静默）；成员重连 hello 补推当前态。
+
+## S12 场景（不变量断言，对探针异步补发事件与 tick 相位鲁棒）
+
+| 项 | 实测 |
+|---|---|
+| 触发 | member env 注入 STUCK_MIN=0.1(6s)/COOLDOWN=0.2min(12s)/WAIT_SECS=3，两次 probe-write |
+| 先推 | stuck#1 落地于写#1 后 +6s（lead 存储+SSE 弹条实证，`/fleet` lastProgress 同步） |
+| 后抑 | 写#2 后的同类迁移被冷却抑制；不变量=同类相邻帧间隔 ≥11.5s（12s 下限）✓ |
+| 末态 | lastProgress.kind 与末帧一致 ✓ |
+
+## 频控断言 flake 猎杀（四轮演进，教训入 decisions）
+
+具体帧数断言在「探针 agentLoop 异步补发 turn 事件 × 3s tick 相位 × 冷却网格边界」下必 flake——四轮出现四种合法时序（含写#2 的 working 距上次同类推送 15s 合法放行）。终版=不变量断言；期间顺手修掉 `Math.max(1, MIN)*60000` 把小数分钟钳成 1 分钟的隐藏 bug（stuckMs=60000 铁证）与 waiting-input 正则误配（approval/decided·policy、permission/preset 零冷却直推 IM——独立复审抓出）。
+
+## 独立复审（换人冷启动）处置
+
+- 修：waiting-input 正则收紧为 `approval/asked`（误配零冷却直推 IM）；presence 阈值与 env 统一；成员重连补推当前态；S12 相位 flake（事件同步+不变量）；调研文档落款日期。
+- 确认无问题：sessSubs 清理可靠（IM 永久静默不成立）、lastProgress 无泄漏、tick/presence/bus.sess 无互踩、三产物一致、S12 无放水。
+- 备案：stuck 优先于 waiting-input（设计确认）；3s tick 漏报粒度（零误报类可接受）；numEnv 超大值→Infinity（极端误配静默，不崩溃）。
+
+## 边界与未覆盖
+
+- IM 实发：E2E 无 webhook，只验 lead 转发路径（busy 抑制分支同源），实发留真实环境。
+- 「完成」事件：现 stuck/waiting 二态启发式，可靠 turn 终态信号待后续（调研：生态共识推「审批+完成」，完成信号是缺口）。
+- waiting-input 漏报粒度：3s tick 内被快速批准的审批不推送（零误报类漏报可接受）。

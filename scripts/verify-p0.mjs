@@ -26,6 +26,8 @@
 //   S10 弱匹配→强关联全链：session-links 命中（镜像事件的 member 归属为真门禁）→ 转正 bind →
 //      unbind → null；坏参数 409。
 //   S11 删除跨机传播（墓碑）：lead 建任务广播可见 → lead 删 → 墓碑随广播，member 板清幽灵任务。
+//   S12 摘要推送（契约 H）：成员状态迁移→progress 上行→lead 弹条+成员卡+IM 路径；频控
+//      cooldown=0.2min(12s env) 实测「先推后抑」——第二条写后的同类迁移被冷却抑制。
 //
 // 隔离纪律：
 //   - 双实例 DSH_HOME 指向本次运行的临时目录（os.tmpdir()），且 lead/member 各持
@@ -183,7 +185,7 @@ async function main() {
 
   const children = []
   let browser = null
-  const SCEN = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10', 'S11']
+  const SCEN = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10', 'S11', 'S12']
   try {
     // ── 拉 lead（env 指定角色/令牌；契约启动式同 ACCEPTANCE-M1，仅 HOME 隔离） ──
     const lead = launchDsh({ port: leadPort, patchFile, dshHome: dshHomeLead, userProfile: userProfileLead, envExtra: { TERMFLEET_ROLE: 'lead', TERMFLEET_TOKEN: TEAM_TOKEN, TERMFLEET_NAME: 'P0-LEAD' }, tag: 'lead' })
@@ -192,7 +194,7 @@ async function main() {
     console.log(`[lead] 就绪 port=${leadPort} ping=200 插件令牌已装载`)
 
     // ── 拉 member（关键：不带 TERMFLEET_ROLE/LEAD_URL/TOKEN——配对必须由邀请码完成） ──
-    const member = launchDsh({ port: memberPort, patchFile, dshHome: dshHomeMember, userProfile: userProfileMember, envExtra: { TERMFLEET_NAME: MEMBER_NAME }, tag: 'member' })
+    const member = launchDsh({ port: memberPort, patchFile, dshHome: dshHomeMember, userProfile: userProfileMember, envExtra: { TERMFLEET_NAME: MEMBER_NAME, TERMFLEET_WAIT_SECS: '3', TERMFLEET_NOTIFY_COOLDOWN_MIN: '0.2', TERMFLEET_STUCK_MIN: '0.1' }, tag: 'member' })
     children.push(member)
     const TOK_MEMBER = await waitReady(member, memberPort, userProfileMember)
     console.log(`[member] 就绪 port=${memberPort}（独立 USERPROFILE，与 lead 无共享状态）`)
@@ -539,10 +541,56 @@ async function main() {
     } catch (e) { s11Ev = '卡点：' + e.message }
     R('S11 删除跨机传播(墓碑随广播/member板清幽灵任务)', s11Ok, s11Ev)
 
+    // ═══ S12 摘要推送（契约 H）：成员状态迁移→progress 上行→lead 存成员卡+弹条+IM 路径。
+    //     env 注入小阈值：STUCK_MIN=0.1(6s)/COOLDOWN=0.2min(12s)。写#1→working/stuck 首推；
+    //     **同步到事件**：轮询到本轮写后的首次 stuck 推送(ts>t12)再发写#2——此后 working 迁移距其首推 3s、
+    //     再静止的 stuck 迁移距 stuck 首推 9s，均 <12s 冷却，抑制是确定性的（消除 3s tick 相位边界 flake）═══
+    let s12Ok = false, s12Ev = '未执行'
+    try {
+      const p12 = sseProbe(`http://127.0.0.1:${leadPort}/dsh-termfleet/stream?k=events`, TOK_LEAD, { untilHello: false, maxMs: 24000 })
+      await sleep(500)
+      const t12 = Date.now()
+      const mk12a = 'P0E2E-' + RUN + '-S12第一条'
+      const w12a = await apiJson(memberPort, 'probe-session/write', 'POST', { text: mk12a })
+      const stuckAt = await waitFor(async () => {
+        const f = await apiJson(leadPort, 'fleet')
+        const lp = (f.j?.members || []).find((m) => m.name === MEMBER_NAME)?.lastProgress
+        return lp?.kind === 'stuck' && lp.ts > t12 ? lp.ts : null
+      }, 20000, 400, '本轮写后的首次 stuck 推送落地(lead 存储)')
+      const mk12b = 'P0E2E-' + RUN + '-S12第二条'
+      const w12b = await apiJson(memberPort, 'probe-session/write', 'POST', { text: mk12b })
+      await sleep(12000) // 覆盖写#2 后的 working 迁移(+3s tick)与再静止 stuck 迁移(+9s tick)，两者均应被抑制
+      const ev12 = await p12
+      const notes12 = ev12.events.filter((e) => e.ev === 'tf-notify')
+      // 解析 progress 帧（kind+ts）；断言确定性不变量（对探针 agentLoop 异步补发事件/tick 相位均鲁棒）：
+      // ①管道通：working 与 stuck 各 ≥1 帧；②冷却下限：同类相邻帧间隔 ≥11.5s（12s 冷却留 0.5s 抖动余量，
+      // 实测中曾出现写#2 的 working 距上次 15s 合法放行——产品行为正确，测试不断言具体帧数）；③末态一致
+      const prog12 = []
+      for (const e of notes12) {
+        try { const d = JSON.parse(e.data); if ((d.text || '').includes('干活中')) prog12.push({ kind: 'working', ts: d.ts, text: d.text }); else if ((d.text || '').includes('疑似卡住')) prog12.push({ kind: 'stuck', ts: d.ts, text: d.text }) } catch { }
+      }
+      const cnt = { working: 0, stuck: 0 }
+      let gapOk = true, minGap = Infinity
+      for (const p of prog12) {
+        cnt[p.kind]++
+        if (p.kind === 'working' || p.kind === 'stuck') { /* 计数 */ }
+      }
+      for (const kind of ['working', 'stuck']) {
+        const ts = prog12.filter((p) => p.kind === kind).map((p) => p.ts)
+        for (let i = 1; i < ts.length; i++) { const g = ts[i] - ts[i - 1]; minGap = Math.min(minGap, g); if (g < 11500) gapOk = false }
+      }
+      const fl12 = await apiJson(leadPort, 'fleet')
+      const lp = (fl12.j?.members || []).find((m) => m.name === MEMBER_NAME)?.lastProgress
+      const lastFrame = prog12[prog12.length - 1]
+      s12Ok = w12a.status === 200 && w12b.status === 200 && !!stuckAt.v && cnt.working >= 1 && cnt.stuck >= 1 && gapOk && lp?.kind === lastFrame?.kind
+      s12Ev = `probe-write×2(均 ${w12a.status})；stuck#1 落地于 +${stuckAt.v ? Math.round((stuckAt.v - t12) / 1000) : '?'}s；窗口 progress 帧[${prog12.map((p) => p.kind + '@+' + Math.round((p.ts - t12) / 1000) + 's').join(' | ')}]；不变量：working/stuck 各≥1(${cnt.working}/${cnt.stuck})✓，同类最小间隔=${isFinite(minGap) ? Math.round(minGap / 1000) + 's' : '单帧'}(≥11.5s=12s 冷却下限${gapOk ? '✓' : '✗'})，末态 lastProgress={kind:${lp?.kind}} 与末帧一致=${lp?.kind === lastFrame?.kind}；IM 转发同路径（E2E 无 webhook 不验实发，忙碌抑制与 waiting-input 零冷却见决策文档）`
+    } catch (e) { s12Ev = '卡点：' + e.message }
+    R('S12 摘要推送(状态迁移→弹条+成员卡+IM路径/同类频控先推后抑)', s12Ok, s12Ev)
+
     // 汇总（每场景一行）
     console.log('\n═══ P0 E2E 结果 ═══')
     for (const r of results) console.log(`${r.name}→${r.ok ? 'PASS' : 'FAIL'} 证据: ${r.evidence}`)
-    const allPass = results.length === 11 && results.every((r) => r.ok)
+    const allPass = results.length === 12 && results.every((r) => r.ok)
     console.log(`[exit] ${allPass ? 0 : 1}（全 PASS=0）`)
     return allPass ? 0 : 1
   } catch (e) {

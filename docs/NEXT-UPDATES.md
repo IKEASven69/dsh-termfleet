@@ -38,9 +38,11 @@
 - **✅ 实测结论**：S9 跨机同步闭环（member 建绑定任务 4ms 到 lead、同 id 沿用无重复、广播 2ms 回成员）；S10 弱匹配→转正全链（镜像归属真门禁 member=P0-MEMBER）；S11 删除墓碑传播（member 板 1ms 清幽灵）。验收记录 docs/audit/P1-ACCEPTANCE.md；需求实证 docs/RESEARCH-SESSION-BINDING.md（wowyuarm #40 已在同仓 v0.2.0 落地=人类版验证）
 - **仍开放**：成员离线创建的 task-report 对账已实现但 E2E 未模拟断线创建（跨机真机验收覆盖）；subagent 会话过滤（需 header.origin 透出）
 
-### 5. 进度摘要推送（频控版）
-- 成员卡住/完成/等审批 → 推 lead IM（现在只有 SOS 推）——频控：同类事件 30 分钟内不重推
-- 数据源已有（summarize），缺推送触发器
+### 5. 进度摘要推送（频控版）✅ 已落地（2026-10-09，E2E 12 场景全绿）
+- **用户时刻**：成员卡住/等输入时 lead 不在面板前 → 面板弹条 + IM webhook 收到「XX 疑似卡住 · turn/end 后 N 分钟无输出」——不用一直盯着远程页
+- **落地内容（契约 H）**：成员侧五态状态机（idle/working/waiting-input/waiting-reply/stuck）迁移才推；分级频控=waiting-input（approval/asked 零误报显式事件）零冷却、启发式类 30min 同类冷却；lead 侧忙碌抑制（正在看该成员流→IM 不打扰）；阈值 env 可调（STUCK_MIN/WAIT_SECS/NOTIFY_COOLDOWN_MIN）；成员重连补推当前态
+- **✅ 实测结论**：S12 双实例实测「先推后抑」（小阈值注入：stuck#1 落地 +6s，后续同类迁移被冷却抑制，不变量=同类间隔 ≥12s）；12/12 全绿连续两轮。频控参数依据 docs/RESEARCH-PROGRESS-PUSH.md（生态只推"审批+完成"且头号噪音是重复内容；市场默认推送集=「有东西在等你」）
+- **仍开放**：IM 实发需真实 webhook 环境（E2E 无 webhook 不验实发）；「完成」事件需可靠的 turn 终态信号（现 stuck/waiting 二态启发式）；waiting-input 在 3s tick 粒度（快速批准漏报，零误报类可接受）
 
 ### 6. 快捷操作面
 - lead 常用动作一键化：一键"请求+默认允许"（对已信任成员）、一键"看某成员最近会话摘要"
