@@ -28,6 +28,9 @@
 //   S11 删除跨机传播（墓碑）：lead 建任务广播可见 → lead 删 → 墓碑随广播，member 板清幽灵任务。
 //   S12 摘要推送（契约 H）：成员状态迁移→progress 上行→lead 弹条+成员卡+IM 路径；频控
 //      cooldown=0.2min(12s env) 实测「先推后抑」——第二条写后的同类迁移被冷却抑制。
+//   S13 信任快捷通道（契约 I）：成员开信任 → lead 一键请求(auto=ro) → 成员侧自动允许只读
+//      （零手动，审计留痕）；关信任后同样请求保持 pending（信任门闸）。
+//   S14 一键动态数据面：fleet?r=20 深度参数返回最多 20 条近期事件（含插话回显）。
 //
 // 隔离纪律：
 //   - 双实例 DSH_HOME 指向本次运行的临时目录（os.tmpdir()），且 lead/member 各持
@@ -185,7 +188,7 @@ async function main() {
 
   const children = []
   let browser = null
-  const SCEN = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10', 'S11', 'S12']
+  const SCEN = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10', 'S11', 'S12', 'S13', 'S14']
   try {
     // ── 拉 lead（env 指定角色/令牌；契约启动式同 ACCEPTANCE-M1，仅 HOME 隔离） ──
     const lead = launchDsh({ port: leadPort, patchFile, dshHome: dshHomeLead, userProfile: userProfileLead, envExtra: { TERMFLEET_ROLE: 'lead', TERMFLEET_TOKEN: TEAM_TOKEN, TERMFLEET_NAME: 'P0-LEAD' }, tag: 'lead' })
@@ -587,10 +590,55 @@ async function main() {
     } catch (e) { s12Ev = '卡点：' + e.message }
     R('S12 摘要推送(状态迁移→弹条+成员卡+IM路径/同类频控先推后抑)', s12Ok, s12Ev)
 
+    // ═══ S13 信任快捷通道（契约 I）：成员开信任 → lead 一键请求(auto=ro) → 成员侧自动允许只读（零手动）；
+    //     反向半：关信任后同样请求保持 pending（门闸回归锁） ═══
+    let s13Ok = false, s13Ev = '未执行'
+    try {
+      const tr1 = await apiJson(memberPort, 'pairing', 'POST', { trust: true })
+      const q1 = await apiJson(leadPort, 'consent/request', 'POST', { type: 'sess', target: 'member:' + MEMBER_NAME, auto: 'ro' })
+      const autoC = await waitFor(async () => {
+        const l = await apiJson(leadPort, 'consent/list')
+        const c = (l.j?.consents || []).find((x) => x.type === 'sess' && x.status === 'active' && x.target === 'member:' + MEMBER_NAME && x.mode === 'ro')
+        return c && c.auto === 'ro' ? c : null
+      }, 12000, 400, '信任自动允许在 lead 生效')
+      const ma = await apiJson(memberPort, 'audit')
+      const autoAudit = (ma.j?.events || []).find((e) => (e.action || '').includes('信任模式自动允许'))
+      // F1 回归锁：auto 必须随成员侧记录落库（丢了则成员面板「随时可断」卡与提示成死代码）
+      const mc = await apiJson(memberPort, 'consent/list')
+      const autoRec = (mc.j?.consents || []).find((x) => x.id === q1.j?.consent?.id)
+      // 反向：关信任 → 同样的 auto 请求必须停在 pending（不能悄悄变成自动允许）
+      await apiJson(memberPort, 'pairing', 'POST', { trust: false })
+      const q2 = await apiJson(leadPort, 'consent/request', 'POST', { type: 'sess', target: 'member:' + MEMBER_NAME, auto: 'ro' })
+      await sleep(4500)
+      const l2 = await apiJson(leadPort, 'consent/list')
+      const pend2 = (l2.j?.consents || []).find((x) => x.id === q2.j?.consent?.id)
+      const stillPending = pend2?.status === 'pending'
+      // 清理（pending 不受 end 影响，双端各显式收口：lead deny 自己的、member deny 远端的）
+      await apiJson(leadPort, 'consent/decide', 'POST', { id: q2.j?.consent?.id, decision: 'deny' })
+      await apiJson(memberPort, 'consent/decide', 'POST', { id: q2.j?.consent?.id, decision: 'deny' })
+      s13Ok = tr1.status === 200 && q1.status === 200 && !!autoC.v && !!autoAudit && stillPending && autoRec?.auto === 'ro' && autoRec?.status === 'active'
+      s13Ev = `开信任 → lead 一键请求(auto=ro) → ${autoC.ms}ms 内 lead 侧 active ro（consent.auto=ro 透传），成员审计留痕「${(autoAudit?.action || '缺失')}」，成员侧记录 auto=${autoRec?.auto}/status=${autoRec?.status}（落库回归锁）；关信任 → 同样请求 ${4500}ms 后仍 pending=${stillPending}（信任门闸成立）；清理=双端 deny 收口`
+    } catch (e) { s13Ev = '卡点：' + e.message }
+    R('S13 信任快捷通道(开信任自动允许只读+审计留痕/关信任停pending)', s13Ok, s13Ev)
+
+    // ═══ S14 一键动态数据面：fleet?r=20 深度参数返回最多 20 条近期事件（含 S3 插话回显） ═══
+    let s14Ok = false, s14Ev = '未执行'
+    try {
+      const f20 = await apiJson(leadPort, 'fleet?r=20')
+      const m20 = (f20.j?.members || []).find((x) => x.name === MEMBER_NAME)
+      const ev20 = m20?.recentEvents || []
+      const hasS3 = ev20.some((e) => String(e.text || '').includes(MARK_S3))
+      const f8 = await apiJson(leadPort, 'fleet')
+      const ev8 = ((f8.j?.members || []).find((x) => x.name === MEMBER_NAME)?.recentEvents || []).length
+      s14Ok = f20.status === 200 && ev20.length >= 8 && ev20.length <= 20 && hasS3 && ev8 > 0 && ev8 <= 8
+      s14Ev = `fleet?r=20 → recentEvents=${ev20.length} 条（默认路由 ${ev8} 条 ≤8），含 S3 插话回显=${hasS3}；面板「◔动态」按钮消费同接口（弹层为纯渲染）`
+    } catch (e) { s14Ev = '卡点：' + e.message }
+    R('S14 一键动态数据面(fleet?r=20 深度参数/含插话回显)', s14Ok, s14Ev)
+
     // 汇总（每场景一行）
     console.log('\n═══ P0 E2E 结果 ═══')
     for (const r of results) console.log(`${r.name}→${r.ok ? 'PASS' : 'FAIL'} 证据: ${r.evidence}`)
-    const allPass = results.length === 12 && results.every((r) => r.ok)
+    const allPass = results.length === 14 && results.every((r) => r.ok)
     console.log(`[exit] ${allPass ? 0 : 1}（全 PASS=0）`)
     return allPass ? 0 : 1
   } catch (e) {

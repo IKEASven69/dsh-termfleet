@@ -71,3 +71,35 @@
 - IM 实发：E2E 无 webhook，只验 lead 转发路径（busy 抑制分支同源），实发留真实环境。
 - 「完成」事件：现 stuck/waiting 二态启发式，可靠 turn 终态信号待后续（调研：生态共识推「审批+完成」，完成信号是缺口）。
 - waiting-input 漏报粒度：3s tick 内被快速批准的审批不推送（零误报类漏报可接受）。
+
+═══════════════════════════════════════════
+
+# P1 #6 快捷操作面 验收记录（2026-10-09，P1 收官）
+
+> 复跑命令：`node scripts/verify-p0.mjs`（14 场景）。本轮 **14/14 全绿（exit 0）首跑即过**，复审修复后复跑仍全绿。
+
+## 本轮交付（契约 I，详见 docs/lib/decisions.md）
+
+- **信任快捷通道**：成员面板开关「信任此 lead：会话查看请求自动允许（仅只读，随时可断）」（pairing.json 持久化）；lead 成员卡「⚡看会话」一键请求（auto=ro 随 consent 落库+透传）；成员侧三重门（auto=ro × 信任开 × 仅 sess）自动允许只读，审计「信任模式自动允许(只读)」+ IM 告知 + 面板提示「随时可断开」；安全边界=auto 只认 ro/仅 sess/最大半径只读 30min/**rw 接管永远要成员手动点头**。
+- **一键动态**：fleet `?r=` 深度参数（1-50 钳制）+ 成员卡「◔动态」弹层（状态/最近推送/近 20 条会话事件/插话送达）。
+
+## 场景结果（S13/S14 本轮新增）
+
+| # | 场景 | 结果 | 关键证据（实测值） |
+|---|---|---|---|
+| S13 | 信任快捷通道（正反两半） | ✅ PASS | 开信任→一键请求→lead 侧 active ro（auto=ro 透传+成员侧记录落库回归锁 auto=ro/active），成员审计「信任模式自动允许(只读)」；关信任→同样请求 4.5s 后仍 pending（信任门闸成立） |
+| S14 | 一键动态数据面 | ✅ PASS | fleet?r=20 → recentEvents 17 条（默认路由 8 条），含 S3 插话回显=true |
+
+## 独立复审（换人冷启动）处置
+
+- **修（F1 中）**：requestRemote 字段白名单丢 auto——成员侧记录永不带 auto，面板「随时可断」卡与信任提示成死代码；修=requestRemote/request 均落库 auto + S13 加成员侧 auto 落库回归锁。
+- 修（F2 低）：S13 清理原用 /consent/end 对 pending 是空操作（end 只收 active）→ 改双端显式 deny 收口，证据措辞同步纠正。
+- 修（F3 低）：recentMask 纳入 Esc 关闭列表。
+- 修（F4 低）：auto 落库滞后（路由事后改内存、重启丢失）→ auto 并入 request() 创建时落库。
+- 确认无问题：rw 伪造不可能（只认 ro+仅 sess+硬编码 readonly decide）、trust 持久化语义、stopPropagation/token 传递/leadFleet 钳制、S13/S14 断言真实、三产物一致。
+
+## 边界与未覆盖
+
+- 成员自动路径 decide 返回 null 的极窄竞态会落穿补发审批卡 IM（需 lead 请求与成员手动答复几乎同时，无实害）。
+- pending consent 无过期（prune 只清 active）——挂起请求永久留存，后续可加 TTL。
+- 面板「⚡/◔」按钮的浏览器级点击测试未做（API 直证+纯渲染弹层），留真双机验收顺带覆盖。

@@ -273,6 +273,7 @@ body[data-light] .term{background:var(--n1000)}
           <input id="pairName2" placeholder="成员名（member 用）" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px">
           <input id="pairUrl" placeholder="leadUrl（member 用）ws://…" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px">
           <input id="pairTok" placeholder="团队令牌（≥6位）" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px">
+          <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="trustTgl" style="width:auto"> 信任此 lead：会话查看请求自动允许（仅只读，随时可断）</label>
           <button class="btn sm" id="pairSave" style="justify-self:start">保存配对</button>
           <div class="note" style="margin:0">member 保存后 5 秒内出站连接 lead；本机测试用两个端口各开一实例。</div>
           <div style="border-top:1px dashed var(--border);margin-top:8px;padding-top:8px;display:grid;gap:6px">
@@ -492,6 +493,13 @@ body[data-light] .term{background:var(--n1000)}
   <div class="acts"><button class="btn ghost" onclick="document.getElementById('replayMask').classList.remove('on')">关闭</button></div>
 </div></div>
 
+<!-- 最近动态（一键查看成员近期会话事件） -->
+<div class="mask" id="recentMask"><div class="modal">
+  <h4 id="recentTitle">最近动态</h4>
+  <div id="recentBody" style="max-height:420px;overflow-y:auto"></div>
+  <div class="acts"><button class="btn ghost" onclick="document.getElementById('recentMask').classList.remove('on')">关闭</button></div>
+</div></div>
+
 <!-- 新建任务 -->
 <div class="mask" id="formMask"><div class="modal">
   <h4>新建任务</h4>
@@ -665,10 +673,12 @@ function pollFleet(){
     var box=document.getElementById('memberDevs');
     if(!FLEET.members.length){ box.innerHTML='<div class="dev" style="opacity:.5"><span class="dot off"></span><div class="av">?</div><div><div class="nm">团队成员设备</div><div class="sessn">暂无成员在线（member 配对后 5s 内出现）</div></div></div>'; return; }
     box.innerHTML=FLEET.members.map(function(m){
-      return '<div class="dev '+(selMember===m.name?'sel':'')+'" data-member="'+esc(m.name)+'"><span class="dot on"></span><div class="av">'+esc(m.name.slice(0,1))+'</div><div style="min-width:0"><div class="nm">'+esc(m.name)+' <span class="pill g" style="margin-left:2px">在线</span></div><div class="mach" style="font-family:SF Mono,Consolas,monospace;font-size:11.5px;color:var(--caption)">bus 已连 · '+esc((m.sessions||[]).map(function(s){return s.tag}).join(','))+'</div><div class="sessn">'+(m.recentEvents||[]).length+(m.summary?(' · <b style="color:var(--label2)">'+m.summary.state+'</b> '+esc((m.summary.line||'').slice(0,34))):(' · '+(m.recentEvents||[]).length+' 条近期事件'))+(m.lastSos?' <span class="pill r">SOS '+(m.lastSos.msg||'').slice(0,10)+'</span>':'')+(m.lastProgress?' <span class="pill a" title="进度推送 '+esc((m.lastProgress.line||'').slice(0,40))+'">'+esc(m.lastProgress.label||m.lastProgress.kind)+'</span>':'')+'</div></div></div>';
+      return '<div class="dev '+(selMember===m.name?'sel':'')+'" data-member="'+esc(m.name)+'"><span class="dot on"></span><div class="av">'+esc(m.name.slice(0,1))+'</div><div style="min-width:0"><div class="nm">'+esc(m.name)+' <span class="pill g" style="margin-left:2px">在线</span></div><div class="mach" style="font-family:SF Mono,Consolas,monospace;font-size:11.5px;color:var(--caption)">bus 已连 · '+esc((m.sessions||[]).map(function(s){return s.tag}).join(','))+'</div><div class="sessn">'+(m.recentEvents||[]).length+(m.summary?(' · <b style="color:var(--label2)">'+m.summary.state+'</b> '+esc((m.summary.line||'').slice(0,34))):(' · '+(m.recentEvents||[]).length+' 条近期事件'))+(m.lastSos?' <span class="pill r">SOS '+(m.lastSos.msg||'').slice(0,10)+'</span>':'')+(m.lastProgress?' <span class="pill a" title="进度推送 '+esc((m.lastProgress.line||'').slice(0,40))+'">'+esc(m.lastProgress.label||m.lastProgress.kind)+'</span>':'')+'</div><div style="display:flex;gap:4px;margin:4px 0 0;flex:none"><button class="btn ghost sm" data-qview="'+esc(m.name)+'" title="一键请求查看 TA 的会话——TA 开了信任则自动允许（仅只读）">⚡看会话</button><button class="btn ghost sm" data-qrecent="'+esc(m.name)+'" title="看 TA 最近 20 条会话动态">◔动态</button></div></div>';
     }).join('');
     box.querySelectorAll('[data-member]').forEach(function(el){ el.onclick=function(){ selMember=el.getAttribute('data-member');
       document.getElementById('sessMember').style.display='flex'; document.getElementById('sessMemberName').textContent=selMember+' · pwsh'; sfOpen(selMember); pollFleet(); toast('已选中成员机：'+selMember+'（会话对话流订阅中…）'); }; });
+    box.querySelectorAll('[data-qview]').forEach(function(b){ b.onclick=function(ev){ ev.stopPropagation(); qview(b.getAttribute('data-qview')); }; });
+    box.querySelectorAll('[data-qrecent]').forEach(function(b){ b.onclick=function(ev){ ev.stopPropagation(); qrecent(b.getAttribute('data-qrecent')); }; });
     // 远端通道 active：拉成员 pty 尾流显示
     if(CH && CH.status==='active' && CH.target && CH.target.indexOf('member:')===0){
       var m2=FLEET.members.filter(function(x){return x.name===CH.target.slice(7)})[0];
@@ -678,7 +688,8 @@ function pollFleet(){
     }
   }).catch(function(){});
   api('/dsh-termfleet/pairing').then(function(d){ FLEET.role=d.pairing&&d.pairing.role||'?'; FLEET.name=d.pairing&&d.pairing.name||'';
-    document.getElementById('pairRole').textContent=FLEET.role; document.getElementById('pairName').textContent=FLEET.name?('· '+FLEET.name):''; }).catch(function(){});
+    document.getElementById('pairRole').textContent=FLEET.role; document.getElementById('pairName').textContent=FLEET.name?('· '+FLEET.name):'';
+    var tt=document.getElementById('trustTgl'); if(tt) tt.checked=!!(d.pairing&&d.pairing.trust); }).catch(function(){});
   // pending 轮询：远端成员答复 / 成员页收到 lead 请求 → 采纳
   if(CH && CH.status==='pending'){
     api('/dsh-termfleet/consent/list').then(function(d){
@@ -688,8 +699,9 @@ function pollFleet(){
     }).catch(function(){});
   } else if(!CH && FLEET.role==='member'){
     api('/dsh-termfleet/consent/list').then(function(d){
-      var c=(d.consents||[]).filter(function(x){return x.remote&&x.status==='pending'})[0];
-      if(c){ CH=c; CH._mine=false; renderChannel(); }
+      // 采纳远端 pending；信任自动允许的（active+auto）也采纳并提示（成员零操作闭环的可见性）
+      var c=(d.consents||[]).filter(function(x){return x.remote&&(x.status==='pending'||(x.status==='active'&&x.auto))})[0];
+      if(c){ CH=c; CH._mine=false; renderChannel(); if(c.status==='active'&&c.auto) toast('已按信任设置自动允许（只读）——lead 正在查看，随时可断开'); }
     }).catch(function(){});
   }
   sfGate();
@@ -698,6 +710,29 @@ function requestChannel(){
   var target = selMember ? ('member:'+selMember) : 'pwsh7·本机';
   api('/dsh-termfleet/consent/request',{type:'pty',target:target}).then(function(d){
     if(d.ok){ CH=d.consent; CH._mine=true; renderChannel(); toast('已发起连接请求（入审计）'); }});
+}
+/* 契约 I：快捷操作（愿望机：一键「请求+信任自动允许」/一键最近动态） */
+function qview(name){
+  api('/dsh-termfleet/consent/request',{type:'sess',target:'member:'+name,auto:'ro'}).then(function(d){
+    if(d.ok){ CH=d.consent; CH._mine=true; renderChannel();
+      toast('已一键发起查看——'+name+' 开了信任会自动允许（只读），否则等 TA 确认'); }
+    else toast('请求失败：'+((d&&d.error)||'?'));
+  });
+}
+function qrecent(name){
+  api('/dsh-termfleet/fleet?r=20').then(function(d){
+    var m=(d.members||[]).filter(function(x){return x.name===name})[0];
+    if(!m){ toast(name+' 不在线'); return; }
+    document.getElementById('recentTitle').textContent=name+' · 最近动态';
+    var st=m.summary?('状态 <b>'+esc(m.summary.state)+'</b> · '+esc(m.summary.line||'')):'暂无状态';
+    var body='<div class="note" style="margin-bottom:8px">'+st+(m.lastProgress?(' · 最近推送 <b>'+esc(m.lastProgress.label||m.lastProgress.kind)+'</b>'):(''))+(m.lastFollowupAck&&m.lastFollowupAck.ok?' · 插话已送达':'')+'</div>'
+      +'<div style="max-height:360px;overflow-y:auto">'
+      +((m.recentEvents||[]).length?m.recentEvents.slice().reverse().map(function(e){
+          return '<div class="evrow"><span class="ts">'+(e.ts?new Date(e.ts).toLocaleTimeString():'')+'</span><span class="ty mono">'+esc(e.type||'?')+'</span><span>'+esc(String(e.text||e.brief||'').slice(0,80))+'</span></div>';
+        }).join(''):'<div class="ph">暂无近期事件</div>')+'</div>';
+    document.getElementById('recentBody').innerHTML=body;
+    document.getElementById('recentMask').classList.add('on');
+  }).catch(function(){ toast('拉取失败'); });
 }
 function decide(dec){
   // 先取「是否 lead 侧发起」——服务端回包会整体替换 CH，本地 _mine 标记必须捕获后回填
@@ -1343,6 +1378,7 @@ document.getElementById('pairSave').onclick=function(){
   var n=document.getElementById('pairName2').value.trim(); if(n)body.name=n;
   var u=document.getElementById('pairUrl').value.trim(); if(u)body.leadUrl=u;
   var t=document.getElementById('pairTok').value.trim(); if(t)body.token=t;
+  body.trust=document.getElementById('trustTgl').checked; // 信任开关总是随保存提交（取消勾选=关闭信任）
   if(!Object.keys(body).length){ toast('未填任何项'); return; }
   api('/dsh-termfleet/pairing',body).then(function(d){ if(d.ok){ toast('配对已保存：'+d.pairing.role+(d.pairing.name?' · '+d.pairing.name:'')+'（member 5s 内连上）'); pollFleet(); } });
 };
@@ -1411,7 +1447,7 @@ api('/dsh-termfleet/consent/list').then(function(d){ var c=(d.consents||[]).find
 // 键盘快捷键：Esc=关弹窗/抽屉, 1-4=切导航, /=聚焦搜索
 document.addEventListener('keydown', function(ev) {
   if (ev.key === 'Escape') {
-    ['replayMask','formMask','lessonMask','consentMask'].forEach(function(id) { document.getElementById(id).classList.remove('on') });
+    ['replayMask','formMask','lessonMask','consentMask','recentMask'].forEach(function(id) { document.getElementById(id).classList.remove('on') });
     closeDrawer();
     document.getElementById('statMenu').classList.remove('on');
   }
