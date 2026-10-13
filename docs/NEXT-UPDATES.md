@@ -53,10 +53,10 @@
 ## P2 —— 体验深化（不急但值得记）
 
 - 面板原生化（iframe → slots React 组件，主题/导航全原生融合；0.2.0 rightbar 布局研究）
-- 成本接 dsh-cost-meter 价目表（当前只有操作数/时长估算）
+- 成本接 dsh-cost-meter 价目表（当前只有操作数/时长估算）——**2026-10-09 侦察结论：暂缓**。dsh-cost-meter v1.8.24 是 UI 侧插件（侧边栏/额度条/热图），README 无文档化数据接口（路由/账本文件格式）可对接；按供应链纪律不猜私有格式。路径：等其文档化 ledger/endpoint 后做条件代理（检测到即用、否则回落估算），或向 upstream 提接口提案
 - 接管回放升级：按审计事件切片跳转（2026-10-07 调研降级：无稀缺性、需求实证弱，排 P2 末位）
-- 封印 manifest（归档防篡改，unified-board 对齐收尾）
-- 向量查重（hippo 向量能力接入，新建任务查重）
+- ~~封印 manifest~~ ✅ + ~~linkcheck~~ ✅ 已落地（2026-10-09，doclib 评审缺口①②清偿，D-W1 部分承接）：`npm run doc:seal`（31 文件 SHA-256 账本，防篡改实测=改一字必被抓）+ `npm run doc:linkcheck`（内链磁盘校验，抓出并修复 2 条 PLAN.md 断链）；`seal --verify` 退出码可接 CI/巡检
+- 向量查重（hippo 向量能力接入，新建任务查重）——依赖 hippo 向量服务化侦察，未开始
 
 ## 明确不做（YAGNI）
 

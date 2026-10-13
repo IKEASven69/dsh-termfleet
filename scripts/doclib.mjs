@@ -58,6 +58,12 @@ async function main() {
       case "sync-module":
         await syncModule(ctx, parsed);
         break;
+      case "seal":
+        await runSeal(ctx, parsed);
+        break;
+      case "linkcheck":
+        await runLinkcheck(ctx);
+        break;
       case "help":
       case undefined:
         printHelp();
@@ -920,6 +926,8 @@ function printHelp() {
   promote-plan <plan-slug> --change <change-id>
   record-bug <slug> --title "..." [--severity P2] [--module name] [--tag tag]
   sync-module <module>
+  seal [--verify]                    SHA-256 封印 docs/lib（防篡改账本）；--verify 校验当前树与账本一致
+  linkcheck                          docs/lib 内链磁盘存在性校验 + 外链清单（外链只列不访）
 
 Common options:
   --root <path>   Project root, default current directory
@@ -1213,6 +1221,97 @@ function checkTask(content, index) {
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// ── seal：docs/lib 归档防篡改（SHA-256 清单账本；doclib 评审缺口①，D-W1 承接）──
+// seal 生成 _seal/manifest.json；seal --verify 与当前树逐字节比对，任何改动/缺失/新增都会暴露。
+async function walkFiles(dir, skipNames) {
+  const out = [];
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (skipNames.has(entry.name)) continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...(await walkFiles(full, skipNames)));
+    else out.push(full);
+  }
+  return out.sort();
+}
+
+const sha256Of = async (crypto, file) =>
+  crypto.createHash("sha256").update(await readFile(file)).digest("hex");
+
+async function runSeal(ctx, parsed) {
+  const verify = parsed.options.verify !== undefined || parsed.positionals.includes("verify");
+  const sealDir = path.join(ctx.libRoot, "_seal");
+  const manifestPath = path.join(sealDir, "manifest.json");
+  const crypto = await import("node:crypto");
+  const files = await walkFiles(ctx.libRoot, new Set(["_seal"]));
+  if (verify) {
+    if (!existsSync(manifestPath)) throw new Error("未找到封印账本（先跑 seal 生成）");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+    const recorded = manifest.files ?? {};
+    const now = {};
+    for (const f of files) now[path.relative(ctx.libRoot, f).split(path.sep).join("/")] = await sha256Of(crypto, f);
+    const changed = [];
+    const missing = [];
+    const added = [];
+    for (const [rel, hash] of Object.entries(recorded)) {
+      if (!(rel in now)) missing.push(rel);
+      else if (now[rel] !== hash) changed.push(rel);
+    }
+    for (const rel of Object.keys(now)) if (!(rel in recorded)) added.push(rel);
+    if (changed.length || missing.length || added.length) {
+      console.log(`❌ 封印校验失败：改动 ${changed.length} / 缺失 ${missing.length} / 新增 ${added.length}（对照 ${manifest.sealedAt} 账本）`);
+      for (const rel of changed) console.log(`  M ${rel}`);
+      for (const rel of missing) console.log(`  D ${rel}`);
+      for (const rel of added) console.log(`  A ${rel}`);
+      process.exitCode = 1;
+      return;
+    }
+    console.log(`✅ 封印校验通过：${files.length} 个文件与 ${manifest.sealedAt} 账本逐字节一致`);
+    return;
+  }
+  const filesMap = {};
+  for (const f of files) filesMap[path.relative(ctx.libRoot, f).split(path.sep).join("/")] = await sha256Of(crypto, f);
+  await mkdir(sealDir, { recursive: true });
+  const manifest = { sealedAt: new Date().toISOString(), algorithm: "sha256", fileCount: files.length, files: filesMap };
+  await writeFile(manifestPath, JSON.stringify(manifest, null, 1));
+  console.log(`🔒 已封印：${files.length} 个文件 → docs/lib/_seal/manifest.json（seal --verify 校验）`);
+}
+
+// ── linkcheck：docs/lib 内链磁盘存在性校验 + 外链清单（doclib 评审缺口②；外链只列不访，避免网络抖动误报）──
+async function runLinkcheck(ctx) {
+  const files = await walkFiles(ctx.libRoot, new Set(["_seal"]));
+  const mdFiles = files.filter((f) => f.endsWith(".md"));
+  const broken = [];
+  const externals = new Set();
+  let internalCount = 0;
+  for (const f of mdFiles) {
+    const text = await readFile(f, "utf8");
+    const re = /\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+    let match;
+    while ((match = re.exec(text))) {
+      const raw = match[1];
+      if (raw.startsWith("#")) continue;
+      if (/^[a-z]+:\/\//i.test(raw)) {
+        externals.add(raw);
+        continue;
+      }
+      internalCount += 1;
+      let clean = "";
+      try { clean = decodeURIComponent(raw.split("#")[0]).trim() } catch { clean = raw.split("#")[0].trim() } // 畸形 % 序列按原样校验，不让单个坏链击穿整体
+      if (!clean) continue;
+      const target = path.resolve(path.dirname(f), clean);
+      if (!existsSync(target)) broken.push(`${path.relative(ctx.libRoot, f)} → ${raw}`);
+    }
+  }
+  console.log(`linkcheck：md ${mdFiles.length} 文件 · 内链 ${internalCount} · 外链 ${externals.size}（外链仅清单不访问）`);
+  if (broken.length) {
+    console.log(`❌ 断链 ${broken.length}：`);
+    for (const b of broken) console.log(`  ${b}`);
+    process.exitCode = 1;
+    return;
+  }
+  console.log("✅ 内链全部有效");
 }
 
 await main();

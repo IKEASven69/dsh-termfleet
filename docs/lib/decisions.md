@@ -131,6 +131,10 @@ Host 头回落（优先级第三）在跨机经 lan-forwarder 时不可达——
 
 断言"具体帧数/顺序"在（探针 agentLoop 异步补发 turn 事件 × 3s tick 相位 × 12s 冷却网格边界）三因素下必然 flake——四轮实测出现四种不同合法时序。终版断言=**确定性不变量**：working/stuck 各 ≥1（管道通）+ 同类相邻帧间隔 ≥11.5s（冷却下限，留 0.5s 抖动余量）+ lastProgress 与末帧一致；写#2 时机同步到事件（轮询到本轮写后的首次 stuck 推送 ts>t12 再发，消除冷却基线漂移）。教训：**频控类测试断言"不变量"而非"脚本"；环境异步事件源（重试/补发）会移动冷却基线，任何依赖"上次推送发生在何时"的具体帧数断言都不可靠**。诊断工具 scripts/dbg-progress.mjs（双实例+逐帧打印）保留入库。
 
+## 2026-10-13 · doclib seal + linkcheck 两命令落地（评审缺口①②清偿，D-W1 部分承接）
+
+`npm run doc:seal`（`node scripts/doclib.mjs seal [--verify]`）：遍历 docs/lib（跳过 _seal）逐文件 SHA-256 → `_seal/manifest.json` 账本（sealedAt/algorithm/fileCount/files）；`--verify` 与当前树逐字节比对，改动/缺失/新增分列 M/D/A 并退出码 1（可接巡检/CI）。`npm run doc:linkcheck`：docs/lib 全部 md 的链接语法（`]（路径）` 形式）——内链 decodeURIComponent+去锚后磁盘存在性校验（断链列明细退出码 1），外链仅清单不访问（避免网络抖动误报）。**实测**：31 文件封印/校验通过；防篡改实测=decisions.md 改一字 verify 必抓（exit 1）→ 还原通过；linkcheck 抓出 2 条真实断链（planning 两文件指向不存在的 docs/PLAN.md，层级少算一级）已修。CLAUDE.md/patrol 可把 `seal --verify` 纳入例行校验。cost-meter 接入侦察结论=暂缓（v1.8.24 无文档化数据接口，不猜私有格式；路径=等 ledger/endpoint 文档化后条件代理）。
+
 ## 2026-10-09 · 契约 I：快捷操作 = 信任快捷通道（一键请求+自动允许·仅只读）+ 一键最近动态（P1#6 落地，P1 收官）
 
 **信任快捷通道**：成员侧开关 `cfg.trust`（/pairing POST body.trust，pairing.json 持久化，面板勾选「信任此 lead：会话查看请求自动允许（仅只读，随时可断）」）；lead 一键请求 `/consent/request {type:'sess', target, auto:'ro'}` → auto 随 consent 落库（request/requestRemote 均落库——独立复审 F1：requestRemote 白名单丢 auto 会让成员面板「随时可断」卡与提示成死代码）并透传下发帧；成员侧门条件 `consent.auto==='ro' && cfg.trust===true && type==='sess'` 三重成立才自动 decide(readonly)，审计「信任模式自动允许(只读)」+ IM 告知 + consent-decided 回帧；关信任后同样请求停在 pending（E2E 反向半门闸锁）。**安全边界**：auto 只认 'ro'（发 'rw' 被忽略）、仅 sess 类型、最大半径=只读 30min、成员随时可断（active remote consent 的 end 路径闭环）——rw 接管永远要成员手动点头。**一键动态**：fleet `?r=` 深度参数（1-50 默认 8，parseInt 钳制）+ 面板成员卡「◔动态」弹层（状态/最近推送/近 20 条会话事件）。**面板**：成员卡「⚡看会话」「◔动态」按钮 stopPropagation；Esc 关闭列表纳入 recentMask。已知边角（备案）：成员自动路径 decide 返回 null 的极窄竞态会落穿补发审批卡 IM（无实害）；pending 无过期（prune 只清 active）。

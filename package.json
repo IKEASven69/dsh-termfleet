@@ -27,7 +27,9 @@
     "doc:close-change": "node scripts/doclib.mjs close-change",
     "doc:promote-plan": "node scripts/doclib.mjs promote-plan",
     "doc:record-bug": "node scripts/doclib.mjs record-bug",
-    "doc:sync-module": "node scripts/doclib.mjs sync-module"
+    "doc:sync-module": "node scripts/doclib.mjs sync-module",
+    "doc:seal": "node scripts/doclib.mjs seal",
+    "doc:linkcheck": "node scripts/doclib.mjs linkcheck"
   },
   "dependencies": {
     "@lydell/node-pty": "1.2.0-beta.15",
