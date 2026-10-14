@@ -131,6 +131,10 @@ Host 头回落（优先级第三）在跨机经 lan-forwarder 时不可达——
 
 断言"具体帧数/顺序"在（探针 agentLoop 异步补发 turn 事件 × 3s tick 相位 × 12s 冷却网格边界）三因素下必然 flake——四轮实测出现四种不同合法时序。终版断言=**确定性不变量**：working/stuck 各 ≥1（管道通）+ 同类相邻帧间隔 ≥11.5s（冷却下限，留 0.5s 抖动余量）+ lastProgress 与末帧一致；写#2 时机同步到事件（轮询到本轮写后的首次 stuck 推送 ts>t12 再发，消除冷却基线漂移）。教训：**频控类测试断言"不变量"而非"脚本"；环境异步事件源（重试/补发）会移动冷却基线，任何依赖"上次推送发生在何时"的具体帧数断言都不可靠**。诊断工具 scripts/dbg-progress.mjs（双实例+逐帧打印）保留入库。
 
+## 2026-10-13 · 跨机路径单机实测通道（verify-lan.mjs；TUN 解除实证）
+
+`node scripts/verify-lan.mjs`：lead+lan-forwarder+成员三进程，关键流量全走**非回环接口**——浏览器以 `http://<局域网IP>:<转发端口>` 开面板（tfAdvertise 真浏览器路径产出码内 LAN ws 地址，清偿 S7 遗留）→ 成员粘贴码经 forwarder（Host 改写+WS Upgrade 透传）出站上线 → 信任自动允许/会话事件上行/面板 SSE 下行双向穿转发器。**TUN 解除实证**：2026-10-07 的「Clash TUN 劫持本机非回环自测」不复现（判定法保留：临时监听器对 LAN IP 无响应即环境噪音，脚本据此如实退出）；本机 IP 已 .17→.12（DHCP 会漂，脚本自动探测非内部 IPv4）。**与真双机的剩余差距**：第二台机的防火墙环境、跨机时钟偏移合并行为、录屏验收本身。教训：成员面板的「粘贴入队」测试断言不依赖 UI toast（hookNotify 未装时 window.__toasts 不存在），用 pairing/fleet 结果断言；Playwright 点击前 waitForSelector 防「卡片未渲染竞态」（el.click() 对未绑定/未渲染元素是静默空转）。
+
 ## 2026-10-13 · doclib seal + linkcheck 两命令落地（评审缺口①②清偿，D-W1 部分承接）
 
 `npm run doc:seal`（`node scripts/doclib.mjs seal [--verify]`）：遍历 docs/lib（跳过 _seal）逐文件 SHA-256 → `_seal/manifest.json` 账本（sealedAt/algorithm/fileCount/files）；`--verify` 与当前树逐字节比对，改动/缺失/新增分列 M/D/A 并退出码 1（可接巡检/CI）。`npm run doc:linkcheck`：docs/lib 全部 md 的链接语法（`]（路径）` 形式）——内链 decodeURIComponent+去锚后磁盘存在性校验（断链列明细退出码 1），外链仅清单不访问（避免网络抖动误报）。**实测**：31 文件封印/校验通过；防篡改实测=decisions.md 改一字 verify 必抓（exit 1）→ 还原通过；linkcheck 抓出 2 条真实断链（planning 两文件指向不存在的 docs/PLAN.md，层级少算一级）已修。CLAUDE.md/patrol 可把 `seal --verify` 纳入例行校验。cost-meter 接入侦察结论=暂缓（v1.8.24 无文档化数据接口，不猜私有格式；路径=等 ledger/endpoint 文档化后条件代理）。
