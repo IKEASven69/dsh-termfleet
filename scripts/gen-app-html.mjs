@@ -612,6 +612,7 @@ function pg(v){
   document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('on'); });
   document.getElementById('pg-'+v).classList.add('on');
   if (v==='remote'){ renderChannel(); if(!window._fleetTimer){ window._fleetTimer=setInterval(pollFleet,2500); pollFleet(); } }
+  if (v==='task') load(); // 每次进任务页都拉最新（跨机同步的任务不刷新就永远不上板）
   if (v==='mem') loadMem();
   if (v==='audit') loadAudit();
 }
