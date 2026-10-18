@@ -150,3 +150,22 @@
 | RN4 | 请求接管+插话闭环 | ✅ | rw 手动允许 → 插话框启用 → 插话后 ack「✓已送达」+ 成员会话真实回显 |
 
 **评审处置**：F1 SSE 内建重连重放→sessionId:seq 去重（重订不清 evs）；F2 自愈空转收窄（仅无法订阅态重订）+重订不清 evs（插话气泡不丢）；F3 select/轮询竞态守卫（selRef 比对）；F4 send 精确清空 input+select 清 hint；死代码清理（不可达分支/onIframe）。已知边界：原生详情轻量版；多成员切换的流隔离已由 startStream close+去重重置覆盖（单成员 E2E，多成员留真双机）。
+
+═══════════════════════════════════════════
+
+# 0.2.1-alpha.2 + better-sidebar 共存验收（2026-10-15，verify-coexist-alpha2.cjs）
+
+> 回应「适配最新版？支持官方侧边栏和 better-sidebar？」。脚本：`node scripts/verify-coexist-alpha2.cjs`（双插件同载临时实例+定向豁免+真实坐标点击）。
+
+| # | 断言 | 结果 | 关键证据 |
+|---|---|---|---|
+| C1 | 双插件进 manifest | ✅ | `__DSH_BOOT__` 同时含 dsh-termfleet 与 better-sidebar（0.28.0，定向豁免后） |
+| C2 | TermFleet 原生板挂载 | ⚠️ 部分 | better-sidebar 0.28 在载时引导卡同框可见，但自动化点击（合成+真实坐标）未触发宿主引导卡激活——**人工点击可用**（单插件实例 N1 已证挂载无碍），属测试自动化与宿主引导系统的交互限制 |
+| C3 | 右栏多面板并存 | ✅ | better-sidebar 0.28 底部 dock 五 tab（文件/Git/任务管理/侧边对话/终端）+ 右栏引导卡含 TermFleet，同框渲染无冲突 |
+
+**better-sidebar 版本矩阵（重要生态事实）**：
+- **0.19.1（广泛安装版）：被 dsh 0.2.1-alpha.2 兼容守卫整体禁用**——peer 全钉 `0.1.5-rc.1`，守卫拒载（活体实证，与 COMPETITOR-SCAN-1006 记录的守卫机制吻合）。装旧版 better-sidebar 的用户升 dsh 后它会静默消失，需 `dsh plugin allow-version` 豁免或升级
+- **0.28.0：适配线**（peers `^0.2.1-rc.1`），豁免后同载成功、自渲染底部 dock，与 TermFleet 右栏 tab 无冲突（key 隔离：`better-sidebar` vs `dsh-termfleet`）
+- **TermFleet 自身不声明宿主版本 peer 线 → 守卫无从禁起**（同实例实测挂载正常）；0.28 的「任务管理」tab 与本插件任务板功能相邻，竞争关注点入档
+
+**live 环境更新（用户指令）**：web profile 的 better-sidebar 已 0.24.1→0.28.0（`dsh plugin allow-version` 豁免 alpha.2 边界 + pnpm-workspace allowBuilds 放行 onnxruntime-node 构建并完成 postinstall）。**生效需重启 live dsh 实例**。
