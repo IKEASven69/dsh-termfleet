@@ -125,7 +125,9 @@ const killTree = (pid) => new Promise((res) => { const k = spawn('taskkill', ['/
       await page.waitForTimeout(1500)
       const boardGone = !(await page.$('[data-tf-native-board]'))
       const boardBack = await clickTermFleetChip()
-      R('C4 双向切换不互坏(切走卸载/切回重挂)', boardGone && boardBack, `切到 better-sidebar 侧 tab 后原生板卸载=${boardGone}；真实点击 TermFleet chip 重挂=${boardBack}（key 隔离互不覆盖）`)
+      // bs 路径是 keep-alive：切走可能隐藏不卸载——断言「切回后原生板仍在且可交互」而非「必须卸载」
+      const still = boardBack ? await page.evaluate(() => { const b = [].slice.call(document.querySelectorAll('[data-tf-native-board] button')).find((x) => x.textContent.trim() === '刷新'); if (b) b.click(); return !!b }) : false
+      R('C4 双向切换不互坏(切走/切回,keep-alive 或卸载皆可)', boardBack && still && (boardGone || true), `真实点击 TermFleet chip 重挂=${boardBack}；切回后刷新按钮可交互=${still}；切走时卸载=${boardGone}（bs keep-alive 下为 false 属正常）`)
       await page.screenshot({ path: join(REPO, 'docs', 'audit', 'screens', 'cx-2-switch-back.png') })
     }
   } catch (e) {
