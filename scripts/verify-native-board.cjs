@@ -146,8 +146,8 @@ const killTree = (pid) => new Promise((res) => { const k = spawn('taskkill', ['/
     const added = await page.evaluate(() => { const col = document.querySelector('[data-nb-col="needs-triage"]'); return col ? col.innerText.includes('NB快速新建样本') : false })
     R('N5 快速建任务(入待分诊列)', added, `快速输入+「建」→ 待分诊列出现 NB快速新建样本=${added}`)
 
-    // flag 切回 iframe 完整面板
-    await page.evaluate(() => { const b = [].slice.call(document.querySelectorAll('[data-tf-native-board] button')).find((x) => x.textContent.trim() === '完整面板'); if (b) b.click() })
+    // flag 切回 iframe 完整面板（「完整面板」按钮在共享 tab 头部 [data-tf-native]，不在任务板容器内）
+    await page.evaluate(() => { const b = [].slice.call(document.querySelectorAll('[data-tf-native] button')).find((x) => x.textContent.trim() === '完整面板'); if (b) b.click() })
     await page.waitForTimeout(1500)
     const iframeBack = await page.$('[data-tf-sidebar-tab-body] iframe')
     await page.evaluate(() => { const b = [].slice.call(document.querySelectorAll('button')).find((x) => x.textContent.trim() === '原生任务板'); if (b) b.click() })

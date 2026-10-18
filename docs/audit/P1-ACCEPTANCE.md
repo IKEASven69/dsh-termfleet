@@ -135,3 +135,18 @@
 | N6 | flag 双向切换 | ✅ | 完整面板→iframe 主体；原生任务板→原生回归 |
 
 **调试实录与评审处置**（详见 decisions 2026-10-15）：面板空+React #62 → 错误码解码=style prop 传字符串 → 改样式对象即愈；stash 对照实验排除宿主回归（旧 iframe tab 在 0.2.1-alpha.2 正常挂载）；评审 F1=401 假成功 hint（guard 401 响应无 ok 字段）→ act/quickAdd 补状态码检查；F2=pageerror 计入退出码（豁免宿主已知噪音「tab tab2 has no pane」）。已知边界：原生详情为轻量版（文档正文/大纲/避坑在完整面板）；快速建任务仅标题（进待分诊）。截图 nb-1-native-board.png。
+
+═══════════════════════════════════════════
+
+# 面板原生化第二步 验收记录（2026-10-15，verify-native-remote.cjs RN1-RN4 全绿 + 任务板 6/6 回归）
+
+> 右栏 tab 升级「任务板/远程」分段切换；原生远程视图=成员卡轮询+⚡请求查看(信任自动 ro)+请求接管(rw 手动)+member-stream 对话流气泡(ack ✓已送达)+rw 插话。复跑：`node scripts/verify-native-remote.cjs`（双实例：member env 直连+信任+probe 回显断言，零接触真实 3180）。
+
+| # | 场景 | 结果 | 关键证据 |
+|---|---|---|---|
+| RN1 | 远程视图+成员卡 | ✅ | 分段切换挂载 `[data-tf-native-remote]`，fleet 轮询出「● NR-MEMBER」卡 |
+| RN2 | ⚡请求查看 | ✅ | 信任自动允许 ro → 流状态=订阅中 + 通道 chip=只读（2.5s 自愈重订阅路径实测） |
+| RN3 | 会话事件→原生气泡 | ✅ | 成员 probe write → 原生对话流出现 ▶ user 气泡含 MARK（sessionId:seq 去重下无重复） |
+| RN4 | 请求接管+插话闭环 | ✅ | rw 手动允许 → 插话框启用 → 插话后 ack「✓已送达」+ 成员会话真实回显 |
+
+**评审处置**：F1 SSE 内建重连重放→sessionId:seq 去重（重订不清 evs）；F2 自愈空转收窄（仅无法订阅态重订）+重订不清 evs（插话气泡不丢）；F3 select/轮询竞态守卫（selRef 比对）；F4 send 精确清空 input+select 清 hint；死代码清理（不可达分支/onIframe）。已知边界：原生详情轻量版；多成员切换的流隔离已由 startStream close+去重重置覆盖（单成员 E2E，多成员留真双机）。
