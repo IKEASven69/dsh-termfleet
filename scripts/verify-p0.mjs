@@ -195,7 +195,7 @@ async function main() {
   const SCEN = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10', 'S11', 'S12', 'S13', 'S14', 'S15']
   try {
     // ── 拉 lead（env 指定角色/令牌；契约启动式同 ACCEPTANCE-M1，仅 HOME 隔离） ──
-    const lead = launchDsh({ port: leadPort, patchFile, dshHome: dshHomeLead, userProfile: userProfileLead, envExtra: { TERMFLEET_ROLE: 'lead', TERMFLEET_TOKEN: TEAM_TOKEN, TERMFLEET_NAME: 'P0-LEAD' }, tag: 'lead' })
+    const lead = launchDsh({ port: leadPort, patchFile, dshHome: dshHomeLead, userProfile: userProfileLead, envExtra: { TERMFLEET_ROLE: 'lead', TERMFLEET_TOKEN: TEAM_TOKEN, TERMFLEET_NAME: 'P0-LEAD', TERMFLEET_DEDUP_THRESHOLD: '0.55' }, tag: 'lead' }) // 阈值显式钉死：launchDsh 继承宿主机 env，开发机若设更高阈值 S15 近似命中(≈0.556)会被无声滤掉
     children.push(lead)
     const TOK_LEAD = await waitReady(lead, leadPort, userProfileLead)
     console.log(`[lead] 就绪 port=${leadPort} ping=200 插件令牌已装载`)
