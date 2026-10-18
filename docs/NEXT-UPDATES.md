@@ -52,11 +52,11 @@
 
 ## P2 —— 体验深化（不急但值得记）
 
-- 面板原生化（iframe → slots React 组件，主题/导航全原生融合；0.2.0 rightbar 布局研究）
+- 面板原生化（iframe → slots React 组件，主题/导航全原生融合）——**2026-10-18 侦察结论：partial（壳已原生化，整面板重写暂缓，条件触发）**。可行半边已落地并实测：官方右侧栏整面板位可用——`sidebarRightTabs.register`+`sidebar.right.pane.tab`(keyed) 槽收 React 组件撑满侧栏，本插件 v2 已注册且 0.2.0 实测工作（lib/client.js:256-290；截图 sidebar-right-v2-*.png、与 better-sidebar 共存 sidebar-coexist-{1..8}.png，官方 DockSurface chrome 并存）；react 经客户端模块表 require+h() 即可写原生组件（lib/client.js:26-28），主题用宿主 `--dsw-alias-*` 变量。暂缓半边的证据：①装好的 `@deepseek-ai/dsh@0.2.1-alpha.2` 只带 8 行 `lib/types/plugin.d.ts`（仅 runPlugin），槽位零类型；②`@deepseek-ai/dsh-client-ui-slots`/`dsh-client-runtime` 本机未安装（ls 实测）；③本地 harness 源为 0.1.2-rc.1/0.1.3-alpha.1，其 `ui-sidebar` 契约只有左栏 brand/section/settings/footer 槽（packages/client/ui-sidebar/src/client/contract/slots.ts），`sidebar.right.pane.tab`/`sidebarRightTabs` 全树 0 命中——0.2.x 槽面源码与文档本地不可得；④该槽面 0.1→0.2 已破坏过一次（utilities 槽删、rightbar.session 被 mf 占用，docs/lib/decisions.md 2026-10-05 条目），alpha 期全量重写（~1400 行 app：4 页+SSE+表单+弹窗）每次升版都有整面报废风险。**最小落地路径**（渐进，不全量）：保持官方 tab 壳+iframe 主体现状 → 逐页（建议先任务板）用 React+h 重写为 tab body 内组件，feature flag 与 iframe 并存可切 → 上游发布 dsh-client-ui-* 类型/正式文档后整体替换并删 iframe。触发条件=③解除
 - 成本接 dsh-cost-meter 价目表（当前只有操作数/时长估算）——**2026-10-09 侦察结论：暂缓**。dsh-cost-meter v1.8.24 是 UI 侧插件（侧边栏/额度条/热图），README 无文档化数据接口（路由/账本文件格式）可对接；按供应链纪律不猜私有格式。路径：等其文档化 ledger/endpoint 后做条件代理（检测到即用、否则回落估算），或向 upstream 提接口提案
 - 接管回放升级：按审计事件切片跳转（2026-10-07 调研降级：无稀缺性、需求实证弱，排 P2 末位）
 - ~~封印 manifest~~ ✅ + ~~linkcheck~~ ✅ 已落地（2026-10-09，doclib 评审缺口①②清偿，D-W1 部分承接）：`npm run doc:seal`（31 文件 SHA-256 账本，防篡改实测=改一字必被抓）+ `npm run doc:linkcheck`（内链磁盘校验，抓出并修复 2 条 PLAN.md 断链）；`seal --verify` 退出码可接 CI/巡检
-- 向量查重（hippo 向量能力接入，新建任务查重）——依赖 hippo 向量服务化侦察，未开始
+- ~~向量查重~~ ✅ **词法查重 v1 已落地**（2026-10-18，E2E S15 全绿）：如实标注——v1 用的是**服务端本地 bigram Jaccard**（归一化后字符 bigram 集合交集/并集，`TERMFLEET_DEDUP_THRESHOLD` 默认 0.55），不是向量查重；hippo 向量化后可升级（侦察实测 dsh-hippo 0.5.0 `import('dsh-hippo/engine')`→openEngine→ZvecStore+MemoryEngine、bge-m3 1024 维向量能力**可用**，v1 不接的理由=评分域变更即契约作废+进程级 env 活数据风险，详见 docs/lib/decisions.md 2026-10-18 条目）。落地面：`POST /tasks/similar`（鉴权门内只读）+ `/tasks/create` 响应带 `similar`（提示非门禁，创建不拦截）+ 面板新建表单 fSim 提示区（标题 debounce 600ms，无相似清空）。候选=状态不在 wontfix/archived 的任务，top-3 按 score 降序
 
 ## 明确不做（YAGNI）
 

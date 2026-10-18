@@ -359,6 +359,45 @@ export function apply(ctx, _config) {
     }
   })()
 
+  // ── 查重 v1（契约 A：归一化 bigram Jaccard；引擎选择见 docs/lib/decisions.md 2026-10-18 条目）──
+  // 引擎选择（契约 E）：侦察实测 hippo 向量能力可用（dsh-hippo/engine 的 openEngine→ZvecStore+MemoryEngine，
+  // bge-m3 1024 维，import('dsh-hippo/engine') 可取），v1 仍选本地 bigram，理由：
+  // ① 契约 A 已把评分钉死为归一化 bigram Jaccard（宿主/面板双方严格一致，TERMFLEET_DEDUP_THRESHOLD 默认 0.55
+  //   语义绑定该评分域）；hippo 混合检索返回的 similarity 是 RRF 归一排名分、纯余弦要 store.search 自带向量——
+  //   换引擎即换评分域，跨端契约作废。
+  // ② 宿主进程内可能与 dsh-hippo 插件同装：openEngine 私有 storeDir 需 HIPPO_DATA_DIR 进程级 env，会改同进程
+  //   其他 hippo 消费者的数据目录指向（活数据纪律风险）；模型冷加载 ~3-4s/进程；任务量级 ≤百，O(n) 扫描成本≈0。
+  // hippo 向量化升级路径（v2 备忘，降级路径=下方 bigram 即现行实现）：import('dsh-hippo/engine') →
+  //   openEngine(私有 storeDir) → provider.embed(任务 title+desc) → store.search(vector, projects, limit)
+  //   取 1.0-cosine 距离的纯余弦相似度（任务库快照按需建向量）；届时评分域切为余弦，
+  //   TERMFLEET_DEDUP_THRESHOLD 需两端同步调参并升版契约。
+  const DEDUP_SKIP_STATES = ['wontfix', 'archived']
+  const dedupThreshold = (() => {
+    const n = parseFloat(process.env.TERMFLEET_DEDUP_THRESHOLD)
+    return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.55
+  })()
+  const normTitle = (s) => String(s || '').toLowerCase().replace(/[\s\p{P}]+/gu, '')
+  const bigramSet = (s) => { const out = new Set(); for (let i = 0; i < s.length - 1; i++) out.add(s.slice(i, i + 2)); return out }
+  const dedupSet = (title, desc) => { const s = bigramSet(normTitle(title)); for (const g of bigramSet(normTitle(desc))) s.add(g); return s }
+  const jaccard = (a, b) => {
+    if (!a.size || !b.size) return 0
+    let inter = 0
+    for (const g of a) if (b.has(g)) inter++
+    return inter / (a.size + b.size - inter)
+  }
+  // 契约 B：候选=状态不在 wontfix/archived 的任务；score≥阈值取前 3 条按分降序；excludeId 供建库后自查豁免
+  const findSimilarTasks = async (title, desc, excludeId) => {
+    const q = dedupSet(title, desc)
+    if (!q.size) return []
+    const hits = []
+    for (const t of await taskStore.list()) {
+      if (DEDUP_SKIP_STATES.includes(t.status) || (excludeId && t.id === excludeId)) continue
+      const score = jaccard(q, dedupSet(t.title, t.desc))
+      if (score >= dedupThreshold) hits.push({ id: t.id, title: t.title, status: t.status, score })
+    }
+    return hits.sort((a, b) => b.score - a.score).slice(0, 3)
+  }
+
   // ── 决策笔记库 v2（write-notes-like-deepseek 治理产品化：目录即状态 + 六分类 + 合法流转 + 校验门） ──
   // 树：~/.dsh/termfleet/team-memory/{proposed|implemented|rejected|archived}/{category}/yyyy-mm-dd-slug.md
   // 旧扁平 md 首次访问自动迁入 implemented/process；真实项目决策种子一次。
@@ -1362,11 +1401,25 @@ ctx.inject(['webServer'], (host) => {
             try {
               const body = JSON.parse((await readBody(req)) || '{}')
               await busLink.loadCfg() // 任务 id 舰队名标签需要 cfg（跨机同步防 id 撞）
+              const similar = await findSimilarTasks(String(body.title || ''), String(body.desc || '')) // 查重 v1（契约 C）：先于建库计算=天然不含本任务；仅随响应提示，不拦截，审计不变
               const t = await taskStore.create(body, who(req))
               emitNotify('task', who(req) + ' 新建 ' + t.id + ' ' + String(t.title || '').slice(0, 60))
               void busLink.memberPushTask('create', { ...body, id: t.id }) // 任务板同步 v1：成员端乐观执行后上行（带已生成 id，lead 沿用防双 id）；lead 端为 no-op
               void busLink.broadcastTasks()               // lead 端权威广播（成员端 conns 空为 no-op）
-              json(res, 200, { ok: true, task: t })
+              json(res, 200, { ok: true, task: t, similar })
+            } catch (e) { json(res, 400, { ok: false, error: String(e).slice(0, 300) }) }
+          },
+        }),
+        // ── 查重 v1（契约 B）：创建前相似任务查询——鉴权门内，只读提示面（不落库、不入审计） ──
+        host.webServer.register({
+          kind: 'exact',
+          path: '/dsh-termfleet/tasks/similar',
+          handler: async (req, res) => {
+            if (guard(req, res)) return
+            if (req.method !== 'POST') { res.writeHead(405, { allow: 'POST' }); res.end(); return }
+            try {
+              const body = JSON.parse((await readBody(req)) || '{}')
+              json(res, 200, { ok: true, similar: await findSimilarTasks(String(body.title || ''), String(body.desc || '')) })
             } catch (e) { json(res, 400, { ok: false, error: String(e).slice(0, 300) }) }
           },
         }),

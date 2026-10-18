@@ -89,6 +89,7 @@
 |---|---|---|---|
 | S13 | 信任快捷通道（正反两半） | ✅ PASS | 开信任→一键请求→lead 侧 active ro（auto=ro 透传+成员侧记录落库回归锁 auto=ro/active），成员审计「信任模式自动允许(只读)」；关信任→同样请求 4.5s 后仍 pending（信任门闸成立） |
 | S14 | 一键动态数据面 | ✅ PASS | fleet?r=20 → recentEvents 17 条（默认路由 8 条），含 S3 插话回显=true |
+| S15 | 查重（近似命中+无关空+fSim 提示+创建不拦截） | ✅ PASS | 无令牌 POST /tasks/similar=401（鉴权门内）；建基线 T-005-P0LEAD「实现用户登录模块」→ similar「实现用户登陆模块」命中基线 score=0.5556≥0.55（契约 A bigram Jaccard 5/9≈0.556，TERMFLEET_DEDUP_THRESHOLD 默认）；无关标题「午饭吃什么」→ similar 0 条；面板 lead 新建表单 fTitle 逐字输入→fSim 提示区="发现 1 个相似任务（请确认是否重复；不拦截创建）： T-005-P0LEAD 实现用户登录模块 56%"（截图 p0-6-dedup-fsim.png）；近似标题创建第二任务 200（新 id=T-006-P0LEAD≠基线，未被拦截）且响应 similar 含基线 score=0.5556 |
 
 ## 独立复审（换人冷启动）处置
 

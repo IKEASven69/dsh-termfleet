@@ -31,6 +31,10 @@
 //   S13 信任快捷通道（契约 I）：成员开信任 → lead 一键请求(auto=ro) → 成员侧自动允许只读
 //      （零手动，审计留痕）；关信任后同样请求保持 pending（信任门闸）。
 //   S14 一键动态数据面：fleet?r=20 深度参数返回最多 20 条近期事件（含插话回显）。
+//   S15 查重 v1（契约 A/B/C/D）：建基线任务「实现用户登录模块」(title+desc) → POST tasks/similar
+//      近似标题「实现用户登陆模块」命中基线且 score≥0.55（bigram Jaccard 5/9≈0.556）、无关标题
+//      「午饭吃什么」similar 空；面板新建表单 fTitle 逐字输入→debounce→fSim 提示区出现基线条目；
+//      用近似标题建第二个任务→create 响应含 similar 字段且创建不被拦截（提示非门禁）。
 //
 // 隔离纪律：
 //   - 双实例 DSH_HOME 指向本次运行的临时目录（os.tmpdir()），且 lead/member 各持
@@ -188,7 +192,7 @@ async function main() {
 
   const children = []
   let browser = null
-  const SCEN = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10', 'S11', 'S12', 'S13', 'S14']
+  const SCEN = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10', 'S11', 'S12', 'S13', 'S14', 'S15']
   try {
     // ── 拉 lead（env 指定角色/令牌；契约启动式同 ACCEPTANCE-M1，仅 HOME 隔离） ──
     const lead = launchDsh({ port: leadPort, patchFile, dshHome: dshHomeLead, userProfile: userProfileLead, envExtra: { TERMFLEET_ROLE: 'lead', TERMFLEET_TOKEN: TEAM_TOKEN, TERMFLEET_NAME: 'P0-LEAD' }, tag: 'lead' })
@@ -635,10 +639,48 @@ async function main() {
     } catch (e) { s14Ev = '卡点：' + e.message }
     R('S14 一键动态数据面(fleet?r=20 深度参数/含插话回显)', s14Ok, s14Ev)
 
+    // ═══ S15 查重 v1（契约 A/B/C/D）：API similar 命中近似标题≥阈值+无关标题空；
+    //     面板新建表单 fTitle 逐字输入→fSim 提示区出现基线条目；create 响应带 similar 且创建不被拦截 ═══
+    let s15Ok = false, s15Ev = '未执行'
+    try {
+      const TT15 = 0.55 // 契约 A 默认阈值（lead 实例未设 TERMFLEET_DEDUP_THRESHOLD env）
+      const T15_BASE = '实现用户登录模块', T15_NEAR = '实现用户登陆模块', T15_UNREL = '午饭吃什么'
+      // 鉴权门在路由内：无令牌 POST similar 必须 401（契约 B「鉴权门内」）
+      const unauth15 = await fetch(`http://127.0.0.1:${leadPort}/dsh-termfleet/tasks/similar`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title: T15_NEAR }),
+      })
+      // a) 建基线任务(title+desc) → 近似标题（登→陆一字之差，bigram Jaccard 5/9≈0.556）命中基线且 score≥阈值；无关标题 similar 空
+      const cb15 = await apiJson(leadPort, 'tasks/create', 'POST', { title: T15_BASE, desc: '用户登录模块', project: '查重E2E' })
+      const id15 = cb15.j?.task?.id
+      const sq15 = await apiJson(leadPort, 'tasks/similar', 'POST', { title: T15_NEAR })
+      const hit15 = (sq15.j?.similar || []).find((x) => x.id === id15)
+      const su15 = await apiJson(leadPort, 'tasks/similar', 'POST', { title: T15_UNREL })
+      // b) 面板：lead 新建表单 fTitle 逐字输入近似标题 → debounce 600ms → fSim 提示区出现基线条目(id+title+score%)
+      await leadPage.evaluate(() => { document.getElementById('navTask').click(); document.getElementById('newBtn').click() })
+      await leadPage.waitForSelector('#fTitle', { state: 'visible' })
+      await leadPage.locator('#fTitle').pressSequentially(T15_NEAR, { delay: 70 })
+      const simEl = await waitFor(async () => {
+        const txt = await leadPage.evaluate(() => { const el = document.getElementById('fSim'); return el && el.style.display !== 'none' ? el.innerText : '' })
+        return txt.includes(id15) ? txt : null
+      }, 10000, 400, 'fSim 提示区出现基线任务条目')
+      await leadPage.screenshot({ path: join(SHOT_DIR, 'p0-6-dedup-fsim.png') })
+      // c) 用近似标题创建第二个任务 → create 响应含 similar（同 B 形状）且创建不被拦截（提示非门禁）
+      const cc15 = await apiJson(leadPort, 'tasks/create', 'POST', { title: T15_NEAR, project: '查重E2E' })
+      const cHit = (cc15.j?.similar || []).find((x) => x.id === id15)
+      s15Ok = unauth15.status === 401 && cb15.status === 200 && !!id15
+        && sq15.status === 200 && sq15.j?.ok === true && !!hit15 && hit15.score >= TT15
+        && su15.status === 200 && (su15.j?.similar || []).length === 0
+        && simEl.v.includes(T15_BASE) && simEl.v.includes('%')
+        && cc15.status === 200 && cc15.j?.ok === true && !!cc15.j?.task && cc15.j.task.id !== id15
+        && !!cHit && cHit.score >= TT15
+      s15Ev = `无令牌 POST similar=${unauth15.status}(鉴权门内)；基线 ${id15}「${T15_BASE}」(desc=用户登录模块)建库 ${cb15.status} → POST similar「${T15_NEAR}」→ similar=[${(sq15.j?.similar || []).map((x) => x.id + ':' + Number(x.score).toFixed(3)).join(',')}] 命中基线 score=${hit15 ? Number(hit15.score).toFixed(4) : '缺失'}≥0.55（契约 A bigram Jaccard 5/9≈0.556）；无关标题「${T15_UNREL}」→ similar ${su15.j?.similar?.length} 条(期望0)；面板 fTitle 逐字输入→fSim 提示区="${simEl.v.replace(/\n/g, ' | ').slice(0, 120)}"(截图 p0-6-dedup-fsim.png)；近似标题创建第二任务 ${cc15.status}(新 id=${cc15.j?.task?.id}≠基线,未被拦截) 响应 similar 含基线 score=${cHit ? Number(cHit.score).toFixed(4) : '缺失'}`
+    } catch (e) { s15Ev = '卡点：' + e.message }
+    R('S15 查重(similar近似命中≥阈值+无关空/fSim提示/create带similar不拦截)', s15Ok, s15Ev)
+
     // 汇总（每场景一行）
     console.log('\n═══ P0 E2E 结果 ═══')
     for (const r of results) console.log(`${r.name}→${r.ok ? 'PASS' : 'FAIL'} 证据: ${r.evidence}`)
-    const allPass = results.length === 14 && results.every((r) => r.ok)
+    const allPass = results.length === 15 && results.every((r) => r.ok)
     console.log(`[exit] ${allPass ? 0 : 1}（全 PASS=0）`)
     return allPass ? 0 : 1
   } catch (e) {

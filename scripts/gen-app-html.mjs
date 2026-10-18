@@ -162,6 +162,13 @@ body[data-light] .term{background:var(--n1000)}
 .ibtn{height:26px;flex:none;border:1px solid var(--border2);background:transparent;color:var(--label2);border-radius:8px;padding:0 8px;font-size:12px;display:inline-flex;align-items:center;gap:5px}
 .ibtn:hover{color:var(--label1);border-color:var(--label3)}
 .empty{padding:50px 20px;text-align:center;color:var(--caption);font-size:13px}
+/* ── 查重 v1：相似任务提示区（fSim，新建任务标题下方） ── */
+.fsim{display:none;margin:6px 0 2px;padding:7px 10px;border:1px dashed var(--border2);border-radius:9px;font-size:12px;color:var(--label2);background:var(--card2)}
+.fsim .ft{font-size:11.5px;color:var(--caption);margin-bottom:3px}
+.fsim .fr{display:flex;gap:8px;align-items:baseline;padding:2px 0}
+.fsim .fr .sid{font-family:'SF Mono',Consolas,monospace;color:var(--caption);flex:none}
+.fsim .fr .stt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fsim .fr .spct{flex:none}
 /* ── 避坑库 ── */
 .lesson-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
 .lcard{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:13px 14px;cursor:pointer;transition:border-color var(--dur) var(--ease),transform var(--dur-fast) var(--ease)}
@@ -520,6 +527,7 @@ body[data-light] .term{background:var(--n1000)}
 <div class="mask" id="formMask"><div class="modal">
   <h4>新建任务</h4>
   <label>标题 *</label><input id="fTitle" placeholder="要做什么">
+  <div id="fSim" class="fsim"></div>
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
     <div><label>项目</label><input id="fProject" placeholder="如 pay"></div>
     <div><label>优先级</label><select id="fPrio"><option>P2</option><option>P1</option><option>P0</option></select></div>
@@ -1347,6 +1355,7 @@ document.getElementById('newBtn').onclick=function(){
   ['fTitle','fProject','fDue','fCli','fDesc'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('fPrio').value='P2';
   document.getElementById('fSessOn').checked=true;
+  simRender([]); // 查重 v1：开表单不留上次的相似提示
   document.getElementById('formMask').classList.add('on'); document.getElementById('fTitle').focus();
   // 绑定会话预填：本机最近活动的 dsh 会话 id（probe-session 全局环形缓冲最后一条）
   api('/dsh-termfleet/probe-session').then(function(d){
@@ -1365,7 +1374,32 @@ document.getElementById('formSubmit').onclick=function(){
     body.session={member:(FLEET.role==='member'?FLEET.name:''),sessionId:window.__tfSelfSess,
       label:(FLEET.role==='member'?FLEET.name+' · ':'本机 · ')+window.__tfSelfSess.slice(0,16)}; }
   api('/dsh-termfleet/tasks/create',body)
-    .then(function(d){ if(d.ok){ document.getElementById('formMask').classList.remove('on'); toast('已创建 '+d.task.id+(d.task.session?'（已绑定会话）':'')); load(); } }); };
+    .then(function(d){ if(d.ok){ document.getElementById('formMask').classList.remove('on'); simRender([]);
+      var nsim=(d.similar||[]).length; // 查重 v1 契约 C/D：create 响应带 similar 数组；查重是提示不是门禁——创建不拦截，N>0 才在 toast 追加
+      toast('已创建 '+d.task.id+(d.task.session?'（已绑定会话）':'')+(nsim>0?'，发现 '+nsim+' 个相似任务':'')); load(); } }); };
+/* ═══ 查重 v1（契约 D 面板侧）：标题输入 debounce 600ms → POST /tasks/similar → fSim 提示区 ═══ */
+// 相似度由服务端计算（归一化后字符 bigram 集合 + Jaccard，阈值 env TERMFLEET_DEDUP_THRESHOLD 默认 0.55，
+// 候选=状态不在 wontfix/archived 的任务）；面板只消费 {ok, similar:[{id,title,status,score}]}。
+// 引擎选择：服务端本地 bigram（hippo 向量化后可升级为向量检索——届时仅换服务端实现，本面板契约不变）。
+var SIM={ tm:null, seq:0 }
+function simRender(list){
+  var el=document.getElementById('fSim'); if(!el)return;
+  if(!list||!list.length){ el.style.display='none'; el.innerHTML=''; return; } // 无相似→清空并隐藏
+  el.innerHTML='<div class="ft">发现 '+list.length+' 个相似任务（请确认是否重复；不拦截创建）：</div>'
+    +list.map(function(s){ return '<div class="fr"><span class="sid">'+esc(s.id)+'</span><span class="stt">'+esc(s.title)+'</span><span class="pill b spct">'+Math.round((Number(s.score)||0)*100)+'%</span></div>'; }).join('');
+  el.style.display='block';
+}
+document.getElementById('fTitle').addEventListener('input',function(){
+  clearTimeout(SIM.tm); SIM.seq++;
+  var v=this.value.trim();
+  if(v.length<4){ simRender([]); return; } // 标题≥4 字符才发查询
+  var q=SIM.seq, desc=document.getElementById('fDesc').value;
+  SIM.tm=setTimeout(function(){
+    api('/dsh-termfleet/tasks/similar',{title:v,desc:desc})
+      .then(function(d){ if(q!==SIM.seq)return; simRender((d&&d.ok&&d.similar)||[]); }) // 过期响应丢弃（防抖竞态）
+      .catch(function(){ if(q!==SIM.seq)return; simRender([]); });
+  },600);
+});
 document.getElementById('newLessonBtn').innerHTML=ic('Plus',14)+' 新增笔记';
 document.getElementById('memVerifyBtn').innerHTML=ic('Check',14)+' 校验';
 document.getElementById('memVerifyBtn').onclick=function(){
