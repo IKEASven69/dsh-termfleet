@@ -1,5 +1,5 @@
 {
- "sealedAt": "2026-10-18T15:37:36.656Z",
+ "sealedAt": "2026-10-22T16:17:08.914Z",
  "algorithm": "sha256",
  "fileCount": 31,
  "files": {
@@ -16,7 +16,7 @@
   "bugs/_index.md": "f774e4470eca4c7b955599d43d936b1d7e10e388a058ec22b63b93695f9423b8",
   "changes/001/proposal.md": "8b43e986eb6af444e66cd68e665d7082b8f0a6cd05a8ec9d85dd3829d2e8b8d7",
   "changes/001/tasks.md": "869d1b801773ff4ec122c883fce12d2185a3b9488ef727a17a4134d599818873",
-  "decisions.md": "6dfd440fc99d857aa2c6b7442b608edeae1da0e0e89f355650b0fc8cf2d6a056",
+  "decisions.md": "4fd25b72734ac590aed7a17071e0ead12ed0a828aae79b5ea8613daa1e7071ee",
   "flows/consent-takeover.md": "ac9dbd0367535c52c24dcd48febabd214e5c1bcfd902922510ebf74c586a694f",
   "glossary.md": "c2eb3a506472d6a8876bc420b32596e466c15df52cfe347bce5f9c1d6a131c8f",
   "patterns.md": "cb821e171cc9caa5511f8a8e671d58d5072f3fb3080e401221bc6af4d3322f01",
