@@ -169,3 +169,41 @@
 - **TermFleet 自身不声明宿主版本 peer 线 → 守卫无从禁起**（同实例实测挂载正常）；0.28 的「任务管理」tab 与本插件任务板功能相邻，竞争关注点入档
 
 **live 环境更新（用户指令）**：web profile 的 better-sidebar 已 0.24.1→0.28.0（`dsh plugin allow-version` 豁免 alpha.2 边界 + pnpm-workspace allowBuilds 放行 onnxruntime-node 构建并完成 postinstall）。**生效需重启 live dsh 实例**。
+
+═══════════════════════════════════════════
+
+# 全页面 IA 重构 验收记录（2026-10-24）
+
+> 方向与用户对齐，调研来源=better-sidebar 0.28 TeamBoard 源码 + Devin Desktop + Claude Code Agent View。改动单源 scripts/gen-app-html.mjs（`node --check` 通过→`node scripts/gen-app-html.mjs` 再生成 lib/app.html，产物与生成器逐字节一致，未手改）+ lib/client.js（原生半 R-fix）。
+
+## 门禁复跑（本日三轮全绿）
+
+| 检查 | 命令 | 结果 |
+|---|---|---|
+| P0 端到端 15 场景 | `node scripts/verify-p0.mjs` | ✅ S1-S15 全 PASS，exit 0（20:37-20:47，lead=:3180 member=:3181 双实例 HOME 隔离，S1 已按 R3 弹层路径验证） |
+| 原生任务板回归 | `node scripts/verify-native-board.cjs` | ✅ N1-N6 全 PASS，exit 0（R-fix 列宽改动后复跑） |
+| 原生远程回归 | `node scripts/verify-native-remote.cjs` | ✅ RN1-RN4 全 PASS，exit 0（R-fix 气泡折叠后复跑，RN3 实证「○ 状态同步 ×8」胶囊+▶ user 气泡并存） |
+
+## 取景过目（node scripts/shoot-pages.mjs → style-*.png，逐张人工 Read 检查）
+
+| 截图 | 断言面 | 过目结论 |
+|---|---|---|
+| style-remote-none.png | R1 none 态 | ✅ 左栏纯设备列表（本机+成员+⚙设置+成本行「0 完成 · 0 进行 · 0 待办」），右栏双 CTA 大卡（查看本机 pwsh/看成员的会话） |
+| style-remote-local.png | R1 local 态 | ✅ 本机选中高亮，右侧「请连接本机 pwsh」+宿主 dsh 会话事件流分区 |
+| style-remote.png | R1 member 态 | ✅ 点选成员订阅视图（成员卡含「干活中 turn/end」动态+⚡/◔按钮+progress 弹条） |
+| style-task-list.png | R2 行模式默认 | ✅ 紧凑行（状态色点/优先级徽标/⚡会话徽标/负责人/状态 chip/星标+更多），「列表/看板」分段在右上 |
+| style-task-pinned.png | R2 置顶 | ✅ 支付对账脚本行星标点亮（amber）+toast「已置顶 T-006-LEAD（排最前）」 |
+| style-task-board.png | R2 看板切换 | ✅ 列横滚（待分诊/就绪/进行中/待验收/已实施…）+卡片优先级色条+⚡会话徽标 |
+| style-task-detail.png | 详情抽屉 | ✅ 五 tab（文档/全流程/会话/决策笔记/工作流/diff）+验收条目/待确认/两盏灯 |
+| style-settings.png | R3 设置弹层 | ✅ ⚙→settingsMask 全屏弹层：配对（信任开关+高级折叠）/TF-JOIN 两步向导/IM 通知/今日成本（操作人明细） |
+| style-audit.png | R4 分色 | ✅ 操作类型色点：避坑=绿点、任务操作/新建任务=蓝点；「全部/任务/避坑/连接·通道」筛选+操作人下拉 |
+| style-audit-conn.png | R4 连接筛宽匹配 | ✅ 「连接/通道」筛出请求连接/拒绝连接（琥珀点）2 条 |
+| style-tooltip.png | ⓘ tooltip | ✅ 悬停浮层显示置顶排序规则（优先级→状态；星标=本机 localStorage 不进共享板） |
+| style-memory.png | 避坑库回归 | ✅ 状态 chip（已生效/待定/已否决）+分类筛选+卡片三行截断（-webkit-line-clamp:3） |
+
+## Concerns（如实记录）
+
+- style-remote.png 摄到「订阅被拒（403）」瞬态：截帧先于信任 auto-ro 同意回路完成（约 2.5s 窗口）；自愈重订阅随后恢复，属取景时序而非产品缺陷——证据价值不受影响（该帧恰好留证 403 文案与「请求会话镜像」CTA）。
+- style-tooltip.png 为小视口裁切帧（1020px），tooltip 文案完整可读但顶部被裁——取景脚本遗留画幅，非样式问题。
+- 双路径回归覆盖：本轮 nb-*.png / nr-1-native-remote.png（20:30 取景）为 better-sidebar 双路径脚本的取景产物，脚本本体（verify-native-board/verify-native-remote）已在本日 R-fix 后复跑全绿（见上门禁表）。
+- 真双机差距不变（沿用 2026-10-13 记录）：防火墙环境/跨机时钟偏移/录屏验收本身。

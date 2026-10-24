@@ -64,20 +64,21 @@ async function main() {
     await waitFor(async () => { const f = await api(leadPort, TOK_LEAD, 'fleet').then((r) => r.json()); return (f.members || []).some((m) => m.name === MEMBER_NAME) }, 20000, 500, '成员上线')
     await api(memberPort, TOK_MEMBER, 'pairing', 'POST', { trust: true })
 
-    // 种子：跨列任务（含验收/绑定会话/认领）
-    const mk = async (title, project, prio, status, extra) => {
+    // 种子：跨列任务（含验收/绑定会话/认领）——状态流转必须走 UB_FLOW 合法路径
+    const mk = async (title, project, prio, statuses, extra) => {
       const r = await api(leadPort, TOK_LEAD, 'tasks/create', 'POST', { title, project, prio, ...(extra || {}) }).then((x) => x.json())
-      if (status && status !== 'needs-triage') await api(leadPort, TOK_LEAD, 'tasks/action', 'POST', { op: 'status', id: r.task.id, patch: { status } })
+      for (const st of (statuses || [])) await api(leadPort, TOK_LEAD, 'tasks/action', 'POST', { op: 'status', id: r.task.id, patch: { status: st } })
       return r.task
     }
-    await mk('用户登录模块：手机号+验证码链路', 'shop', 'P0', 'active', { desc: '目标：手机号+验证码登录全链路\n重点：验证码 60s 限流、风控兜底', acceptance: [{ text: '验证码 60s 限流生效' }, { text: '异常登录风控兜底' }], pending: [{ text: '验证码通道用哪家待拍板' }] })
-    await mk('时区转换修复（展示层统一 UTC）', 'shop', 'P1', 'review', { desc: '展示层时区统一，存储层不动' })
-    await mk('购物车合单逻辑', 'shop', 'P1', 'ready-for-agent')
-    await mk('商品详情页改版', 'shop', 'P2', 'needs-triage')
-    await mk('营销位配置后台', 'ops', 'P2', 'blocked', { desc: '等设计稿' })
-    const t6 = await mk('支付对账脚本', 'ops', 'P0', 'needs-triage')
+    await mk('用户登录模块：手机号+验证码链路', 'shop', 'P0', ['ready-for-agent', 'active'], { desc: '目标：手机号+验证码登录全链路\n重点：验证码 60s 限流、风控兜底', acceptance: [{ text: '验证码 60s 限流生效' }, { text: '异常登录风控兜底' }], pending: [{ text: '验证码通道用哪家待拍板' }] })
+    await mk('时区转换修复（展示层统一 UTC）', 'shop', 'P1', ['ready-for-agent', 'active', 'review'], { desc: '展示层时区统一，存储层不动' })
+    const t3 = await mk('购物车合单逻辑', 'shop', 'P1', ['ready-for-agent'])
+    await api(leadPort, TOK_LEAD, 'tasks/action', 'POST', { op: 'claim', id: t3.id, patch: {} }).catch(() => {})
+    await mk('商品详情页改版', 'shop', 'P2', [])
+    await mk('营销位配置后台', 'ops', 'P2', ['ready-for-agent', 'active', 'blocked'], { desc: '等设计稿' })
+    const t6 = await mk('支付对账脚本', 'ops', 'P0', [])
     await api(leadPort, TOK_LEAD, 'tasks/action', 'POST', { op: 'bind-session', id: t6.id, patch: { session: { member: MEMBER_NAME, sessionId: 'style-demo-session', label: MEMBER_NAME + ' · 演示' } } })
-    await mk('旧版埋点清理', 'infra', 'P2', 'wontfix')
+    await mk('旧版埋点清理', 'infra', 'P2', ['wontfix'])
     // 避坑库种子
     for (const l of [
       { state: 'implemented', category: 'bug-fix', title: '部署前必须跑双机验收', body: '卡点：单机验收漏掉跨机时钟偏移\n解法：上线 checklist 增加双机步骤' },
@@ -89,24 +90,38 @@ async function main() {
     browser = await chromium.launch({ args: ['--no-proxy-server'] })
     const ctx = await browser.newContext({ viewport: { width: 1720, height: 1020 }, locale: 'zh-CN', deviceScaleFactor: 1.5 })
     const page = await ctx.newPage()
-    const launchMatch = lead.out ? null : null
     await page.goto(`http://127.0.0.1:${leadPort}/dsh-termfleet/app?token=${encodeURIComponent(TOK_LEAD)}`)
     await page.waitForTimeout(2500)
     await page.evaluate(() => { try { localStorage.setItem('tf_user', '阿杰') } catch (e) {} })
+    // 单机同意模拟卡前置：decide('deny') 两次（间隔 500ms），防止全屏 mask 盖住取景（隔离 HOME 下通常无卡，防御性执行）
+    await page.evaluate(() => { if (typeof CH !== 'undefined' && CH && CH.id) decide('deny') })
+    await page.waitForTimeout(500)
+    await page.evaluate(() => { if (typeof CH !== 'undefined' && CH && CH.id) decide('deny') })
 
     const shot = async (name) => page.screenshot({ path: join(SHOT, `style-${name}.png`) })
-    // 任务板
+    // 任务板（R2：默认=行列表；看板可切；置顶星标）
     await page.evaluate(() => pg('task'))
     await page.waitForTimeout(1200)
+    await shot('task-list')
+    await page.evaluate(() => { const b = document.querySelector('#listRows .trow [data-pin]'); if (b) b.click() })
+    await page.waitForTimeout(500)
+    await shot('task-pinned')
+    await page.evaluate(() => { const b = document.querySelector('#listRows .trow [data-pin]'); if (b) b.click() })
+    await page.evaluate(() => document.getElementById('vBoard').click())
+    await page.waitForTimeout(800)
     await shot('task-board')
     // 详情抽屉
     await page.evaluate(() => { const c = [].slice.call(document.querySelectorAll('.bcard')).find((x) => x.innerText.includes('用户登录模块')); if (c) c.click() })
     await page.waitForTimeout(1200)
     await shot('task-detail')
     await page.evaluate(() => closeDrawer())
-    // 远程页（选成员+流订阅 ro）
+    // 远程页（context 三态：none CTA → local 本机 → member 对话流）
     await page.evaluate(() => pg('remote'))
     await page.waitForTimeout(2500)
+    await shot('remote-none')
+    await page.evaluate(() => setView('local'))
+    await page.waitForTimeout(1000)
+    await shot('remote-local')
     await page.evaluate((nm) => { const el = document.querySelector(`#memberDevs [data-member="${nm}"]`); if (el) el.click() }, MEMBER_NAME)
     await page.waitForTimeout(2500)
     // 成员产生两条会话事件
@@ -123,10 +138,10 @@ async function main() {
     await page.evaluate(() => pg('audit'))
     await page.waitForTimeout(1500)
     await shot('audit')
-    // 设置展开
+    // 设置弹层（R1 迁出后 = ⚙ 按钮 → settingsMask）
     await page.evaluate(() => pg('remote'))
     await page.waitForTimeout(800)
-    await page.evaluate(() => { const b = document.getElementById('setblk'); if (b && b.style.display === 'none') document.getElementById('setToggle').click() })
+    await page.evaluate(() => { if (typeof openSettings === 'function') openSettings(); else document.getElementById('settingsBtn').click() })
     await page.waitForTimeout(800)
     await shot('settings')
 

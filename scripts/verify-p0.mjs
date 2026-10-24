@@ -2,8 +2,8 @@
 // verify-p0.mjs — TermFleet P0 端到端实测（自足：自拉 lead+member 双真实实例）
 //
 // 场景（每个真实断言，结束打印 `场景名→PASS/FAIL+证据`）：
-//   S1 一句话入队：lead 面板「取码」生成 TF-JOIN 邀请码 → member 面板仅粘贴该码
-//      点「入队」→ 配对成功、member 出现在 lead 成员列表。
+//   S1 一句话入队：lead 面板设置弹层（R3：⚙设置→settingsMask）「取码」生成 TF-JOIN 邀请码 →
+//      member 面板设置弹层内仅粘贴该码点「入队」→ 配对成功、member 出现在 lead 成员列表。
 //   S2 会话流镜像：成员 dsh 会话产生对话（probe-session/write 触发真实 agentLoop
 //      会话：用户消息 + 助手回合）→ lead 面板「会话对话流」按序出现对应气泡
 //      （实时，等待有上限并记录耗时）。
@@ -256,7 +256,8 @@ async function main() {
       p.on('pageerror', (e) => console.log(`[pageerror][${n}]`, String(e).slice(0, 200)))
     }
     try {
-      await leadPage.evaluate(() => { const b = document.getElementById('setblk'); if (b && b.style.display === 'none') document.getElementById('setToggle').click() })
+      // R3 IA 重构：设置/邀请码迁入 settingsMask 弹层（原 setblk/setToggle 已移除）——「⚙ 设置」打开
+      await leadPage.evaluate(() => { const m = document.getElementById('settingsMask'); if (m && !m.classList.contains('on')) document.getElementById('settingsBtn').click() })
       await leadPage.evaluate(() => document.getElementById('pairCodeBtn').click())
       const wCode = await waitFor(async () => {
         const v = await leadPage.evaluate(() => document.getElementById('pairCode').value)
@@ -270,6 +271,8 @@ async function main() {
       await hookNotify(memberPage)
       await memberPage.evaluate(() => document.getElementById('navRemote').click())
       await memberPage.waitForTimeout(600)
+      // R3 IA 重构：joinCode 在设置弹层（settingsMask）内——先「⚙ 设置」打开再填码（fill 需可见元素）
+      await memberPage.evaluate(() => { const m = document.getElementById('settingsMask'); if (m && !m.classList.contains('on')) document.getElementById('settingsBtn').click() })
       await memberPage.fill('#joinCode', code)
       await memberPage.evaluate(() => document.getElementById('joinBtn').click())
       await waitFor(async () => ((await memberPage.evaluate(() => window.__toasts || [])).some((t) => t.includes('已加入'))), 10000, 300, 'member 入队 toast=已加入')
@@ -288,6 +291,10 @@ async function main() {
       s1Ok = names.split(',').includes(MEMBER_NAME)
       s1Ev = `配对前 member role=off(env 无角色/URL/令牌)；lead 面板「取码」得 TF1-码(len=${code.length}) → member 面板仅粘贴该码点「入队」→ toast=已加入 → ${wCard.ms}ms 内 lead 面板成员列表出现 [data-member=${MEMBER_NAME}]；API /fleet members=[${names}] (lead=:${leadPort} member=:${memberPort})`
       await leadPage.screenshot({ path: join(SHOT_DIR, 'p0-1-pairing-joined.png') })
+      // R3：设置/入队是全屏弹层（settingsMask），用完即关——留着会盖住 consentMask（同 z-200 且 DOM 靠后），
+      // 导致 S4/S5 的成员同意卡取证被遮（老 UI 设置是左栏内嵌块无此问题）
+      await leadPage.evaluate(() => { if (document.getElementById('settingsMask').classList.contains('on')) closeSettings() })
+      await memberPage.evaluate(() => { if (document.getElementById('settingsMask').classList.contains('on')) closeSettings() })
     } catch (e) { s1Ev = '卡点：' + e.message }
     R('S1 一句话入队(TF-JOIN 粘贴即配对)', s1Ok, s1Ev)
 

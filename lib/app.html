@@ -95,6 +95,41 @@ body[data-light] .term{background:var(--n1000)}
 .ccard .who{font-size:13px;color:var(--label2);margin-bottom:12px}
 .ccard .acts{display:flex;gap:9px;flex-wrap:wrap}
 .ph{padding:26px 20px;text-align:center;color:var(--caption);font-size:13px;border:1px dashed var(--border2);border-radius:12px}
+/* ── R1 远程页 IA：左栏纯设备列表 + 右栏 context 状态机 ── */
+.devfoot{display:flex;align-items:center;gap:8px;padding:10px 14px 12px;border-top:1px solid var(--border);margin-top:2px}
+.costline{font-size:11.5px;color:var(--caption);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;text-align:right}
+.costline b{color:var(--label2);font-weight:600}
+.ctxnone{display:flex;gap:14px;align-items:stretch;min-height:420px}
+.cta{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:34px 22px;border:1.5px dashed var(--border2);border-radius:16px;background:var(--card);cursor:pointer;text-align:center;transition:border-color var(--dur) var(--ease),background var(--dur-fast) var(--ease),transform var(--dur-fast) var(--ease)}
+.cta:hover{border-color:var(--label3);background:var(--elev);transform:translateY(-2px)}
+.cta .big{font-size:15px;font-weight:700;color:var(--label1)}
+.cta .sub{font-size:12.5px;color:var(--caption);max-width:300px;line-height:1.6}
+.cta .ctaic{width:44px;height:44px;border-radius:13px;background:var(--accent-t);color:var(--accent);display:grid;place-items:center;font-size:19px}
+.chanstrip{display:none;align-items:center;gap:10px;padding:9px 14px;background:var(--card);border:1px solid var(--border2);border-radius:12px;margin-bottom:12px;flex-wrap:wrap}
+.chanstrip .remain{font-family:'SF Mono',Consolas,monospace;color:var(--label1);font-weight:600}
+.evhead{display:flex;align-items:center;gap:8px;padding:11px 14px 7px;border-top:1px dashed var(--border);margin-top:4px;font-size:12px;font-weight:600;color:var(--label2);letter-spacing:.3px}
+.evlist{max-height:230px;overflow-y:auto;padding:0 14px 12px}
+.info{display:inline-flex;width:15px;height:15px;border-radius:50%;border:1px solid var(--border2);color:var(--label3);font-size:9.5px;align-items:center;justify-content:center;cursor:help;position:relative;flex:none;font-weight:700;user-select:none;font-style:normal}
+.info:hover{color:var(--label1);border-color:var(--label3)}
+.info:hover::after{content:attr(data-tip);position:absolute;left:0;bottom:calc(100% + 9px);background:var(--elev);border:1px solid var(--border2);color:var(--label2);padding:9px 11px;border-radius:10px;font-size:11.5px;font-weight:400;width:min(270px,72vw);white-space:normal;line-height:1.6;z-index:70;box-shadow:0 14px 44px rgba(0,0,0,.42);text-align:left;font-style:normal}
+.info:hover::before{content:'';position:absolute;left:8px;bottom:calc(100% + 3px);border:6px solid transparent;border-top-color:var(--border2);z-index:71}
+.info.tipdn:hover::after{bottom:auto;top:calc(100% + 9px)}
+.info.tipdn:hover::before{bottom:auto;top:calc(100% + 3px);border-top-color:transparent;border-bottom-color:var(--border2)}
+/* ── R3 设置弹层 ── */
+.modal.wide{width:min(600px,94vw);max-height:88vh;overflow-y:auto}
+.sgt{font-size:12px;font-weight:700;color:var(--label2);letter-spacing:.4px;margin:18px 0 8px;padding-top:12px;border-top:1px dashed var(--border);display:flex;align-items:center;gap:7px}
+.sgt:first-of-type{border-top:0;padding-top:2px;margin-top:6px}
+.modal .fin{display:flex;gap:6px;align-items:center}
+.modal .fin input{flex:1;min-width:0}
+.modal .hint{font-size:11.5px;color:var(--caption);margin-top:5px;line-height:1.55}
+details.adv{border:1px dashed var(--border2);border-radius:10px;padding:8px 12px;margin-top:10px}
+details.adv summary{cursor:pointer;font-size:12px;color:var(--label3);user-select:none;outline:none}
+details.adv summary:hover{color:var(--label1)}
+details.adv[open] summary{margin-bottom:8px}
+details.adv .ain{display:grid;gap:7px}
+.step{display:flex;gap:10px;align-items:flex-start;padding:7px 0}
+.step .no{width:20px;height:20px;border-radius:50%;background:var(--card2);border:1px solid var(--border2);color:var(--label2);font-size:11px;font-weight:700;display:grid;place-items:center;flex:none;margin-top:2px}
+.step .sc{min-width:0;flex:1}
 /* ── 成员会话对话流（P0：member-stream 镜像 + 插话） ── */
 .sflist{display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto;padding:6px 2px}
 .sfmsg{max-width:86%;padding:8px 12px;border-radius:12px;font-size:12.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
@@ -145,15 +180,30 @@ body[data-light] .term{background:var(--n1000)}
 .prio.P0{color:var(--red)}.prio.P1{color:var(--amber)}.prio.P2{color:var(--label3)}
 .listwrap{display:none}.listwrap.on{display:block}
 .boardwrap{display:block}.boardwrap.off{display:none}
-.thead,.trow{display:grid;grid-template-columns:52px 42px 92px minmax(0,1fr) 92px 88px 76px 148px;gap:10px;align-items:center}
+/* ── R2 任务页·行模式（better-sidebar TeamBoard 式紧凑行） ── */
+.thead,.trow{display:grid;grid-template-columns:minmax(0,1fr) 108px 100px 78px;gap:10px;align-items:center}
 .thead{padding:6px 10px;font-size:11.5px;color:var(--caption);font-weight:600}
-.trow{padding:9px 10px;border-top:1px solid var(--border);font-size:13px;background:var(--card);transition:background var(--dur-fast) var(--ease)}
+.trow{padding:8px 10px;border-top:1px solid var(--border);font-size:13px;background:var(--card);transition:background var(--dur-fast) var(--ease);cursor:pointer}
 .trow:hover{background:var(--hover)}
-.trow .title{color:var(--label1);font-weight:500;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.trow .tt{display:flex;gap:8px;align-items:center;min-width:0}
+.trow .dot{width:8px;height:8px}
+.dot.todo{background:var(--n400)}
+.dot.doing{background:var(--blue)}
+.dot.review{background:var(--amber)}
+.dot.done{background:var(--green)}
+.dot.blocked{background:var(--red)}
+.trow .title{color:var(--label1);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;display:inline;vertical-align:middle}
 .trow .who{font-size:12.5px;color:var(--label2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.rowops{display:flex;gap:6px;justify-content:flex-end;flex:none}
+.mini{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;padding:0 6px;height:17px;border-radius:6px;border:1px solid var(--border2);color:var(--label3);white-space:nowrap;flex:none;vertical-align:middle}
+.mini.sb{color:var(--green);border-color:transparent;background:var(--green-t)}
+.rowops{display:flex;gap:5px;justify-content:flex-end;flex:none}
 .ibtn{height:26px;flex:none;border:1px solid var(--border2);background:transparent;color:var(--label2);border-radius:8px;padding:0 8px;font-size:12px;display:inline-flex;align-items:center;gap:5px}
 .ibtn:hover{color:var(--label1);border-color:var(--label3)}
+.ibtn.star{width:26px;padding:0;justify-content:center;color:var(--caption)}
+.ibtn.star:hover{color:var(--amber)}
+.ibtn.star.onstar{color:var(--amber);border-color:transparent;background:var(--amber-t)}
+.trow.pinflash{animation:pinflash .5s var(--ease)}
+@keyframes pinflash{0%{background:var(--amber-t)}100%{background:transparent}}
 .empty{padding:50px 20px;text-align:center;color:var(--caption);font-size:13px}
 /* ── 查重 v1：相似任务提示区（fSim，新建任务标题下方） ── */
 .fsim{display:none;margin:6px 0 2px;padding:7px 10px;border:1px dashed var(--border2);border-radius:9px;font-size:12px;color:var(--label2);background:var(--card2)}
@@ -169,7 +219,7 @@ body[data-light] .term{background:var(--n1000)}
 .lcard:active{transform:translateY(0)}
 .lcard:hover{border-color:var(--border2)}
 .lcard .lt{font-size:13.5px;font-weight:600;color:var(--label1);margin-bottom:6px}
-.lcard .lb{font-size:12.5px;color:var(--label3);line-height:1.6;max-height:60px;overflow:hidden}
+.lcard .lb{font-size:12.5px;color:var(--label3);line-height:1.6;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
 .lcard .lm{display:flex;gap:8px;font-size:11px;color:var(--caption);margin-top:8px;white-space:nowrap}
 /* ── 审计 ── */
 .audline{display:flex;gap:10px;font-size:12.5px;padding:8px 2px;border-bottom:1px dashed var(--border);color:var(--label2)}
@@ -185,6 +235,11 @@ body[data-light] .term{background:var(--n1000)}
 .arow .adet{color:var(--label3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .acat{cursor:pointer}
 .acat:hover{text-decoration:underline}
+/* R4 审计操作类型分色：任务=蓝 / 避坑=绿 / 连接·通道=琥珀 */
+.acat::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:7px;background:var(--n400);vertical-align:1px}
+.acat.c-task::before{background:var(--blue)}
+.acat.c-mem::before{background:var(--green)}
+.acat.c-conn::before{background:var(--amber)}
 /* ── 响应式紧凑模式（侧边栏 iframe / 窄屏自动生效） ── */
 @media (max-width: 700px) {
   .wrap{padding:0 10px 30px}
@@ -194,15 +249,16 @@ body[data-light] .term{background:var(--n1000)}
   /* 远程页：设备列改顶部横条，会话窗单栏 */
   .rem{grid-template-columns:1fr !important}
   .rem > .panel{max-height:150px;overflow-y:auto}
+  .ctxnone{flex-direction:column;min-height:0}
+  .cta{padding:20px 16px}
   .rtoolbar{flex-wrap:wrap;gap:6px}
   /* 会话对话流：窄屏压低高度 */
   .sflist{max-height:240px}
   /* 任务看板：横滚保留，卡片窄内边距 */
   .bcard{padding:9px 10px}
-  /* 任务列表：隐藏次要列（截止/CLI/关联），只留 编号/优先级/状态/任务/认领/操作 */
-  .thead,.trow{grid-template-columns:44px 40px 76px minmax(0,1fr) 76px 92px}
-  .thead span:nth-child(6),.trow .due,.thead span:nth-child(7),.trow .cli{display:none}
-  .trow .who{display:block}
+  /* 任务列表：窄屏只留 标题行/状态/操作 */
+  .thead,.trow{grid-template-columns:minmax(0,1fr) 84px 74px}
+  .thead span:nth-child(2),.trow .who{display:none}
   /* 任务详情大窗 → 全屏化 */
   .drawer{top:0;left:0;transform:none;width:100vw;height:100vh;border-radius:0;border:0}
   .drawer.on{transform:none}
@@ -210,9 +266,6 @@ body[data-light] .term{background:var(--n1000)}
   .doc-outline .ol{position:static;display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}
   .doc-outline .ol a{border-left:0;border-radius:6px;padding:3px 8px}
   .doc-body{max-width:none}
-  /* 成本/设置块折叠 */
-  .setblk{display:none}
-  .setblk.open{display:grid}
 }
 /* ── 任务详情·居中大窗（v7 原型形态） ── */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;display:none;transition:opacity var(--dur) var(--ease);opacity:0}
@@ -273,117 +326,82 @@ body[data-light] .term{background:var(--n1000)}
   <!-- ═══ 远程 ═══ -->
   <div class="page" id="pg-remote">
     <div class="rem">
+      <!-- 左栏：纯设备列表 -->
       <div class="panel">
-        <h5>设备 · 成员</h5>
-        <div class="dev sel" id="devLocal">
+        <h5>成员 · 设备</h5>
+        <div class="dev" id="devLocal" title="查看本机 pwsh 终端与 dsh 会话事件流">
           <span class="dot on"></span><div class="av">我</div>
           <div style="min-width:0"><div class="nm">本机 <span class="pill g" style="margin-left:2px">在线</span></div>
           <div class="mach">127.0.0.1 · dsh 宿主内</div><div class="sessn" id="devLocalSub">pwsh 通道未建立</div></div>
         </div>
         <div id="memberDevs"></div>
-        <h5 style="border-top:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:6px" id="setToggle">总线与 IM 设置 <span id="setArrow" style="margin-left:auto;font-size:10px">▸</span></h5>
-        <div class="setblk" id="setblk" style="padding:0 14px 14px;font-size:12.5px;display:grid;gap:6px">
-          <div style="color:var(--label3)">角色：<b id="pairRole">?</b> <span id="pairName" style="color:var(--caption)"></span></div>
-          <select id="pairSel" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px">
-            <option value="">— 改角色 —</option><option value="lead">lead（被连端）</option><option value="member">member（连接端）</option><option value="off">off</option>
-          </select>
-          <input id="pairName2" placeholder="成员名（member 用）" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px">
-          <input id="pairUrl" placeholder="leadUrl（member 用）ws://…" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px">
-          <input id="pairTok" placeholder="团队令牌（≥6位）" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px">
-          <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="trustTgl" style="width:auto"> 信任此 lead：会话查看请求自动允许（仅只读，随时可断）</label>
-          <button class="btn sm" id="pairSave" style="justify-self:start">保存配对</button>
-          <div class="note" style="margin:0">member 保存后 5 秒内出站连接 lead；本机测试用两个端口各开一实例。</div>
-          <div style="border-top:1px dashed var(--border);margin-top:8px;padding-top:8px;display:grid;gap:6px">
-            <div style="color:var(--label3)">邀请码 · 一句话入队（TF-JOIN：粘贴即配对，无需手填 URL/令牌）</div>
-            <div style="display:flex;gap:6px">
-              <input id="pairCode" readonly placeholder="lead 侧：点「取码」生成 TF1-…" class="mono" style="flex:1;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:11.5px;min-width:0">
-              <button class="btn ghost sm" id="pairCodeBtn">取码</button>
-              <button class="btn ghost sm" id="pairCodeCopy">复制</button>
-            </div>
-            <div style="display:flex;gap:6px">
-              <input id="joinCode" placeholder="member 侧：粘贴邀请码 TF1-…" style="flex:1;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px;min-width:0">
-              <button class="btn sm" id="joinBtn">入队</button>
-            </div>
-            <div class="note" id="pairNote" style="margin:0">lead 取码发给成员 → 成员粘贴点「入队」→ 5s 内连上（码含 lead 地址+团队令牌，请勿外传）。</div>
-          </div>
-          <div style="border-top:1px dashed var(--border);margin-top:8px;padding-top:8px;display:grid;gap:6px">
-            <div style="color:var(--label3)">IM 出站（审批卡/通知走 webhook）</div>
-            <input id="imWebhook" placeholder="webhook URL（飞书机器人/自定义）" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px">
-            <div style="display:flex;gap:6px">
-              <button class="btn ghost sm" id="imSave">保存</button>
-              <button class="btn ghost sm" id="imToggle"></button>
-              <button class="btn ghost sm" id="imTest">测试发送</button>
-            </div>
-            <div style="border-top:1px dashed var(--border);margin-top:6px;padding-top:8px">
-              <button class="btn sm" id="sosBtn"></button>
-              <span class="note" style="margin-left:6px">求助=通知 lead + IM（人在外场景）</span>
-            </div>
-          </div>
+        <div class="devfoot">
+          <button class="ibtn" id="settingsBtn">⚙ 设置</button>
+          <span class="costline" id="costSummary">加载中…</span>
         </div>
-        <h5 style="border-top:1px solid var(--border)">今日成本</h5>
-        <div style="padding:0 14px 12px;font-size:12.5px;color:var(--label2)" id="costSummary">加载中…</div>
       </div>
+      <!-- 右栏：context 状态机（none | local | member） -->
       <div>
-        <div class="sessbar">
-          <div class="sess on" id="sessLocal"><span class="tag cli">pwsh</span>本机会话</div>
-          <div class="sess" id="sessMember" style="display:none"><span class="tag cli">pwsh</span><span id="sessMemberName">成员会话</span></div>
-          <button class="newcli" onclick="toast('新开 CLI：成员设备通道就绪后开放（本机可用下方会话）')">＋ 新开 CLI</button>
+        <div class="chanstrip" id="chanStrip">
+          <span id="rtState" class="pill">○ 未连接</span>
+          <span style="font-size:12.5px;color:var(--label3);min-width:0" id="rtMeta"></span>
           <span class="spacer"></span>
-          <span class="pill">本机 · 127.0.0.1</span>
+          <button class="btn ghost sm" id="rtModeBtn" disabled>切只读</button>
+          <button class="btn danger sm" id="rtEndBtn" disabled>断开</button>
         </div>
-        <div class="rwin">
-          <div class="rtoolbar">
-            <span id="rtState" class="pill">○ 未连接</span>
-            <span style="font-size:12.5px;color:var(--label3)" id="rtMeta">连接本机 pwsh 会话（全程过同意门·留痕）</span>
-            <span class="spacer"></span>
-            <button class="btn ghost sm" id="rtModeBtn" disabled>切只读</button>
-            <button class="btn danger sm" id="rtEndBtn" disabled>断开</button>
+
+        <div class="ctxnone" id="ctxNone">
+          <div class="cta" id="ctaLocal">
+            <div class="ctaic">▶</div>
+            <div class="big">查看本机 pwsh</div>
+            <div class="sub">打开插件自托管的探针终端 + 本宿主 dsh 会话事件流（全程过同意门·留痕）</div>
           </div>
-          <div class="term" id="ptyTerm">（点「请求连接」——同意后此处实时显示宿主内 pwsh 流）</div>
+          <div class="cta" id="ctaMember">
+            <div class="ctaic">👥</div>
+            <div class="big">看成员的会话</div>
+            <div class="sub">在左侧点选成员设备 → 订阅 TA 的 dsh 会话对话流（TA 同意镜像后才可见）</div>
+          </div>
+        </div>
+
+        <!-- 本机视图：PTY 终端 + dsh 事件流（合并面板） -->
+        <div class="panel" id="ctxLocal" style="display:none">
+          <div class="rtoolbar">
+            <span class="pill b">本机</span>
+            <button class="btn sm" id="reqLocalBtn" style="display:none">请求连接本机 pwsh</button>
+            <i class="info" data-tip="本机 pwsh=插件自托管的探针终端（验证 PTY 链路用）；连接成员机时，看到的是 TA 的 dsh/CLI 会话流（宿主 listener 实测 seq 级）。远程对象=会话本身；无同意通道时服务端一律 403，只读禁写同为服务端强制。">i</i>
+            <span class="spacer"></span>
+            <span style="font-size:12.5px;color:var(--label3)" id="localHint">探针终端 · 连接后可操作（rw）/仅看（ro）</span>
+          </div>
+          <div class="term" id="ptyTerm">（点「请求连接本机 pwsh」——同意后此处实时显示宿主内 pwsh 流）</div>
           <div class="cmdline" id="cmdline">
             <input id="cmdInput" placeholder="输入指令回车发送（写入带 actor·留痕）…" onkeydown="if(event.key==='Enter')sendCmd()">
             <button class="btn sm" onclick="sendCmd()">发送</button>
           </div>
-          <div class="note" style="margin:0 14px 12px">本机 pwsh=插件自托管的探针终端（验证 PTY 链路用）；<b>连接成员机时，看到的是 TA 的 dsh/CLI 会话流</b>（宿主 listener 实测 seq 级）。远程对象=会话本身；无同意通道时服务端一律 403，只读禁写同为服务端强制。</div>
-        </div>
-
-        <div class="panel" style="padding:14px 16px;margin-top:14px">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-            <b style="font-size:14px">dsh 会话事件流</b>
-            <span class="pill b">宿主 listener · 实时</span>
-            <span class="spacer"></span>
-            <span class="pill" id="evCnt">0 条</span>
+          <div class="evhead">dsh 会话事件流 <span class="pill b">宿主 listener · 实时</span>
+            <i class="info" data-tip="本宿主的 dsh 会话一有事件就实时出现在这里——可在另一个 dsh 实例的 web 里发条消息试试。"></i>
+            <span class="spacer"></span><span class="pill" id="evCnt">0 条</span>
           </div>
-          <div id="evList" style="min-height:60px"><div class="note">（本宿主的 dsh 会话一有事件就实时出现在这里——可在 3180 的 dsh web 里发条消息试试）</div></div>
+          <div class="evlist" id="evList"><div class="note" style="padding:4px 2px">（本宿主的 dsh 会话一有事件就实时出现在这里）</div></div>
         </div>
 
-        <div class="panel" style="padding:14px 16px;margin-top:14px" id="sfPanel">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
-            <b style="font-size:14px">会话对话流</b>
-            <span class="pill g" id="sfMemberPill" style="display:none"></span>
-            <span class="pill b">member-stream · 重放+实时</span>
-            <span class="spacer"></span>
-            <span class="pill" id="sfCnt">0 条</span>
+        <!-- 成员视图：对话流 + 插话 -->
+        <div class="panel" id="ctxMember" style="display:none">
+          <div class="rtoolbar">
+            <span class="pill b" id="sfMemberPill" style="display:none"></span>
             <span class="pill" id="sfState">未选择成员</span>
+            <span class="spacer"></span>
+            <i class="info" data-tip="先重放最近 ≤300 条会话记录，后实时镜像。插话需 rw 会话通道（TA 同意「允许」后建立，限时 30 分钟）；只读通道只能看。"></i>
+            <span class="pill" id="sfCnt">0 条</span>
           </div>
           <div class="sfend" id="sfEnd">▪ 已结束——该成员的会话同意通道已关闭，镜像停止。</div>
-          <div class="sflist" id="sfList"><div class="ph">点选上方成员设备 → 订阅 TA 的会话对话流（TA 同意会话镜像后才可见；先重放最近 ≤300 条，后实时）</div></div>
+          <div class="sflist" id="sfList"><div class="ph">未选择成员——在左侧点选成员设备开始订阅。</div></div>
           <button class="btn ghost sm" id="sfJump" style="display:none;margin:6px auto 0">↓ 回到底部（最新消息）</button>
-          <div style="display:flex;gap:8px;margin-top:10px">
+          <div style="display:flex;gap:8px;margin:10px 14px 0">
             <input id="sfInput" placeholder="插话将注入成员的活动 dsh 会话（Enter 发送）…" disabled style="flex:1;background:var(--card2);border:1px solid var(--border2);border-radius:10px;color:var(--label1);padding:8px 12px;font-size:12.5px;outline:none">
             <button class="btn ghost sm" id="sfReqSess" style="display:none">请求会话镜像</button>
             <button class="btn sm" id="sfSend" disabled>插话</button>
           </div>
-          <div class="note" id="sfWhy" style="margin:6px 0 0">未选择成员。</div>
-        </div>
-
-        <div class="panel" style="padding:16px;margin-top:14px" id="consentPanel">
-          <div class="ccard">
-            <h4 id="csTitle">会话通道</h4>
-            <div class="who" id="csWho">未建立通道——没有人在连接你。操控会话由你主动发起（对象仅限会话，不碰桌面）。</div>
-            <div class="acts" id="csActs"></div>
-            <div class="note">成员侧视角（单机模拟：跨机后此卡来自成员机的 decide）；拒绝无需理由 · 全程留痕。</div>
-          </div>
+          <div class="note" id="sfWhy" style="margin:6px 14px 12px">未选择成员。</div>
         </div>
       </div>
     </div>
@@ -393,9 +411,10 @@ body[data-light] .term{background:var(--n1000)}
   <div class="page on" id="pg-task">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
       <h3 style="font-size:15px">项目任务板</h3>
+      <i class="info" data-tip="全员共享：任何人可建/认领/更新。行列表默认按 置顶 → 优先级(P0>P1>P2) → 状态 排序；★ 星标=本机置顶（存 localStorage，不进共享板）。点击行开任务详情。"></i>
       <span class="pill">全员共享 · 任何人可建/认领/更新</span>
       <span class="spacer"></span>
-      <div class="seg"><button id="vBoard" class="on" onclick="tv(this,'board')">看板</button><button id="vList" onclick="tv(this,'list')">列表</button></div>
+      <div class="seg"><button id="vList" class="on" onclick="tv(this,'list')">列表</button><button id="vBoard" onclick="tv(this,'board')">看板</button></div>
       <button class="btn sm" id="newBtn"></button>
     </div>
     <div class="tbar">
@@ -405,10 +424,10 @@ body[data-light] .term{background:var(--n1000)}
       <button class="btn ghost sm" onclick="toast('按优先级排序（本视图已按序）')">⇅ 按优先级</button>
       <button class="btn ghost sm" onclick="toast('只看与我相关的任务（演示）')">只看我的</button>
     </div>
-    <div class="boardwrap" id="boardWrap"><div class="board" id="board"></div></div>
-    <div class="listwrap" id="listWrap">
+    <div class="boardwrap off" id="boardWrap"><div class="board" id="board"></div></div>
+    <div class="listwrap on" id="listWrap">
       <div class="panel">
-        <div class="thead"><span>编号</span><span>优先级</span><span>状态</span><span>任务</span><span>认领人</span><span>截止</span><span>CLI</span><span style="text-align:right">操作</span></div>
+        <div class="thead"><span>任务</span><span>负责人</span><span>状态</span><span style="text-align:right">操作</span></div>
         <div id="listRows"></div>
       </div>
     </div>
@@ -477,16 +496,63 @@ body[data-light] .term{background:var(--n1000)}
   </div>
 </div>
 
-<!-- 同意卡（pending 时弹出） -->
+<!-- 同意卡（pending 时弹出；独立会话通道卡已并入此弹层） -->
 <div class="mask" id="consentMask"><div class="modal">
-  <h4>被控方答复（模拟）<span class="pill a" style="margin-left:auto">同意后限时 30 分钟</span></h4>
-  <div class="who" id="consentWho"></div>
-  <div class="acts">
-    <button class="btn" id="csAllow">允许（可操作）</button>
-    <button class="btn ghost" id="csRo">仅只读</button>
-    <button class="btn danger" id="csDeny">拒绝</button>
+  <h4 id="csTitle">会话通道</h4>
+  <div class="who" id="csWho">未建立通道——没有人在连接你。</div>
+  <div class="acts" id="csActs"></div>
+  <div class="note" style="margin-top:10px">成员侧视角（单机模拟：跨机后此卡来自成员机的 decide）；拒绝无需理由 · 全程留痕。</div>
+</div></div>
+
+<!-- R1/R3 设置弹层（原左栏「总线与 IM 设置」整块迁入） -->
+<div class="mask" id="settingsMask"><div class="modal wide">
+  <h4>⚙ 团队设置 <button class="ibtn" style="margin-left:auto" onclick="closeSettings()">✕</button></h4>
+  <div class="sgt">配对</div>
+  <div style="font-size:12.5px;color:var(--label3)">当前角色：<b id="pairRole" style="color:var(--label1)">?</b> <span id="pairName" style="color:var(--caption)"></span></div>
+  <label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="trustTgl" style="width:auto"> 信任此 lead：会话查看请求自动允许（仅只读，随时可断）</label>
+  <details class="adv">
+    <summary>高级 · 手动配对（角色 / 成员名 / leadUrl / 团队令牌）</summary>
+    <div class="ain">
+      <select id="pairSel" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px">
+        <option value="">— 改角色 —</option><option value="lead">lead（被连端）</option><option value="member">member（连接端）</option><option value="off">off</option>
+      </select>
+      <input id="pairName2" placeholder="成员名（member 用）" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px">
+      <input id="pairUrl" placeholder="leadUrl（member 用）ws://…" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px">
+      <input id="pairTok" placeholder="团队令牌（≥6位）" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--label1);padding:5px 8px;font-size:12px">
+      <div class="fin"><button class="btn sm" id="pairSave">保存配对</button></div>
+      <div class="hint">member 保存后 5 秒内出站连接 lead；本机测试用两个端口各开一实例。一般用下方「邀请码」即可，无需手填。</div>
+    </div>
+  </details>
+  <div class="sgt">邀请码 · 一句话入队（TF-JOIN）</div>
+  <div class="step"><span class="no">1</span><div class="sc" style="width:100%">
+    <div class="hint" style="margin:0 0 5px">lead 侧：生成邀请码并复制发给成员</div>
+    <div class="fin">
+      <input id="pairCode" readonly placeholder="点「取码」生成 TF1-…" class="mono">
+      <button class="btn ghost sm" id="pairCodeBtn">取码</button>
+      <button class="btn ghost sm" id="pairCodeCopy">复制</button>
+    </div>
+  </div></div>
+  <div class="step"><span class="no">2</span><div class="sc" style="width:100%">
+    <div class="hint" style="margin:0 0 5px">member 侧：粘贴邀请码，点「入队」即配对</div>
+    <div class="fin">
+      <input id="joinCode" placeholder="粘贴邀请码 TF1-…">
+      <button class="btn sm" id="joinBtn">入队</button>
+    </div>
+  </div></div>
+  <div class="hint" id="pairNote">lead 取码发给成员 → 成员粘贴点「入队」→ 5s 内连上（码含 lead 地址+团队令牌，请勿外传）。</div>
+  <div class="sgt">IM 通知</div>
+  <div class="fin"><input id="imWebhook" placeholder="webhook URL（飞书机器人/自定义）"></div>
+  <div class="fin" style="margin-top:7px">
+    <button class="btn ghost sm" id="imSave">保存</button>
+    <button class="btn ghost sm" id="imToggle"></button>
+    <button class="btn ghost sm" id="imTest">测试发送</button>
+    <span class="spacer"></span>
+    <button class="btn sm" id="sosBtn"></button>
   </div>
-  <div class="note" style="margin-top:10px">成员侧视角（单机模拟）· 拒绝无需理由 · 同意后随时断开 · 全程留痕。</div>
+  <div class="hint">审批卡/通知走 webhook 推送；「呼叫 lead」=通知 lead + IM（人在外场景）。</div>
+  <div class="sgt">今日成本</div>
+  <div class="hint" id="costDetail" style="margin:0">加载中…</div>
+  <div class="acts"><button class="btn ghost" onclick="closeSettings()">关闭</button></div>
 </div></div>
 
 <!-- 回放弹窗 -->
@@ -519,7 +585,7 @@ body[data-light] .term{background:var(--n1000)}
 
 <!-- 新建任务 -->
 <div class="mask" id="formMask"><div class="modal">
-  <h4>新建任务</h4>
+  <h4>新建任务 <i class="info tipdn" data-tip="立项前 grill 九项自检：目标与验收？谁在用？不做什么？依赖？副作用？数据格式？测试面？可复用？性能安全？——机械改动请勿立项。"></i></h4>
   <label>标题 *</label><input id="fTitle" placeholder="要做什么">
   <div id="fSim" class="fsim"></div>
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
@@ -532,13 +598,12 @@ body[data-light] .term{background:var(--n1000)}
   <label>验收条目（每行一条，自动编号 A1/A2…）</label><textarea id="fAcc" rows="2" placeholder="可执行/可观察的验收条件"></textarea>
   <label>待确认（每行一条 C1/C2…；未清零不得进入实施）</label><textarea id="fPend" rows="2" placeholder="需要拍板的细节点+推荐答案"></textarea>
   <label>描述（TL;DR+背景，即任务文档正文）</label><textarea id="fDesc" rows="4" placeholder="目标一段话+3-5 条重点；背景与决策可后续补"></textarea>
-  <div class="note" style="margin-top:6px">grill 九项自检：目标与验收？谁在用？不做什么？依赖？副作用？数据格式？测试面？可复用？性能安全？——机械改动请勿立项。</div>
   <div class="acts"><button class="btn ghost" onclick="document.getElementById('formMask').classList.remove('on')">取消</button><button class="btn" id="formSubmit">创建</button></div>
 </div></div>
 
 <!-- 新增避坑 -->
 <div class="mask" id="lessonMask"><div class="modal">
-  <h4>新增避坑（团队记忆）</h4>
+  <h4>新增避坑（团队记忆） <i class="info tipdn" data-tip="写法（wnlds 规范）：proposed 必须含「备选」段——先写备选最强理由，再写为何放弃；收益与代价都要写。落库写入 ~/.dsh/termfleet/team-memory/*.md（团队仓工作副本）。"></i></h4>
   <label>标题 *</label><input id="lTitle" placeholder="一句话决策/教训，如：部署前必须跑双机验收">
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
     <div><label>状态</label><select id="lState"><option>proposed</option><option>implemented</option><option>rejected</option></select></div>
@@ -548,10 +613,8 @@ body[data-light] .term{background:var(--n1000)}
   <div style="display:grid;grid-template-columns:1fr;gap:10px">
     <div><label>关联任务（可空）</label><input id="lSource" placeholder="如 T-001"></div>
   </div>
-  <div class="note" style="margin-top:2px">写法（wnlds 规范）：proposed 必须含「备选」段——先写备选最强理由，再写为何放弃；收益与代价都要写。</div>
   <label>正文（卡点 / 解法 / 代价）</label><textarea id="lBody" rows="5"></textarea>
   <div class="acts"><button class="btn ghost" onclick="document.getElementById('lessonMask').classList.remove('on')">取消</button><button class="btn" id="lessonSubmit">落库</button></div>
-  <div class="note" style="margin-top:8px">写入 ~/.dsh/termfleet/team-memory/*.md（团队仓工作副本；hippo federation 可指向此目录）。</div>
 </div></div>
 
 <div class="menu" id="statMenu"></div>
@@ -574,6 +637,7 @@ var MEM = { lessons: [], state: '*', cat: '*', q: '' };
 var AUD = { events: [], k: '*', who: '*' };
 var CH = null;
 var selMember = null      // 选中的成员机名（null=本机）
+var VIEW = 'none'         // 右栏 context 状态机：none | local | member
 var FLEET = { members: [], role: '?', name: '' }
 var NSTATE = { proposed: ['待定','a'], implemented: ['已生效','g'], rejected: ['已否决','r'], archived: ['已归档',''] };
 var NCATS = ['feature','bug-fix','simplification','architecture','process','testing'];
@@ -604,8 +668,27 @@ function api(path, body){
 }
 function toast(m){ var t=document.getElementById('toastEl'); t.textContent=m; t.classList.add('on'); clearTimeout(t._tm); t._tm=setTimeout(function(){t.classList.remove('on')},2400); }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function stLabel(s){ for (var i=0;i<STATUSES.length;i++) if (STATUSES[i][0]===s) return STATUSES[i][1]; return s; }
+function stLabel(s){ var M={'needs-triage':'待分诊','needs-info':'缺信息','ready-for-agent':'就绪(A)','ready-for-human':'就绪(H)','active':'进行中','review':'待验收','implemented':'已实施','blocked':'阻塞','wontfix':'不做','archived':'归档','todo':'待办','doing':'进行中','done':'完成'};
+  for (var i=0;i<STATUSES.length;i++) if (STATUSES[i][0]===s) return STATUSES[i][1]; return M[s]||s; }
 function stClass(s){ return s==='done'?'g':s==='blocked'?'r':s==='review'?'a':s==='doing'?'b':''; }
+function stDot(s){ return s==='implemented'||s==='done'?'done':s==='blocked'||s==='wontfix'?'blocked':s==='review'?'review':s==='active'||s==='doing'?'doing':'todo'; }
+/* ═══ R2 任务置顶（星标 · localStorage 持久）+ 确定性排序 ═══ */
+var PRIO_RANK={P0:0,P1:1,P2:2};
+var ST_RANK={'needs-triage':0,'needs-info':1,'ready-for-agent':2,'ready-for-human':2,'active':3,'doing':3,'review':4,'implemented':5,'done':5,'blocked':7,'wontfix':8,'archived':9};
+function pinIds(){ try{ var v=JSON.parse(localStorage.getItem('tf_pin_tasks')||'[]'); return Array.isArray(v)?v:[] }catch(e){ return [] } }
+function isPinned(id){ return pinIds().indexOf(id)>=0 }
+function togglePin(id){ var p=pinIds(); var i=p.indexOf(id); if(i>=0)p.splice(i,1); else p.unshift(id);
+  try{ localStorage.setItem('tf_pin_tasks',JSON.stringify(p)) }catch(e){}
+  render(); toast(isPinned(id)?('已置顶 '+id+'（排最前）'):('已取消置顶 '+id)); }
+function pinSort(arr){ return arr.slice().sort(function(a,b){
+  var pa=isPinned(a.id)?0:1, pb=isPinned(b.id)?0:1;
+  if(pa!==pb) return pa-pb;
+  var ra=PRIO_RANK[a.prio]!=null?PRIO_RANK[a.prio]:3, rb=PRIO_RANK[b.prio]!=null?PRIO_RANK[b.prio]:3;
+  if(ra!==rb) return ra-rb;
+  var sa=ST_RANK[a.status]!=null?ST_RANK[a.status]:6, sb=ST_RANK[b.status]!=null?ST_RANK[b.status]:6;
+  if(sa!==sb) return sa-sb;
+  return (a.createdAt||0)-(b.createdAt||0); }); }
+function projVisible(){ return visible().filter(function(t){ return ST.proj==='*'||(t.project||'默认')===ST.proj; }); }
 
 /* ═══ 导航 ═══ */
 function pg(v){
@@ -622,64 +705,89 @@ function tv(el,v){ el.parentNode.querySelectorAll('button').forEach(function(b){
   document.getElementById('boardWrap').classList.toggle('off', v!=='board');
   document.getElementById('listWrap').classList.toggle('on', v==='list'); }
 
+/* ═══ R1 右栏 context 状态机（none | local | member） ═══ */
+function setView(v){
+  VIEW=v;
+  if(v==='local') selMember=null;
+  document.getElementById('ctxNone').style.display=v==='none'?'':'none';
+  document.getElementById('ctxLocal').style.display=v==='local'?'':'none';
+  document.getElementById('ctxMember').style.display=v==='member'?'':'none';
+  document.getElementById('devLocal').classList.toggle('sel',v==='local');
+  document.querySelectorAll('#memberDevs .dev').forEach(function(d){ d.classList.toggle('sel', v==='member'&&d.getAttribute('data-member')===selMember); });
+  renderChannel();
+}
+
 /* ═══ 同意总线（真） ═══ */
 function fmtRemain(ms){ var s=Math.max(0,Math.floor(ms/1000)); return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
 var tick=null;
 function renderChannel(){
   var pill=document.getElementById('chanPill'), st=document.getElementById('rtState'), meta=document.getElementById('rtMeta');
-  var mb=document.getElementById('rtModeBtn'), eb=document.getElementById('rtEndBtn'), cl=document.getElementById('cmdline');
+  var mb=document.getElementById('rtModeBtn'), eb=document.getElementById('rtEndBtn');
+  var strip=document.getElementById('chanStrip');
   var sub=document.getElementById('devLocalSub');
   clearInterval(tick); tick=null;
+  var showStrip=false;
   if(CH && CH.status==='pending'){
-    var mine = CH._mine;
-    st.className='pill a'; st.textContent='◌ 等待成员确认';
-    meta.textContent='成员侧同意卡已弹出（本页下方/弹窗）';
-    mb.disabled=true; eb.disabled=false; eb.textContent='取消请求';
-    cl.classList.remove('on'); sub.textContent='通道：等待确认';
+    showStrip=true;
+    var mT0=CH.target&&CH.target.indexOf('member:')===0;
+    st.className='pill a'; st.textContent='◌ 等待被控方确认';
+    meta.textContent='同意后限时 30 分钟 · 拒绝无需理由 · 全程留痕';
+    mb.disabled=true; mb.textContent='切只读'; eb.disabled=false; eb.textContent='取消请求';
     var sessObj=(CH&&CH.type==='sess')?'dsh 会话（镜像+插话）':'pwsh 会话';
     document.getElementById('csTitle').innerHTML=(CH&&CH.remote
       ? '⚑ 收到连接请求（来自 lead）'
       : '你发起的连接 · 等待被控方确认')+' <span class="pill a" style="margin-left:auto">待确认</span>';
     document.getElementById('csWho').innerHTML=(CH&&CH.remote
       ? '<b>'+esc(CH.requester||'lead')+'</b> 请求连接 <b>你的 '+sessObj+'</b>（仅此会话，不碰桌面）。你的答复：'
-      : '<b>'+esc(CH?CH.requester:ME)+'</b>（你）→ <b>本机 '+sessObj+'</b>（仅此会话）。下方按钮=被控方答复：');
+      : '<b>'+esc(CH?CH.requester:ME)+'</b>（你）→ <b>'+(mT0?esc(CH.target.slice(7))+' 的 '+sessObj:'本机 '+sessObj)+'</b>。下方按钮=被控方答复：');
     document.getElementById('csActs').innerHTML='<button class="btn sm" id="csA">允许</button><button class="btn ghost sm" id="csR">仅只读</button><button class="btn danger sm" id="csD">拒绝</button>';
-    bindDecide(); document.getElementById('consentMask').classList.toggle('on', !!mine);
+    bindDecide(); document.getElementById('consentMask').classList.add('on');
     pill.className='pill a'; pill.textContent='等确认';
+    sub.textContent=CH.remote?'收到连接请求——待你答复':'通道：等待确认';
   } else if(CH && CH.status==='active'){
-    if(CH.remote){ st.className='pill g'; st.textContent='● 已允许（lead 使用中）';
-      meta.textContent='你已允许 '+esc(CH.requester||'lead')+' 连接本会话 · 随时可断开';
+    showStrip=true;
+    if(CH.remote){ // 成员侧视角：lead 正在查看本机
+      st.className='pill g'; st.textContent='● 被查看中 · '+(CH.mode==='rw'?'可操作':'只读');
+      meta.textContent=esc(CH.requester||'lead')+' 正在查看本机会话 · 随时可断开';
       mb.disabled=true; mb.textContent='切只读'; eb.disabled=false; eb.textContent='断开';
-      cl.classList.remove('on');
+      document.getElementById('cmdline').classList.remove('on');
+      sub.textContent=(CH.type==='sess'?'会话':'pwsh')+'通道被 '+(CH.requester||'lead')+' 使用中';
+      pill.className='pill g'; pill.textContent='通道开放中';
       document.getElementById('consentMask').classList.remove('on');
-      pill.className='pill g'; pill.textContent='通道开放中'; return; }
-    st.className='pill '+(CH.mode==='rw'?'g':'a'); st.textContent='● 已连接 · '+(CH.mode==='rw'?'可操作':'只读');
-    mb.disabled=false; mb.textContent=CH.mode==='rw'?'切只读':'（只读中）'; eb.disabled=false; eb.textContent='断开';
-    var chLabel=(CH.type==='sess')?'会话镜像':'pwsh';
-    if(CH.type==='sess'){ cl.classList.remove('on'); }
-    else{ cl.classList.add('on');
-      var i=document.getElementById('cmdInput'); i.disabled=(CH.mode!=='rw'); i.placeholder=CH.mode==='rw'?'输入指令回车发送（写入带 actor·留痕）…':'只读通道——服务端禁写（403）'; }
-    sub.textContent=chLabel+'通道：'+CH.mode+' · 剩 '+fmtRemain(CH.expireAt-Date.now());
-    tick=setInterval(function(){ if(!CH||CH.status!=='active'){clearInterval(tick);return}
-      meta.innerHTML='剩余 <b class="mono" style="color:var(--label1)">'+fmtRemain(CH.expireAt-Date.now())+'</b> · 仅此会话 · 随时可断';
+    } else {
+      st.className='pill '+(CH.mode==='rw'?'g':'a'); st.textContent='● '+(CH.mode==='rw'?'rw · 可操作':'ro · 只读');
+      mb.disabled=false; mb.textContent=CH.mode==='rw'?'切只读':'（只读中）'; eb.disabled=false; eb.textContent='断开';
+      var chLabel=(CH.type==='sess')?'会话镜像':'pwsh';
+      var mTarget=CH.target&&CH.target.indexOf('member:')===0;
+      if(CH.type==='sess'||mTarget||VIEW!=='local'){ document.getElementById('cmdline').classList.remove('on'); }
+      else{ document.getElementById('cmdline').classList.add('on');
+        var i=document.getElementById('cmdInput'); i.disabled=(CH.mode!=='rw'); i.placeholder=CH.mode==='rw'?'输入指令回车发送（写入带 actor·留痕）…':'只读通道——服务端禁写（403）'; }
       sub.textContent=chLabel+'通道：'+CH.mode+' · 剩 '+fmtRemain(CH.expireAt-Date.now());
-      if(CH.expireAt<=Date.now()){ CH.status='expired'; renderChannel(); toast('限时到——通道自动断开（服务端已失效）'); } },1000);
-    meta.innerHTML='剩余 <b class="mono" style="color:var(--label1)">'+fmtRemain(CH.expireAt-Date.now())+'</b> · 仅此会话 · 随时可断';
-    document.getElementById('consentMask').classList.remove('on');
-    pill.className='pill '+(CH.mode==='rw'?'g':'a'); pill.textContent='通道 '+(CH.mode==='rw'?'rw':'ro')+' · '+fmtRemain(CH.expireAt-Date.now());
+      tick=setInterval(function(){ if(!CH||CH.status!=='active'){clearInterval(tick);return}
+        meta.innerHTML=(mTarget?'会话镜像 · ':'仅此会话 · ')+'剩余 <b class="mono" style="color:var(--label1)">'+fmtRemain(CH.expireAt-Date.now())+'</b> · 随时可断';
+        sub.textContent=chLabel+'通道：'+CH.mode+' · 剩 '+fmtRemain(CH.expireAt-Date.now());
+        if(CH.expireAt<=Date.now()){ CH.status='expired'; renderChannel(); toast('限时到——通道自动断开（服务端已失效）'); } },1000);
+      meta.innerHTML=(mTarget?'会话镜像 · ':'仅此会话 · ')+'剩余 <b class="mono" style="color:var(--label1)">'+fmtRemain(CH.expireAt-Date.now())+'</b> · 随时可断';
+      pill.className='pill '+(CH.mode==='rw'?'g':'a'); pill.textContent='通道 '+(CH.mode==='rw'?'rw':'ro')+' · '+fmtRemain(CH.expireAt-Date.now());
+      document.getElementById('consentMask').classList.remove('on');
+      // context 归位：活动通道指向成员→成员视图；本机 pwsh→本机视图
+      if(mTarget){ if(VIEW!=='member'){ selMember=CH.target.slice(7); setView('member'); } if(SF.member!==selMember) sfOpen(selMember); }
+      else if(VIEW==='none'){ setView('local'); }
+    }
   } else {
     var why = CH ? ({denied:'已拒绝',ended:'已断开',expired:'已过期'})[CH.status]||CH.status : '未连接';
     st.className='pill'; st.textContent='○ '+why;
-    meta.textContent='连接本机 pwsh 会话（全程过同意门·留痕）';
+    meta.textContent=VIEW==='local'?'连接本机 pwsh 会话（全程过同意门·留痕）':'';
     mb.disabled=true; mb.textContent='切只读'; eb.disabled=true; eb.textContent='断开';
-    cl.classList.remove('on'); sub.textContent='pwsh 通道未建立';
+    document.getElementById('cmdline').classList.remove('on');
+    sub.textContent='pwsh 通道未建立';
     document.getElementById('consentMask').classList.remove('on');
     pill.className='pill'; pill.textContent='无通道';
-    document.getElementById('csTitle').textContent='会话通道';
-    document.getElementById('csWho').innerHTML='未建立通道——<b>没有人在连接你</b>。操控会话由你主动发起（对象仅限会话，不碰桌面）；服务端无通道一律 403。';
-    document.getElementById('csActs').innerHTML='<button class="btn" id="csReq">'+ic('Play',13)+' 请求连接本机 pwsh</button>';
-    document.getElementById('csReq').onclick=requestChannel;
   }
+  if(!showStrip && VIEW!=='none') showStrip=true; // 本机/成员视图下常驻一行通道状态
+  strip.style.display=showStrip?'flex':'none';
+  var rb=document.getElementById('reqLocalBtn');
+  if(rb) rb.style.display=(VIEW==='local'&&!CH)?'':'none';
 }
 function bindDecide(){
   var m=document.getElementById('consentMask');
@@ -692,18 +800,25 @@ function pollFleet(){
     var box=document.getElementById('memberDevs');
     if(!FLEET.members.length){ box.innerHTML='<div class="dev" style="opacity:.5"><span class="dot off"></span><div class="av">?</div><div><div class="nm">团队成员设备</div><div class="sessn">暂无成员在线（member 配对后 5s 内出现）</div></div></div>'; return; }
     box.innerHTML=FLEET.members.map(function(m){
-      return '<div class="dev '+(selMember===m.name?'sel':'')+'" data-member="'+esc(m.name)+'"><span class="dot on"></span><div class="av">'+esc(m.name.slice(0,1))+'</div><div style="min-width:0"><div class="nm">'+esc(m.name)+' <span class="pill g" style="margin-left:2px">在线</span></div><div class="mach" style="font-family:SF Mono,Consolas,monospace;font-size:11.5px;color:var(--caption)">bus 已连 · '+esc((m.sessions||[]).map(function(s){return s.tag}).join(','))+'</div><div class="sessn">'+(m.recentEvents||[]).length+(m.summary?(' · <b style="color:var(--label2)">'+m.summary.state+'</b> '+esc((m.summary.line||'').slice(0,34))):(' · '+(m.recentEvents||[]).length+' 条近期事件'))+(m.lastSos?' <span class="pill r">SOS '+(m.lastSos.msg||'').slice(0,10)+'</span>':'')+(m.lastProgress?' <span class="pill a" title="进度推送 '+esc((m.lastProgress.line||'').slice(0,40))+'">'+esc(m.lastProgress.label||m.lastProgress.kind)+'</span>':'')+'</div><div style="display:flex;gap:4px;margin:4px 0 0;flex:none"><button class="btn ghost sm" data-qview="'+esc(m.name)+'" title="一键请求查看 TA 的会话——TA 开了信任则自动允许（仅只读）">⚡看会话</button><button class="btn ghost sm" data-qrecent="'+esc(m.name)+'" title="看 TA 最近 20 条会话动态">◔动态</button></div></div>';
+      // R-fix 成员卡信息行：①裸计数加标签（并入「N 条近期事件」，不再两处重复）②lastProgress 徽标与 summary.state 同文案时去重 ③bus 行 tags 为空时省略「 · 」分隔
+      var tags=(m.sessions||[]).map(function(s){return s.tag}).filter(Boolean);
+      var info=[];
+      if(m.summary) info.push('<b style="color:var(--label2)">'+esc(m.summary.state)+'</b> '+esc((m.summary.line||'').slice(0,34)));
+      info.push((m.recentEvents||[]).length+' 条近期事件');
+      var pLabel=m.lastProgress?String(m.lastProgress.label||m.lastProgress.kind||''):'';
+      if(m.lastProgress&&pLabel&&pLabel!==m.summary.state) info.push('<span class="pill a" title="进度推送 '+esc((m.lastProgress.line||'').slice(0,40))+'">'+esc(pLabel)+'</span>');
+      return '<div class="dev '+(selMember===m.name?'sel':'')+'" data-member="'+esc(m.name)+'"><span class="dot on"></span><div class="av">'+esc(m.name.slice(0,1))+'</div><div style="min-width:0"><div class="nm">'+esc(m.name)+' <span class="pill g" style="margin-left:2px">在线</span></div><div class="mach" style="font-family:SF Mono,Consolas,monospace;font-size:11.5px;color:var(--caption)">bus 已连'+(tags.length?' · '+esc(tags.join(',')):'')+'</div><div class="sessn">'+info.join(' · ')+(m.lastSos?' <span class="pill r">SOS '+(m.lastSos.msg||'').slice(0,10)+'</span>':'')+'</div><div style="display:flex;gap:4px;margin:4px 0 0;flex:none"><button class="btn ghost sm" data-qview="'+esc(m.name)+'" title="一键请求查看 TA 的会话——TA 开了信任则自动允许（仅只读）">⚡看会话</button><button class="btn ghost sm" data-qrecent="'+esc(m.name)+'" title="看 TA 最近 20 条会话动态">◔动态</button></div></div>';
     }).join('');
     box.querySelectorAll('[data-member]').forEach(function(el){ el.onclick=function(){ selMember=el.getAttribute('data-member');
-      document.getElementById('sessMember').style.display='flex'; document.getElementById('sessMemberName').textContent=selMember+' · pwsh'; sfOpen(selMember); pollFleet(); toast('已选中成员机：'+selMember+'（会话对话流订阅中…）'); }; });
+      setView('member'); sfOpen(selMember); pollFleet(); toast('已选中成员机：'+selMember+'（会话对话流订阅中…）'); }; });
     box.querySelectorAll('[data-qview]').forEach(function(b){ b.onclick=function(ev){ ev.stopPropagation(); qview(b.getAttribute('data-qview')); }; });
     box.querySelectorAll('[data-qrecent]').forEach(function(b){ b.onclick=function(ev){ ev.stopPropagation(); qrecent(b.getAttribute('data-qrecent')); }; });
-    // 远端通道 active：拉成员 pty 尾流显示
+    // 远端通道 active：拉成员 pty 尾流显示（仅本机视图可见终端——成员视图走对话流）
     if(CH && CH.status==='active' && CH.target && CH.target.indexOf('member:')===0){
       var m2=FLEET.members.filter(function(x){return x.name===CH.target.slice(7)})[0];
       var sosM=FLEET.members.filter(function(x){return x.lastSos && (!window.__sosSeen||window.__sosSeen<x.lastSos.ts)})[0];
       if(sosM){ window.__sosSeen=sosM.lastSos.ts; toast('🆘 '+sosM.name+' 呼叫协助：'+(sosM.lastSos.msg||'-')); }
-      if(m2 && m2.ptyTail){ var el=document.getElementById('ptyTerm'); el.textContent=m2.ptyTail; el.scrollTop=el.scrollHeight; }
+      if(m2 && m2.ptyTail && VIEW==='local'){ var el=document.getElementById('ptyTerm'); el.textContent=m2.ptyTail; el.scrollTop=el.scrollHeight; }
     }
   }).catch(function(){});
   api('/dsh-termfleet/pairing').then(function(d){ FLEET.role=d.pairing&&d.pairing.role||'?'; FLEET.name=d.pairing&&d.pairing.name||'';
@@ -713,8 +828,7 @@ function pollFleet(){
   if(CH && CH.status==='pending'){
     api('/dsh-termfleet/consent/list').then(function(d){
       var c=(d.consents||[]).filter(function(x){return x.id===CH.id})[0];
-      if(c && c.status!=='pending'){ var mine=CH._mine!==false; CH=c; CH._mine=mine; renderChannel(); if(c.status==='active') toast('成员机已答复：'+(c.mode==='rw'?'允许（可操作）':'仅只读')); else if(c.status==='denied') toast('成员机已拒绝');
-        if(c.status==='active' && mine && c.target && c.target.indexOf('member:')===0){ selMember=c.target.slice(7); sfOpen(selMember); } }
+      if(c && c.status!=='pending'){ var mine=CH._mine!==false; CH=c; CH._mine=mine; renderChannel(); if(c.status==='active') toast('成员机已答复：'+(c.mode==='rw'?'允许（可操作）':'仅只读')); else if(c.status==='denied') toast('成员机已拒绝'); }
     }).catch(function(){});
   } else if(!CH && FLEET.role==='member'){
     api('/dsh-termfleet/consent/list').then(function(d){
@@ -760,10 +874,10 @@ function decide(dec){
     if(d.ok){ CH=d.consent; CH._mine=mine; renderChannel();
       if(dec==='deny'){ toast('已拒绝——无需理由，入审计'); }
       else { toast('通道建立：'+(CH.mode==='rw'?'可操作':'只读')+' · 30 分钟');
-        // lead 侧才开 pty/订阅成员流；成员面板答复(mine=false)后不动作——开了只会撞出
+        // lead 侧才开流；成员面板答复(mine=false)后不动作——开了只会撞出
         // 「成员机不在线」误弹与对本机 member-stream 的 403 噪音（本机没有自己的 member 流）。
-        if(mine){ startPty();
-          if(CH.target && CH.target.indexOf('member:')===0){ selMember=CH.target.slice(7); sfOpen(selMember); } } } }});
+        if(mine){ if(CH.target && CH.target.indexOf('member:')===0){ selMember=CH.target.slice(7); setView('member'); sfOpen(selMember); }
+          else startPty(); } } }});
 }
 document.getElementById('rtEndBtn').onclick=function(){
   if(!CH) return;
@@ -885,7 +999,10 @@ function sfOpen(name){
     try{ es.close() }catch(e){} if(SF.es===es)SF.es=null; });
   es.onerror=function(){ if(SF.es!==es)return;
     if(es.readyState===2){ sfSetState('无法订阅','r');
-      if(!SF.n) sfListEl().innerHTML='<div class="ph">订阅被拒（403）——TA 尚无激活的会话同意，或服务端通道未部署；同意开放后重新点选成员即可。</div>';
+      if(!SF.n){ sfListEl().innerHTML='<div class="ph">订阅被拒（403）——TA 尚无激活的会话同意，或服务端通道未部署；同意开放后重新点选成员即可。</div>';
+        var b=document.createElement('button'); b.className='btn sm'; b.style.marginTop='10px'; b.textContent='请求会话镜像';
+        b.onclick=function(){ document.getElementById('sfReqSess').click(); };
+        var ph=sfListEl().querySelector('.ph'); ph.appendChild(document.createElement('br')); ph.appendChild(b); }
       sfGate(true); }
     else sfSetState('重连中…','a'); };
   sfGate(true);
@@ -1007,42 +1124,44 @@ function renderBoard(){
   var el=document.getElementById('board'); el.innerHTML='';
   STATUSES.forEach(function(st){
     var col=document.createElement('div'); col.className='bcol'; col.setAttribute('data-nb-col',st[0]);
-    var items=visible().filter(function(t){ return (ST.proj==='*'||(t.project||'默认')===ST.proj)&&t.status===st[0]; });
+    var items=pinSort(projVisible().filter(function(t){ return boardOf(t.status)===st[0]; }));
     col.innerHTML='<h4>'+stLabel(st[0])+' <span class="cnt">'+items.length+'</span></h4><div class="bitems"></div>';
     var box=col.querySelector('.bitems');
     items.forEach(function(t){
       var c=document.createElement('div'); c.className='bcard'; c.setAttribute('data-prio',t.prio||'P2');
-      c.innerHTML='<div class="chead"><div class="t">'+esc(t.title)+'</div><button class="ibtn stq" data-stmenu="'+t.id+'">'+ic('ChevronDown',13)+'</button></div><div class="m">'+cardMeta(t)+'</div>';
-      c.onclick=function(ev){ if(ev.target.closest('.claim')||ev.target.closest('.stq'))return; openDrawer(t.id); };
+      c.innerHTML='<div class="chead"><div class="t">'+esc(t.title)+'</div><button class="ibtn star'+(isPinned(t.id)?' onstar':'')+'" data-pin="'+t.id+'" title="置顶/取消置顶">★</button><button class="ibtn stq" data-stmenu="'+t.id+'">'+ic('ChevronDown',13)+'</button></div><div class="m">'+cardMeta(t)+'</div>';
+      c.onclick=function(ev){ if(ev.target.closest('.claim')||ev.target.closest('.stq')||ev.target.closest('.star'))return; openDrawer(t.id); };
       box.appendChild(c);
     });
     el.appendChild(col);
   });
   el.querySelectorAll('[data-stmenu]').forEach(function(b){ b.onclick=function(ev){ ev.stopPropagation();
     var t=ST.tasks.filter(function(x){return x.id===b.getAttribute('data-stmenu')})[0]; openStatMenu(ev,t); }; });
-  if(!visible().length) el.innerHTML='<div class="empty" style="grid-column:1/-1">'+(ST.tasks.length?'没有匹配的任务':'还没有任务——点右上「新建任务」建第一张卡')+'</div>';
+  if(!projVisible().length) el.innerHTML='<div class="empty" style="grid-column:1/-1">'+(ST.tasks.length?'没有匹配的任务':'还没有任务<br><button class="btn" style="margin-top:12px" onclick="openNewTask()">＋ 新建任务</button>')+'</div>';
 }
 function renderList(){
   var el=document.getElementById('listRows'); el.innerHTML='';
-  visible().filter(function(t){return ST.proj==='*'||(t.project||'默认')===ST.proj}).forEach(function(t){
-    var r=document.createElement('div'); r.className='trow';
-    r.innerHTML='<span class="mono" style="font-size:12px;color:var(--caption)">'+t.id+'</span>'
-      +'<span class="prio '+t.prio+'">'+t.prio+'</span>'
-      +'<span class="pill '+stClass(t.status)+'" style="cursor:pointer" data-st="'+t.id+'">'+stLabel(t.status)+' '+ic('ChevronDown',12)+'</span>'
-      +'<span class="title">'+esc(t.title)+'</span>'
+  var items=pinSort(projVisible());
+  items.forEach(function(t){
+    var r=document.createElement('div'); r.className='trow'; r.setAttribute('data-id',t.id);
+    var badges='';
+    if(t.prio&&t.prio!=='P2') badges+=' <span class="prio '+t.prio+'">'+t.prio+'</span>';
+    if(t.due) badges+=' <span class="mini">'+esc(t.due)+'</span>';
+    if(t.cli) badges+=' <span class="mini">'+esc(t.cli)+'</span>';
+    if(t.session) badges+=' <span class="mini sb" title="绑定会话 '+esc(String((t.session||{}).sessionId||''))+'">⚡</span>';
+    r.innerHTML='<span class="tt"><span class="dot '+stDot(t.status)+'"></span>'
+      +'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span class="title">'+esc(t.title)+'</span>'+badges+'</span></span>'
       +'<span class="who">'+(t.owner?esc(t.owner):'<span style="color:var(--caption)">未认领</span>')+'</span>'
-      +'<span class="who">'+esc(t.due||'—')+'</span>'
-      +'<span class="who">'+esc(t.cli||'—')+'</span>'
-      +'<span class="rowops">'+(t.owner?'':'<button class="ibtn" data-claim2="'+t.id+'">认领</button>')
-      +'<button class="ibtn" data-del="'+t.id+'">'+ic('Trash',13)+'</button></span>';
+      +'<span><span class="pill '+stClass(t.status)+'">'+stLabel(t.status)+'</span></span>'
+      +'<span class="rowops"><button class="ibtn star'+(isPinned(t.id)?' onstar':'')+'" data-pin="'+t.id+'" title="置顶/取消置顶">★</button>'
+      +'<button class="ibtn stq" data-stmenu="'+t.id+'" title="状态流转 / 认领 / 删除">⋯</button></span>';
+    r.onclick=function(ev){ if(ev.target.closest('button'))return; openDrawer(t.id); };
     el.appendChild(r);
   });
-  el.querySelectorAll('.title').forEach(function(x){ x.onclick=function(){ openDrawer(x.textContent==='__'?null:x.getAttribute('data-id')||findIdByTitle(x.textContent)); }; });
-  el.querySelectorAll('[data-claim2]').forEach(function(x){ x.onclick=function(){ act('claim',x.getAttribute('data-claim2')); }; });
-  el.querySelectorAll('[data-del]').forEach(function(x){ x.onclick=function(){ if(confirm('删除该任务？')) act('delete',x.getAttribute('data-del')); }; });
-  el.querySelectorAll('[data-st]').forEach(function(p){ p.onclick=function(ev){ var t=ST.tasks.filter(function(x){return x.id===p.getAttribute('data-st')})[0]; openStatMenu(ev,t); }; });
+  el.querySelectorAll('[data-stmenu]').forEach(function(b){ b.onclick=function(ev){ ev.stopPropagation();
+    var t=ST.tasks.filter(function(x){return x.id===b.getAttribute('data-stmenu')})[0]; openStatMenu(ev,t); }; });
+  if(!items.length) el.innerHTML='<div class="empty">'+(ST.tasks.length?'没有匹配的任务':'还没有任务<br><button class="btn" style="margin-top:12px" onclick="openNewTask()">＋ 新建任务</button>')+'</div>';
 }
-function findIdByTitle(title){ var t=ST.tasks.filter(function(x){return x.title===title})[0]; return t&&t.id; }
 function openStatMenu(ev,t){
   ev.stopPropagation();
   var m=document.getElementById('statMenu'); m.innerHTML='';
@@ -1050,6 +1169,8 @@ function openStatMenu(ev,t){
     b.innerHTML=(t.status===st[0]?'● ':'')+stLabel(st[0]);
     b.onclick=function(){ m.classList.remove('on'); act('status',t.id,{status:st[0]}); }; m.appendChild(b); });
   var hr=document.createElement('hr'); hr.style.cssText='border:0;border-top:1px solid var(--border);margin:5px 0'; m.appendChild(hr);
+  if(!t.owner){ var cb=document.createElement('button'); cb.innerHTML=ic('User',13)+' 认领';
+    cb.onclick=function(){ m.classList.remove('on'); act('claim',t.id); }; m.appendChild(cb); }
   var d=document.createElement('button'); d.className='danger'; d.innerHTML=ic('Trash',13)+' 删除';
   d.onclick=function(){ m.classList.remove('on'); if(confirm('删除 '+t.id+'？')) act('delete',t.id); }; m.appendChild(d);
   var r=ev.currentTarget.getBoundingClientRect();
@@ -1058,6 +1179,7 @@ function openStatMenu(ev,t){
 document.addEventListener('click',function(ev){
   if(!ev.target.closest('#statMenu')) document.getElementById('statMenu').classList.remove('on');
   var cl=ev.target.closest('.claim[data-claim]'); if(cl){ ev.stopPropagation(); act('claim',cl.getAttribute('data-claim')); }
+  var pin=ev.target.closest('[data-pin]'); if(pin){ ev.stopPropagation(); togglePin(pin.getAttribute('data-pin')); }
 });
 
 /* ═══ 详情·六 tab ═══ */
@@ -1137,7 +1259,7 @@ function renderMem(){
   NCATS.forEach(function(c){ mkC(c,c); });
   var grid=document.getElementById('lessonGrid'); grid.innerHTML='';
   var items=memVisible();
-  if(!items.length){ grid.innerHTML='<div class="empty" style="grid-column:1/-1">'+(MEM.lessons.length?'没有匹配的笔记':'笔记库还是空的——任务完成时点「蒸馏」，或右上手动新增')+'</div>'; return; }
+  if(!items.length){ grid.innerHTML='<div class="empty" style="grid-column:1/-1">'+(MEM.lessons.length?'没有匹配的笔记':'笔记库还是空的<br><button class="btn" style="margin-top:12px" onclick="openLessonForm()">＋ 新增笔记</button>')+'</div>'; return; }
   items.forEach(function(l){
     var st=NSTATE[l.state]||['?',''];
     var c=document.createElement('div'); c.className='lcard';
@@ -1197,12 +1319,22 @@ function loadAudit(){
     var sel=document.getElementById('audWho'); if(sel){ var cur=AUD.who; var actors={}; AUD.events.forEach(function(e){actors[e.actor]=1});
       sel.innerHTML='<option value="*">全部操作人</option>'+Object.keys(actors).map(function(a){return '<option'+(a===cur?' selected':'')+'>'+esc(a)+'</option>'}).join(''); }
     renderAudit(); }).catch(function(){}); }
+/* R4：操作类型分类（任务=蓝 / 避坑=绿 / 连接·通道=琥珀）+「连接/通道」筛选的宽匹配 */
+function audCat(s){ s=s||'';
+  if(/任务/.test(s)) return 'task';
+  if(/避坑|笔记/.test(s)) return 'mem';
+  if(/连接|通道|配对|插话|远端|IM|呼叫|信任/.test(s)) return 'conn';
+  return ''; }
+function audMatch(e){
+  if(AUD.k==='*') return true;
+  if(AUD.k==='连接'||AUD.k==='连接/通道') return audCat(e.action)==='conn';
+  return (e.action||'').indexOf(AUD.k)>=0; }
 function renderAudit(){
   document.getElementById('audCnt').textContent=AUD.events.length+' 条';
   var list=document.getElementById('auditList'); list.innerHTML='';
-  var items=AUD.events.filter(function(e){ return AUD.k==='*'||(e.action||'').indexOf(AUD.k)>=0; });
+  var items=AUD.events.filter(audMatch);
   if(AUD.who&&AUD.who!=='*') items=items.filter(function(e){return e.actor===AUD.who});
-  if(!items.length){ list.innerHTML='<div class="empty">没有匹配的审计事件</div>'; return; }
+  if(!items.length){ list.innerHTML='<div class="empty">'+(AUD.events.length?'没有匹配的审计事件<br><button class="btn ghost sm" style="margin-top:12px" onclick="loadAudit()">刷新审计</button>':'暂无审计事件——去任务/远程页做一次操作就会留痕<br><button class="btn ghost sm" style="margin-top:12px" onclick="loadAudit()">刷新审计</button>')+'</div>'; return; }
   var head=document.createElement('div'); head.className='athead';
   head.innerHTML='<span>时间</span><span>操作人</span><span>动作</span><span>对象</span><span>详情</span>';
   list.appendChild(head);
@@ -1211,7 +1343,7 @@ function renderAudit(){
     var det=e.detail||'', tgt=det.indexOf(' ')>0?det.slice(0,det.indexOf(' ')):det
     r.innerHTML='<span class="ats">'+new Date(e.ts).toLocaleTimeString()+'</span>'
       +'<span class="awho">'+esc(e.actor)+'</span>'
-      +'<span class="aact acat" data-cat="'+esc(e.action)+'">'+esc(e.action)+'</span>'
+      +'<span class="aact acat c-'+audCat(e.action)+'" data-cat="'+esc(e.action)+'">'+esc(e.action)+'</span>'
       +'<span class="atgt">'+esc(tgt)+'</span>'
       +'<span class="adet" title="'+esc(det)+'">'+esc(det.slice(det.indexOf(' ')+1))+'</span>';
     list.appendChild(r);
@@ -1327,12 +1459,17 @@ function loadCost() {
     if (!d.ok) return
     var el = document.getElementById('costSummary')
     if (!el) return
-    var actors = Object.entries(d.byActor || {}).map(function(a) {
-      return esc(a[0]) + ' ' + a[1].operations + 'op/' + a[1].durationMin + 'min'
-    }).join(' · ') || '暂无'
     var ts = d.taskStats || {}
-    el.innerHTML = '<b>' + (ts.done || 0) + '</b> 完成 / <b>' + (ts.doing || 0) + '</b> 进行 / <b>' + (ts.todo || 0) + '</b> 待办'
-      + ' · ' + (d.sessionCount || 0) + ' 会话事件 · ' + actors
+    // R1：左栏底部一行小字（紧凑）；操作人明细在设置弹层的「今日成本」组
+    el.innerHTML = '<b>' + (ts.done || 0) + '</b> 完成 · <b>' + (ts.doing || 0) + '</b> 进行 · <b>' + (ts.todo || 0) + '</b> 待办'
+    var el2 = document.getElementById('costDetail')
+    if (el2) {
+      var actors = Object.entries(d.byActor || {}).map(function(a) {
+        return esc(a[0]) + ' ' + a[1].operations + 'op/' + a[1].durationMin + 'min'
+      }).join(' · ') || '暂无'
+      el2.innerHTML = '<b>' + (ts.done || 0) + '</b> 完成 / <b>' + (ts.doing || 0) + '</b> 进行 / <b>' + (ts.todo || 0) + '</b> 待办'
+        + ' · ' + (d.sessionCount || 0) + ' 会话事件 · ' + actors
+    }
   })
 }
 
@@ -1346,7 +1483,7 @@ dtab = function(el, id) {
 
 /* ═══ 表单与绑定 ═══ */
 document.getElementById('newBtn').innerHTML=ic('Plus',14)+' 新建任务';
-document.getElementById('newBtn').onclick=function(){
+function openNewTask(){
   ['fTitle','fProject','fDue','fCli','fDesc'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('fPrio').value='P2';
   document.getElementById('fSessOn').checked=true;
@@ -1358,7 +1495,9 @@ document.getElementById('newBtn').onclick=function(){
     window.__tfSelfSess=sid;
     document.getElementById('fSessHint').textContent=sid?('：'+sid.slice(0,20)+(sid.length>20?'…':'')+(FLEET.role==='member'?'（'+FLEET.name+'）':'')):'（本机暂无会话活动，不绑定）';
     if(!sid) document.getElementById('fSessOn').checked=false;
-  }).catch(function(){ window.__tfSelfSess=''; document.getElementById('fSessHint').textContent='（检测失败，不绑定）'; document.getElementById('fSessOn').checked=false; }); };
+  }).catch(function(){ window.__tfSelfSess=''; document.getElementById('fSessHint').textContent='（检测失败，不绑定）'; document.getElementById('fSessOn').checked=false; });
+}
+document.getElementById('newBtn').onclick=openNewTask;
 document.getElementById('formSubmit').onclick=function(){
   var title=document.getElementById('fTitle').value.trim();
   if(!title){ toast('标题必填'); return; }
@@ -1466,11 +1605,18 @@ document.getElementById('joinBtn').onclick=function(){
 var imWeb=document.getElementById('imWebhook'), imTg=document.getElementById('imToggle');
 function loadIm(){ api('/dsh-termfleet/im').then(function(d){ imWeb.value=(d.im&&d.im.webhook)||''; imTg.textContent=(d.im&&d.im.enabled)?'已启用 · 关闭':'已停用 · 启用'; }); }
 loadIm();
-// 设置块折叠开关
-document.getElementById('setToggle').onclick=function(){
-  var blk=document.getElementById('setblk'); var open=blk.style.display!=='none' && blk.classList.contains('setblk')===false || blk.style.display==='grid';
-  blk.style.display=(blk.style.display==='none'||!blk.style.display)?'grid':'none';
-  document.getElementById('setArrow').textContent=(blk.style.display==='grid')?'▾':'▸';
+/* R1 设置弹层 + 右栏 context 入口 */
+function openSettings(){ document.getElementById('settingsMask').classList.add('on'); loadIm(); loadCost(); }
+function closeSettings(){ document.getElementById('settingsMask').classList.remove('on'); }
+document.getElementById('settingsBtn').onclick=openSettings;
+document.getElementById('devLocal').onclick=function(){ setView('local'); };
+document.getElementById('reqLocalBtn').onclick=requestChannel;
+document.getElementById('ctaLocal').onclick=function(){ setView('local'); requestChannel(); };
+document.getElementById('ctaMember').onclick=function(){
+  if(!FLEET.members.length){ toast('左侧暂无成员在线——先在「⚙ 设置」配对成员'); openSettings(); return; }
+  toast('在左侧点选成员设备，即可订阅 TA 的会话对话流');
+  var box=document.getElementById('memberDevs'); box.style.transition='box-shadow .3s'; box.style.boxShadow='0 0 0 2px var(--accent-t)';
+  setTimeout(function(){ box.style.boxShadow='none'; },1200);
 };
 document.getElementById('imSave').onclick=function(){ api('/dsh-termfleet/im',{webhook:imWeb.value.trim()}).then(function(d){ toast(d.ok?'IM webhook 已保存':'保存失败'); }); };
 imTg.onclick=function(){ api('/dsh-termfleet/im',{enabled:true}).then(function(){ loadIm(); toast('IM 已启用'); }); };
@@ -1493,7 +1639,7 @@ api('/dsh-termfleet/consent/list').then(function(d){ var c=(d.consents||[]).find
 // 键盘快捷键：Esc=关弹窗/抽屉, 1-4=切导航, /=聚焦搜索
 document.addEventListener('keydown', function(ev) {
   if (ev.key === 'Escape') {
-    ['replayMask','formMask','lessonMask','consentMask','recentMask'].forEach(function(id) { document.getElementById(id).classList.remove('on') });
+    ['replayMask','formMask','lessonMask','consentMask','recentMask','settingsMask'].forEach(function(id) { document.getElementById(id).classList.remove('on') });
     closeDrawer();
     document.getElementById('statMenu').classList.remove('on');
   }
