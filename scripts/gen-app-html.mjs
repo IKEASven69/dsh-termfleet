@@ -168,10 +168,11 @@ details.adv .ain{display:grid;gap:7px}
 @keyframes tfnotiin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 /* ── 任务页 ── */
 .tbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-.seg{display:flex;background:var(--card2);border:1px solid var(--border);border-radius:999px;padding:2px;flex-wrap:wrap}
-.seg button{border:0;background:transparent;color:var(--label2);padding:4px 12px;border-radius:999px;font-size:12.5px}
+.seg{display:flex;background:var(--card2);border:1px solid var(--border);border-radius:999px;padding:3px;flex-wrap:wrap;align-items:center;height:30px;box-sizing:border-box}
+.seg button{border:0;background:transparent;color:var(--label2);padding:3px 11px;border-radius:999px;font-size:12px}
+.seg button.on{font-weight:600}
 .seg button.on{background:var(--brand);color:var(--brand-fg);font-weight:600}
-.search{display:flex;align-items:center;gap:6px;background:var(--card2);border:1px solid var(--border);border-radius:999px;padding:0 12px;height:32px;color:var(--caption);font-size:12.5px;box-sizing:border-box}
+.search{display:flex;align-items:center;gap:6px;background:var(--card2);border:1px solid var(--border);border-radius:999px;padding:0 12px;height:30px;color:var(--caption);font-size:12.5px;box-sizing:border-box}
 .search input{border:0;background:transparent;color:var(--label1);outline:none;font-size:12.5px;width:130px}
 .board{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 14px;align-items:flex-start;min-height:460px}
 .bcol{flex:0 0 268px;width:268px;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 300px)}
@@ -330,12 +331,12 @@ details.adv .ain{display:grid;gap:7px}
     <div class="nav">
       <span id="navRemote" onclick="pg('remote')">远程</span>
       <span class="on" id="navTask" onclick="pg('task')">任务</span>
-      <span id="navMem" onclick="pg('mem')">避坑库 <span id="memCnt" style="font-size:11px;opacity:.7"></span></span>
+      <span id="navMem" onclick="pg('mem')">避坑库</span>
       <span id="navAudit" onclick="pg('audit')">审计</span>
     </div>
     <span class="spacer"></span>
     <span class="pill" id="chanPill">无通道</span>
-    <span class="me">我是 <input id="meInput" title="显示名（写入操作历史/审计）"></span>
+    <span class="me" title="操作人署名——写入审计与任务历史">操作人 <input id="meInput" placeholder="署名"></span>
     <button class="btn ghost sm" id="themeBtn"></button>
   </div>
 
@@ -456,9 +457,8 @@ details.adv .ain{display:grid;gap:7px}
       <div class="seg" id="memCatSeg"></div>
       <div class="search">🔍<input id="memSearch" placeholder="搜索教训/正文…"></div>
       <span class="spacer"></span>
-      <span class="pill" id="memStat"></span>
-      <button class="btn ghost sm" id="memVerifyBtn"></button>
-      <button class="btn sm" id="newLessonBtn"></button>
+      <button class="btn ghost sm" id="memVerifyBtn" title="校验门：全部笔记须符合 wnlds 规范（proposed 须含备选方案段）"></button>
+      <button class="btn sm" id="newLessonBtn" title="新增一条避坑/决策笔记"></button>
     </div>
     <div class="lesson-grid" id="lessonGrid"></div>
   </div>
@@ -1258,7 +1258,6 @@ function memVisible(){ return MEM.lessons.filter(function(l){
   if(MEM.q){ var q=MEM.q.toLowerCase(); var hay=((l.title||'')+' '+(l.body||'')+' '+(l.state||'')).toLowerCase(); if(hay.indexOf(q)<0)return false; }
   return true; }); }
 function renderMem(){
-  document.getElementById('memCnt').textContent=MEM.lessons.length?'('+MEM.lessons.length+')':'';
   // 状态筛选 + 统计（决策看板）
   var ss=document.getElementById('memStateSeg'); ss.innerHTML='';
   var mkS=function(k,label){ var b=document.createElement('button'); b.textContent=label;
@@ -1266,7 +1265,6 @@ function renderMem(){
   var cnt={}; MEM.lessons.forEach(function(l){ cnt[l.state]=(cnt[l.state]||0)+1 });
   mkS('*','全部 '+MEM.lessons.length);
   Object.keys(NSTATE).forEach(function(s){ mkS(s, NSTATE[s][0]+' '+(cnt[s]||0)); });
-  document.getElementById('memStat').textContent='proposed '+((cnt.proposed||0))+' → implemented '+(cnt.implemented||0)+' / rejected '+(cnt.rejected||0);
   // 分类筛选
   var cs=document.getElementById('memCatSeg'); cs.innerHTML='';
   var mkC=function(k,label){ var b=document.createElement('button'); b.textContent=label;
