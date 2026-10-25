@@ -238,3 +238,24 @@
 
 - xterm vendoring 轮（lib/vendor 三件、生成器内联、/pty/raw 路由、ptyWrite expect 语义、dedup v1.1）此前滞留工作区未提交，本次与键入修复、专项脚本、文档一并入库。
 - verify-p0 15 场景不经键盘路径，改动面（onData 一行+pty/raw 路由）对其无影响；verify-xterm-key 的真实实例引导（spawn+页面加载+通道+SSE+PTY 全链）本身即 regenerated app.html 的回归冒烟。
+
+## 本机通道不限时 + 通道死亡 UI 归位（2026-10-25，用户实测反馈「连本机怎么还会有时间限制/界面显示有问题」）
+
+用户实测抓出两个问题：①本机自连也有 30 分钟倒计时并被服务端到点掐断（toast「限时到」）；②通道死亡后 UI 不归位——僵尸 xterm 终端继续挂着（打字无响应）、状态条残留「切只读/断开」死按钮、右上 pill 却显示「无通道」，三处互相矛盾。
+
+### 修复
+
+| 项 | 改动 |
+|---|---|
+| 服务端 TTL 分支 | `decide()`：`expireAt = (c.remote ‖ target 带 member: 前缀) ? +30min : null`——本机自连（同源已认证会话连自己的 shell）无「被控方限时授权」语义；跨机（lead→member 目标 / 成员机 remote 记录）保留 30 分钟限时 |
+| 客户端不限时显示 | renderChannel 活动分支 `noTTL` 路径：pill「通道 rw · 本机不限时」、meta「本机直连 · 随时可断」、不设倒计时 tick；decide toast 文案随 expireAt 分支（「本机不限时」/「限时 30 分钟」） |
+| 死亡即归位 | ended/expired/denied 分支：关 ptyES、藏 `#ptyXterm`、放回 `#ptyTerm` 占位、「请连接本机 pwsh」CTA 回归（原 `!CH` 判断对已存在但已死的通道恒 false → CTA 永不回归=僵尸根因）；CTA 显示条件改为「非 active/pending」 |
+| 刷新自愈 | 活动本机通道分支 `!ptyES` 才 startPty（renderChannel 单一入口）——修复「带活通道刷新页面后终端永不出现」的第二种僵尸态；ptyXtermInit 复用已有 term 时也重新亮出容器并 fit |
+| 文案 | 未连接 meta「连接本机 pwsh 会话（免确认·留痕·不限时）」（原「全程过同意门」与本机免确认事实不符） |
+
+### 验证（verify-xterm-key 扩至 K1-K5，5/5 PASS exit 0）
+
+- K1 本机通道不限时：chanPill=`通道 rw · 本机不限时`，无倒计时 ✓
+- K2/K3/K4 键入链路回归：请求体逐键真实、完整回显、大写/空格/数字逐字保真 ✓
+- K5 断开后 UI 归位：pill=`无通道`、终端已藏、CTA 回归 ✓（rtEndBtn 真实点击路径）
+- 用户活实例（3180）页面端已生效（每请求读盘）；**服务端 TTL 分支需该实例进程重启加载新 lib/index.js 后，新建通道才不限时**——3180 是用户自己的实例（token 与 ~/.dsh/termfleet 一致），重启由用户拍板，未擅动。

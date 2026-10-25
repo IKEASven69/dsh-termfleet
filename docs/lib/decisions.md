@@ -186,3 +186,9 @@ TfTabBody 改为 flag 感知（`localStorage.tf_native_board`，默认原生）�
 - **PTY 写入两态语义**：`ptyWrite(data, expect)`——expect 缺省（undefined）=等待 M0_PTY_OK 回显标记（探针/整命令面）；`''`=显式不等待（原生终端逐键裸流——键击若被 8s 等待串行化则打字卡死）。实现必须 `expect === undefined ? default : expect`，`expect ||` 会把 '' 吞成默认等待（本轮随修）。新路由 `/dsh-termfleet/pty/raw`：consent activeOf('pty') rw 门控 + 空 data 心跳直接放行 + 裸写不等回显；bus `pty-write` 同步改 ''。
 - **测试手段边界（本轮实测结论，防再踩）**：①ZCode 内置浏览器（IAB）`locator.press/type` **不向页面注入键盘事件**（textarea 捕获级监听零到达，调用不报错但无事发生）——键盘链路真测必须走独立 playwright 脚本的真实 CDP 键事件；②页内合成 `dispatchEvent(new KeyboardEvent('keydown',…))` **不保真**：丢大写字母与空格、带 shiftKey 反而全丢（缺 Chromium 键平移层）——只可用于接线探针（验证 onData 是否触发），不可用于保真断言；③pwsh `echo A B` 按空格拆参输出**两行**（Write-Output 逐对象打印），断言别等单行。
 - **专项 E2E**：`node scripts/verify-xterm-key.mjs`（新增）——单 lead 实例（HOME 隔离，3190 起顺延避让 3180/3181）+真实 Chromium `page.keyboard.type('echo E2E_KEY_OK 42')` 打穿 keydown → onData → POST /pty/raw → pty.write → pwsh 回显 → SSE → 渲染；K1 通道/终端就绪、K2 请求体逐键真实+垃圾体 `"POST"` 恒 0（回归锁）、K3 缓冲完整回显、K4 大写/空格/数字逐字保真——4/4 PASS exit 0。验收详见 docs/audit/P1-ACCEPTANCE.md「xterm 原生终端轮」节；截图 xkey-mvnsxrdl.png。
+
+## 2026-10-25b · 本机通道不限时 + 通道死亡 UI 归位（用户实测「连本机怎么还有时间限制/界面显示有问题」）
+
+- **通道 TTL 按性质分支**：`decide()` 里 `expireAt = (c.remote ‖ target 带 member:) ? +30min : null`。本机自连=同源已认证会话连自己的 shell，没有「被控方限时授权」语义，倒计时纯属仪式（与 d74823e 撤本机确认卡同一逻辑链）；跨机一律保留 30 分钟（产品前提=限时留痕授权）。判据用 `remote 标记 ‖ member: 前缀` 双条件——成员机 requestRemote 记录的 target 可能不带前缀，漏掉 remote 会把被控方记录也改成不限时。
+- **通道死亡必须 UI 归位**：ended/expired/denied 分支要关 ptyES、藏 `#ptyXterm`、放回「请连接」CTA。坑①：CTA 显示条件 `!CH` 对「存在但已死」的通道恒 false——判活要按 status（非 active/pending）。坑②：ptyXtermInit 的 `if(XT.term) return` 早退会跳过 `cont.style.display='block'`——死亡归位后重连必须重亮容器（复用时也执行 display+fit 再早退）。坑③：带活通道刷新页面后无人调 startPty（终端不出现+CTA 被 CH 存在压住的第二种僵尸态）——startPty 收敛到 renderChannel 活动分支 `!ptyES` 单一入口（decide 不再重复调，避免尾流重写两遍）。
+- **页面 vs 服务端生效边界再确认**：/app 每请求读盘（前端改=刷新即生效），但 lib/index.js 是进程启动时加载（服务端改=必须重启实例）。用户实测的 3180 是其本人实例（token 与 ~/.dsh/termfleet/ 一致），重启由用户拍板不擅动。

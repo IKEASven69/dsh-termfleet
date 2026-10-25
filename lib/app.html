@@ -1055,27 +1055,41 @@ function renderChannel(){
       mb.disabled=false; mb.textContent=CH.mode==='rw'?'切只读':'（只读中）'; eb.disabled=false; eb.textContent='断开';
       var chLabel=(CH.type==='sess')?'会话镜像':'pwsh';
       var mTarget=CH.target&&CH.target.indexOf('member:')===0;
+      var noTTL=!CH.expireAt&&!CH.remote&&!mTarget; // 本机自连：同源已认证会话连自己的 shell，无「被控方限时授权」语义（2026-10-25）
       if(CH.type==='sess'||mTarget||VIEW!=='local'){ document.getElementById('cmdline').classList.remove('on'); }
       else{ document.getElementById('cmdline').classList.add('on');
         var i=document.getElementById('cmdInput'); i.disabled=(CH.mode!=='rw'); i.placeholder=CH.mode==='rw'?'输入指令回车发送（写入带 actor·留痕）…':'只读通道——服务端禁写（403）'; }
-      sub.textContent=chLabel+'通道：'+CH.mode+' · 剩 '+fmtRemain(CH.expireAt-Date.now());
-      tick=setInterval(function(){ if(!CH||CH.status!=='active'){clearInterval(tick);return}
-        meta.innerHTML=(mTarget?'会话镜像 · ':'仅此会话 · ')+'剩余 <b class="mono" style="color:var(--label1)">'+fmtRemain(CH.expireAt-Date.now())+'</b> · 随时可断';
+      if(noTTL){
+        sub.textContent=chLabel+'通道：'+CH.mode+' · 本机直连不限时';
+        meta.innerHTML='本机直连 · 随时可断';
+        pill.textContent='通道 '+(CH.mode==='rw'?'rw':'ro')+' · 本机不限时';
+      } else {
         sub.textContent=chLabel+'通道：'+CH.mode+' · 剩 '+fmtRemain(CH.expireAt-Date.now());
-        if(CH.expireAt<=Date.now()){ CH.status='expired'; renderChannel(); toast('限时到——通道自动断开（服务端已失效）'); } },1000);
-      meta.innerHTML=(mTarget?'会话镜像 · ':'仅此会话 · ')+'剩余 <b class="mono" style="color:var(--label1)">'+fmtRemain(CH.expireAt-Date.now())+'</b> · 随时可断';
-      pill.className='pill '+(CH.mode==='rw'?'g':'a'); pill.textContent='通道 '+(CH.mode==='rw'?'rw':'ro')+' · '+fmtRemain(CH.expireAt-Date.now());
+        tick=setInterval(function(){ if(!CH||CH.status!=='active'){clearInterval(tick);return}
+          meta.innerHTML=(mTarget?'会话镜像 · ':'仅此会话 · ')+'剩余 <b class="mono" style="color:var(--label1)">'+fmtRemain(CH.expireAt-Date.now())+'</b> · 随时可断';
+          sub.textContent=chLabel+'通道：'+CH.mode+' · 剩 '+fmtRemain(CH.expireAt-Date.now());
+          if(CH.expireAt&&CH.expireAt<=Date.now()){ CH.status='expired'; renderChannel(); toast('限时到——通道自动断开（服务端已失效）'); } },1000);
+        meta.innerHTML=(mTarget?'会话镜像 · ':'仅此会话 · ')+'剩余 <b class="mono" style="color:var(--label1)">'+fmtRemain(CH.expireAt-Date.now())+'</b> · 随时可断';
+        pill.textContent='通道 '+(CH.mode==='rw'?'rw':'ro')+' · '+fmtRemain(CH.expireAt-Date.now());
+      }
+      pill.className='pill '+(CH.mode==='rw'?'g':'a');
       document.getElementById('consentMask').classList.remove('on');
       // context 归位：活动通道指向成员→成员视图；本机 pwsh→本机视图
       if(mTarget){ if(VIEW!=='member'){ selMember=CH.target.slice(7); setView('member'); } if(SF.member!==selMember) sfOpen(selMember); }
       else if(VIEW==='none'){ setView('local'); }
+      // 带活通道刷新恢复：SSE 不在才开流（renderChannel 单一入口，decide/启动恢复共用；避免重复 startPty 重写尾流）
+      if(!CH.remote&&!mTarget&&!ptyES) startPty();
     }
   } else {
     var why = CH ? ({denied:'已拒绝',ended:'已断开',expired:'已过期'})[CH.status]||CH.status : '未连接';
     st.className='pill'; st.textContent='○ '+why;
-    meta.textContent=VIEW==='local'?'连接本机 pwsh 会话（全程过同意门·留痕）':'';
+    meta.textContent=VIEW==='local'?'连接本机 pwsh 会话（免确认·留痕·不限时）':'';
     mb.disabled=true; mb.textContent='切只读'; eb.disabled=true; eb.textContent='断开';
     document.getElementById('cmdline').classList.remove('on');
+    // 通道死亡即归位：关 SSE 流、藏僵尸终端（对死通道打字无响应=矛盾显示）、放回「请连接」CTA
+    if(ptyES){ try{ptyES.close()}catch(e){} ptyES=null }
+    var xtEl=document.getElementById('ptyXterm'); if(xtEl) xtEl.style.display='none';
+    var ptEl=document.getElementById('ptyTerm'); if(ptEl) ptEl.style.display='';
     sub.textContent='pwsh 通道未建立';
     document.getElementById('consentMask').classList.remove('on');
     pill.className='pill'; pill.textContent='无通道';
@@ -1083,7 +1097,7 @@ function renderChannel(){
   if(!showStrip && VIEW!=='none') showStrip=true; // 本机/成员视图下常驻一行通道状态
   strip.style.display=showStrip?'flex':'none';
   var rb=document.getElementById('reqLocalBtn');
-  if(rb) rb.style.display=(VIEW==='local'&&!CH)?'':'none';
+  if(rb) rb.style.display=(VIEW==='local'&&(!CH||(CH.status!=='active'&&CH.status!=='pending')))?'':'none';
 }
 function bindDecide(){
   var m=document.getElementById('consentMask');
@@ -1172,11 +1186,11 @@ function decide(dec){
   api('/dsh-termfleet/consent/decide',{id:CH.id,decision:dec}).then(function(d){
     if(d.ok){ CH=d.consent; CH._mine=mine; renderChannel();
       if(dec==='deny'){ toast('已拒绝——无需理由，入审计'); }
-      else { toast('通道建立：'+(CH.mode==='rw'?'可操作':'只读')+' · 30 分钟');
+      else { toast('通道建立：'+(CH.mode==='rw'?'可操作':'只读')+(CH.expireAt?' · 限时 30 分钟':' · 本机不限时'));
         // lead 侧才开流；成员面板答复(mine=false)后不动作——开了只会撞出
         // 「成员机不在线」误弹与对本机 member-stream 的 403 噪音（本机没有自己的 member 流）。
-        if(mine){ if(CH.target && CH.target.indexOf('member:')===0){ selMember=CH.target.slice(7); setView('member'); sfOpen(selMember); }
-          else startPty(); } } }});
+        // 本机 pwsh 流由 renderChannel 活动分支统一 startPty（!ptyES 自愈，带活通道刷新恢复同路径），此处不再重复。
+        if(mine && CH.target && CH.target.indexOf('member:')===0){ selMember=CH.target.slice(7); setView('member'); sfOpen(selMember); } } }});
 }
 document.getElementById('rtEndBtn').onclick=function(){
   if(!CH) return;
@@ -1189,11 +1203,11 @@ var ptyLines=[], ptyES=null;
 /* ── 原生终端（xterm.js）：PTY 数据原生渲染 + 逐键转发，ANSI 转义不再漏成乱码 ── */
 var XT={term:null,fit:null};
 function ptyXtermInit(){
-  if(XT.term) return XT.term;
-  if(typeof Terminal==='undefined') return null;
   var cont=document.getElementById('ptyXterm'); if(!cont) return null;
+  if(typeof Terminal==='undefined') return null;
   var old=document.getElementById('ptyTerm'); if(old) old.style.display='none';
-  cont.style.display='block';
+  cont.style.display='block'; // 复用已有 term 也要重新亮出容器（通道死亡归位后重连的场景）
+  if(XT.term){ try{XT.fit.fit()}catch(e){} return XT.term; }
   XT.term=new Terminal({fontSize:12.5,fontFamily:"'SF Mono','JetBrains Mono',Consolas,monospace",theme:{background:'#0d0f12',foreground:'#c3c8d0',cursor:'#f2f4f7',selectionBackground:'rgba(110,168,255,.25)'},scrollback:2000,convertEol:false,cursorBlink:true});
   XT.fit=new FitAddon.FitAddon(); XT.term.loadAddon(XT.fit);
   XT.term.open(cont); try{XT.fit.fit()}catch(e){}

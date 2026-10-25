@@ -110,7 +110,7 @@ async function main() {
         xterm: !!document.querySelector('#ptyXterm .xterm'),
         ta: !!document.querySelector('#ptyXterm .xterm-helper-textarea'),
       })).then((s) => (s.chan.indexOf('rw') >= 0 && s.xterm && s.ta ? s : null))
-    }, 15000, 300, '通道+终端就绪').then((s) => R('K1 通道与 xterm 就绪', true, `chanPill="${s.v.chan}" .xterm+helper-textarea 在场`))
+    }, 15000, 300, '通道+终端就绪').then((s) => R('K1 本机通道不限时+终端就绪', s.v.chan.indexOf('不限时') >= 0, `chanPill="${s.v.chan}"（无倒计时）.xterm+helper-textarea 在场`))
 
     // 真实点击终端区域取焦点，再真实 CDP 键盘逐键输入（大写+空格+下划线+数字）
     await page.locator('#ptyXterm .xterm').click()
@@ -145,6 +145,16 @@ async function main() {
       // K4 无丢字（剥掉提示符后与命令逐字一致）
       R('K4 大写/空格/数字混合逐字保真', typedPart === CMD, `逐字比对=${typedPart === CMD ? '一致' : `不一致（实收 "${typedPart}"）`}`)
     })
+
+    // K5 断开后 UI 归位：关流、藏终端、CTA 回归（此前死亡通道挂僵尸终端+无效按钮=矛盾显示）
+    await page.evaluate(() => document.getElementById('rtEndBtn').click())
+    await waitFor(async () => {
+      return page.evaluate(() => ({
+        pill: (document.getElementById('chanPill') || { textContent: '' }).textContent,
+        xtHidden: (document.getElementById('ptyXterm') || { style: {} }).style.display === 'none',
+        ctaBack: (document.getElementById('reqLocalBtn') || { style: {} }).style.display !== 'none',
+      })).then((s) => (s.pill.indexOf('无通道') >= 0 && s.xtHidden && s.ctaBack ? s : null))
+    }, 8000, 300, '断开后归位').then((s) => R('K5 断开后 UI 归位', true, `pill="${s.v.pill}" 终端已藏 CTA 回归`))
 
     // 截图存档
     await page.screenshot({ path: join(REPO, 'docs', 'audit', 'screens', `xkey-${Date.now().toString(36)}.png`), fullPage: false })
