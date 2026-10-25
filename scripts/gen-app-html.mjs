@@ -12,6 +12,11 @@ for (const [k, v] of Object.entries(iconsRaw.icons)) {
   ICONS[short] = Array.isArray(v) ? v : [v]
 }
 const ICONS_JSON = JSON.stringify(ICONS)
+// 防 inline <script> 提前闭合：split/join 字符串法（避开正则转义与 HTML 解析歧义）
+const ESC_SCRIPT_OPEN = '</scr' + 'ipt'
+const XTERM_JS = readFileSync(path.join(here, '../lib/vendor/xterm.js'), 'utf8').split(ESC_SCRIPT_OPEN).join('<\\/scr' + 'ipt')
+const XTERM_CSS = readFileSync(path.join(here, '../lib/vendor/xterm.css'), 'utf8')
+const FIT_JS = readFileSync(path.join(here, '../lib/vendor/addon-fit.js'), 'utf8').split(ESC_SCRIPT_OPEN).join('<\\/scr' + 'ipt')
 const ANSI_B64 = "ZnVuY3Rpb24gYW5zaUNsZWFuKHQpewogIGlmKCF0KXJldHVybicnCiAgdmFyIEU9U3RyaW5nLmZyb21DaGFyQ29kZSgyNyksIEI9U3RyaW5nLmZyb21DaGFyQ29kZSg3KQogIHZhciBzPVN0cmluZyh0KSwgb3V0PScnLCBpPTAKICB3aGlsZShpPHMubGVuZ3RoKXsKICAgIHZhciBjaD1zW2ldCiAgICBpZihjaD09PUUpewogICAgICBpZihzW2krMV09PT0nWycpeyBpKz0yOyB3aGlsZShpPHMubGVuZ3RoKXsgdmFyIGM9c1tpXS5jaGFyQ29kZUF0KDApOyBpZihjPj0weDIwJiZjPDB4NDApe2krK31lbHNle2JyZWFrfSB9IGkrKzsgY29udGludWUgfQogICAgICBpKz0yCiAgICAgIGlmKGNoPT09RSYmc1tpXT09PSddJyl7IC8qIE9TQyDlt7Lot7Pov4flpLTpg6jvvIzmib7nu4jmraIgKi8gfQogICAgICBjb250aW51ZQogICAgfQogICAgdmFyIGNkPWNoLmNoYXJDb2RlQXQoMCkKICAgIGlmKGNkPT09N3x8Y2Q9PT04KXsgaSsrOyBjb250aW51ZSB9CiAgICBpZihjZDwweDIwJiZjaCE9PSdcbicmJmNoIT09J1x0Jyl7IGkrKzsgY29udGludWUgfQogICAgb3V0Kz1jaDsgaSsrCiAgfQogIHJldHVybiBvdXQucmVwbGFjZSgvXHIvZywnJykucmVwbGFjZSgvXG57Myx9L2csJ1xuXG4nKS50cmltKCkKfQo="
 
 const html = `<!DOCTYPE html>
@@ -21,6 +26,7 @@ const html = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TermFleet · 团队驾驶舱</title>
 <style>
+${XTERM_CSS}
 :root{--n50:#f9fafb;--n60:#f5f6f7;--n100:#ebeef2;--n150:#e9ecf2;--n300:#cfd3d6;--n400:#adb2b8;--n600:#81858c;--n700:#61666b;--n750:#43454a;--n800:#353638;--n900:#1b1b1c;--n950:#151517;--n1000:#0f1115}
 body{--bg:#0d0f12;--panel:#12141a;--card:#181b22;--card2:#22262f;--elev:#1f232b;--label1:#f2f4f7;--label2:#c3c8d0;--label3:#98a0ab;--caption:#6b7280;--brand:#f2f4f7;--brand-fg:#0f1115;--accent:#6ea8ff;--accent-t:rgba(110,168,255,.12);--border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.14);--border3:rgba(255,255,255,.22);--hover:rgba(255,255,255,.06);--green:#4ed17e;--green-t:rgba(78,209,126,.13);--amber:#f5b04d;--amber-t:rgba(245,176,77,.13);--red:#f25a5a;--red-t:rgba(242,90,90,.13);--blue:#7fa7e8;--blue-t:rgba(127,167,232,.12);background:var(--bg);color:var(--label1)}
 body[data-light]{--bg:#f6f7f9;--panel:#eef0f3;--card:#fff;--card2:#fff;--elev:#fff;--label1:#14161a;--label2:#3d434b;--label3:#5f6670;--caption:#9aa1ab;--brand:#14161a;--brand-fg:#fff;--accent:#2563eb;--accent-t:rgba(37,99,235,.08);--border:rgba(15,20,30,.08);--border2:rgba(15,20,30,.14);--border3:rgba(15,20,30,.24);--hover:rgba(38,49,72,.06);--green:#15803d;--green-t:rgba(34,197,94,.12);--amber:#b45309;--amber-t:rgba(245,158,11,.12);--red:#dc2626;--red-t:rgba(239,68,68,.10);--blue:#2563eb;--blue-t:rgba(59,130,246,.10)}
@@ -390,6 +396,7 @@ details.adv .ain{display:grid;gap:7px}
             <span style="font-size:12.5px;color:var(--label3)" id="localHint">探针终端 · 连接后可操作（rw）/仅看（ro）</span>
           </div>
           <div class="term" id="ptyTerm">（点「请求连接本机 pwsh」——同意后此处实时显示宿主内 pwsh 流）</div>
+          <div id="ptyXterm" style="display:none;height:340px;background:#0d0f12;border-radius:10px"></div>
           <div class="cmdline" id="cmdline">
             <input id="cmdInput" placeholder="输入指令回车发送（写入带 actor·留痕）…" onkeydown="if(event.key==='Enter')sendCmd()">
             <button class="btn sm" onclick="sendCmd()">发送</button>
@@ -637,7 +644,10 @@ details.adv .ain{display:grid;gap:7px}
 <div class="toast" id="toastEl"></div>
 <div class="tfnotifwrap" id="tfNotifWrap"></div>
 
+<script>${XTERM_JS}</script>
+<script>${FIT_JS}</script>
 <script>
+window.__tfErrs=[];window.onerror=function(m,s,l,c){try{window.__tfErrs.push(String(m).slice(0,140)+' @'+(l||'?')+':'+(c||'?'))}catch(e){}};
 var NL=String.fromCharCode(10),CR=String.fromCharCode(13),NL2=NL+NL,LF3=new RegExp(NL+'{3,}','g');
 var ICONS = ${ICONS_JSON};
 ;var ansiClean = (function(){ var src = atob('${ANSI_B64}'); src = src.replace(/^function ansiClean\(t\)\{/, 'function(t){').replace(/\}\s*$/, '}'); return new Function('return (' + src + ')')(); })();
@@ -910,19 +920,37 @@ document.getElementById('rtModeBtn').onclick=function(){ toast('模式切换由�
 
 /* ═══ PTY 实流 ═══ */
 var ptyLines=[], ptyES=null;
-function startPty(){
-  if(CH && CH.target && CH.target.indexOf('member:')===0){
-    api('/dsh-termfleet/remote/write',{member:CH.target.slice(7),data:'echo MEMBER_PTY_READY\\r'}).then(function(d){
-      if(d.ok===false){ toast('成员机不在线'); } });
-    return;
-  }
-  api('/dsh-termfleet/probe-pty').then(function(d){
-    if(d.ok===false){ toast('PTY: '+d.error); return }
-    ptyLines=[d.tail||'']; drawPty();
+/* ── 原生终端（xterm.js）：PTY 数据原生渲染 + 逐键转发，ANSI 转义不再漏成乱码 ── */
+var XT={term:null,fit:null};
+function ptyXtermInit(){
+  if(XT.term) return XT.term;
+  if(typeof Terminal==='undefined') return null;
+  var cont=document.getElementById('ptyXterm'); if(!cont) return null;
+  var old=document.getElementById('ptyTerm'); if(old) old.style.display='none';
+  cont.style.display='block';
+  XT.term=new Terminal({fontSize:12.5,fontFamily:"'SF Mono','JetBrains Mono',Consolas,monospace",theme:{background:'#0d0f12',foreground:'#c3c8d0',cursor:'#f2f4f7',selectionBackground:'rgba(110,168,255,.25)'},scrollback:2000,convertEol:false,cursorBlink:true});
+  XT.fit=new FitAddon.FitAddon(); XT.term.loadAddon(XT.fit);
+  XT.term.open(cont); try{XT.fit.fit()}catch(e){}
+  window.addEventListener('resize',function(){ try{XT.fit.fit()}catch(e){} });
+  XT.term.onData(function(data){
+    if(CH && CH.target && CH.target.indexOf('member:')===0) api('/dsh-termfleet/remote/write',{member:CH.target.slice(7),data:data});
+    else api('/dsh-termfleet/pty/raw',{data:data});
   });
+  return XT.term;
+}
+function startPty(){
+  var memberMode = CH && CH.target && CH.target.indexOf('member:')===0;
+  if(memberMode){ api('/dsh-termfleet/remote/write',{member:CH.target.slice(7),data:'echo MEMBER_PTY_READY\\r'}).then(function(d){
+      if(d.ok===false){ toast('成员机不在线'); } });
+  }
+  var xt=(typeof Terminal!=='undefined')?ptyXtermInit():null;
+  api('/dsh-termfleet/probe-pty').then(function(d){
+    if(!(xt&&XT.term)){ ptyLines=[d.tail||'']; drawPty(); } else if(d.tail) xt.write(d.tail);
+  }).catch(function(){});
   if(ptyES) ptyES.close();
   ptyES=new EventSource('/dsh-termfleet/stream?k=pty&token='+encodeURIComponent(TOK));
   ptyES.addEventListener('pty',function(ev){ var d=JSON.parse(ev.data);
+    if(xt){ xt.write(d.d); return }
     ptyLines.push(d.d); if(ptyLines.length>200)ptyLines.shift(); drawPty(); });
 }
 function drawPty(){

@@ -386,13 +386,16 @@ export function apply(ctx, _config) {
     return inter / (a.size + b.size - inter)
   }
   // 契约 B：候选=状态不在 wontfix/archived 的任务；score≥阈值取前 3 条按分降序；excludeId 供建库后自查豁免
+  // 契约 B：候选=状态不在 wontfix/archived 的任务；score≥阈值取前 3 条按分降序；excludeId 供建库后自查豁免
+  // v1.1（2026-10-18 活体修正）：评分只用标题 bigram——desc 并入候选集合会把带长描述任务的
+  // 标题相似度稀释到永不过阈（实测 0.714→0.143）；desc 留作 v2 向量升级的嵌入输入。
   const findSimilarTasks = async (title, desc, excludeId) => {
-    const q = dedupSet(title, desc)
+    const q = bigramSet(normTitle(title))
     if (!q.size) return []
     const hits = []
     for (const t of await taskStore.list()) {
       if (DEDUP_SKIP_STATES.includes(t.status) || (excludeId && t.id === excludeId)) continue
-      const score = jaccard(q, dedupSet(t.title, t.desc))
+      const score = jaccard(q, bigramSet(normTitle(t.title)))
       if (score >= dedupThreshold) hits.push({ id: t.id, title: t.title, status: t.status, score })
     }
     return hits.sort((a, b) => b.score - a.score).slice(0, 3)
@@ -859,7 +862,7 @@ export function apply(ctx, _config) {
               const ch = await consentStore.activeOf('pty')
               if (!ch || !ch.remote || ch.mode !== 'rw') { auditStore.add('bus', '拒执行远端指令（无本机通道）', m.t); return }
               if (m.t === 'pty-open') { ensurePty() }
-              else if (m.t === 'pty-write') { ptyWrite(String(m.data || ''), undefined) }
+              else if (m.t === 'pty-write') { ptyWrite(String(m.data || ''), '') } // 原生键击流：不等待回显标记
               else if (m.t === 'pty-kill') { try { ptyProc?.kill() } catch { /* 已退 */ } }
             } else if (m.t === 'followup') {
               // 契约 C 下行段：lead 插话 → 成员端二次验证（active sess 通道 + rw + target 匹配，与 PTY 双端验证同款）
@@ -1068,7 +1071,7 @@ export function apply(ctx, _config) {
     const sentAt = Date.now()
     const before = st.markers.length
     ptyProc.write(data)
-    const expectText = expect || 'M0_PTY_OK'
+    const expectText = expect === undefined ? 'M0_PTY_OK' : expect // '' = 显式不等待（裸键击流）
     const hit = await waitFor(() => (expectText ? (st.markers.length > before || null) : true), 8000)
     const latencyMs = st.markers.length > before ? st.markers[st.markers.length - 1].t - sentAt : null
     return {
@@ -1343,6 +1346,26 @@ ctx.inject(['webServer'], (host) => {
               const echo = String(body.data || '').match(/echo\s+(\S+)/)
               const rec = await ptyWrite(data, body.expect || (echo ? echo[1] : undefined))
               json(res, rec.ok ? 200 : 500, rec)
+            } catch (e) {
+              json(res, 400, { ok: false, error: String(e).slice(0, 300) })
+            }
+          },
+        }),
+        host.webServer.register({
+          kind: 'exact',
+          path: '/dsh-termfleet/pty/raw',
+          handler: async (req, res) => {
+            if (guard(req, res)) return
+            const ch = await consentStore.activeOf('pty')
+            if (!ch) { json(res, 403, { error: 'no-consent' }); return }
+            if (ch.mode !== 'rw') { json(res, 403, { error: 'readonly-channel' }); return }
+            if (req.method !== 'POST') { res.writeHead(405, { allow: 'POST' }); res.end(); return }
+            try {
+              const body = JSON.parse((await readBody(req)) || '{}')
+              const data = typeof body.data === 'string' ? body.data : ''
+              if (!data) { json(res, 200, { ok: true }); return } // 空心跳直接放行
+              await ptyWrite(data, '') // 裸键击流（原生终端逐键转发）：不等待回显标记
+              json(res, 200, { ok: true })
             } catch (e) {
               json(res, 400, { ok: false, error: String(e).slice(0, 300) })
             }

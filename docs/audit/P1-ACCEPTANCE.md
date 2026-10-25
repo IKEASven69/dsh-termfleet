@@ -207,3 +207,34 @@
 - style-tooltip.png 为小视口裁切帧（1020px），tooltip 文案完整可读但顶部被裁——取景脚本遗留画幅，非样式问题。
 - 双路径回归覆盖：本轮 nb-*.png / nr-1-native-remote.png（20:30 取景）为 better-sidebar 双路径脚本的取景产物，脚本本体（verify-native-board/verify-native-remote）已在本日 R-fix 后复跑全绿（见上门禁表）。
 - 真双机差距不变（沿用 2026-10-13 记录）：防火墙环境/跨机时钟偏移/录屏验收本身。
+
+## xterm 原生终端轮 + 键入链路 bug 修复（2026-10-25）
+
+### 发现的存量 bug（活体真测揪出）
+
+- **现象**：内置浏览器面板点「请求连接本机 pwsh」建 rw 通道后，xterm 终端敲键零回显。此前各轮「PTY 回显 OK」的证据全部来自 HTTP 探针路由 `/probe-pty/write` 或页内手工 fetch——**键盘路径从未被真实键事件打过**。
+- **根因**：onData 处理器 `api('/dsh-termfleet/pty/raw','POST',{data})` 三参误用——`api(path,body)` 只收两参，字符串 `'POST'` 落在 body 位，实发请求体为 `JSON.stringify('POST')`=`"POST"`；服务端 `body.data`=undefined → `ptyProc.write('')` 写空串。用户敲的每个键实际发出去的都是 `"POST"`。
+- **修复**：gen-app-html.mjs 单处改回两参 `api('/dsh-termfleet/pty/raw',{data})`；全仓 grep `api('…','POST'` 确认仅此一处误用（lib/client.js 无同类）。契约入档决策库。
+
+### 专项 E2E：`node scripts/verify-xterm-key.mjs`（新增）
+
+真实 Chromium CDP 键事件（`page.keyboard.type`，命令含大写 E2E/空格/数字——恰是合成 KeyboardEvent 会丢的字符形态）打穿 keydown → xterm onData → POST /pty/raw → pty.write → pwsh 回显 → SSE → 渲染。单 lead 实例 HOME 隔离（3190 起顺延，不碰 3180/3181），退出杀净删临时目录：
+
+| 检查 | 结果 |
+|---|---|
+| K1 通道与 xterm 就绪 | ✅ chanPill="通道 rw · 29:59"，.xterm+helper-textarea 在场 |
+| K2 /pty/raw 请求体保真 | ✅ 22 请求全带真实数据，垃圾体 `"POST"` 0 个（回归锁） |
+| K3 终端缓冲完整回显 | ✅ 输入行 `PS …> echo E2E_KEY_OK 42` 逐字一致 + pwsh 输出 `E2E_KEY_OK`/`42` 两行（pwsh 按空格拆参各打一行） |
+| K4 大写/空格/数字逐字保真 | ✅ 剥提示符后与命令逐字比对一致 |
+
+4/4 PASS，exit 0；截图 `docs/audit/screens/xkey-mvnsxrdl.png`。
+
+### 测试手段边界（如实记录，防止后续误判）
+
+- ZCode 内置浏览器（IAB）的 `locator.press/type` **不向页面注入键盘事件**（textarea 捕获级监听零到达；调用不报错但无事发生）——键盘链路真测必须走独立 playwright 脚本的真实 CDP 键事件。
+- 页内合成 `KeyboardEvent` dispatchEvent **不保真**：丢大写与空格、带 shiftKey 反而全丢——只可用于接线探针（验证 onData 是否触发），不可用于保真断言。
+
+### 入库说明
+
+- xterm vendoring 轮（lib/vendor 三件、生成器内联、/pty/raw 路由、ptyWrite expect 语义、dedup v1.1）此前滞留工作区未提交，本次与键入修复、专项脚本、文档一并入库。
+- verify-p0 15 场景不经键盘路径，改动面（onData 一行+pty/raw 路由）对其无影响；verify-xterm-key 的真实实例引导（spawn+页面加载+通道+SSE+PTY 全链）本身即 regenerated app.html 的回归冒烟。
