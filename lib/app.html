@@ -741,7 +741,11 @@ function renderChannel(){
       ? '<b>'+esc(CH.requester||'lead')+'</b> 请求连接 <b>你的 '+sessObj+'</b>（仅此会话，不碰桌面）。你的答复：'
       : '<b>'+esc(CH?CH.requester:ME)+'</b>（你）→ <b>'+(mT0?esc(CH.target.slice(7))+' 的 '+sessObj:'本机 '+sessObj)+'</b>。下方按钮=被控方答复：');
     document.getElementById('csActs').innerHTML='<button class="btn sm" id="csA">允许</button><button class="btn ghost sm" id="csR">仅只读</button><button class="btn danger sm" id="csD">拒绝</button>';
-    bindDecide(); document.getElementById('consentMask').classList.add('on');
+    bindDecide();
+    // 本机自连（target=本机 pwsh，非跨机）：自动放行免确认——同源已认证会话连自己的 shell，
+    // 模拟被控方卡对脚本攻击零拦截价值（decide 是页内全局函数），审计留痕即可；跨机成员握手不受影响。
+    if(CH && CH.target && CH.target.indexOf('member:')!==0){ decide('allow'); return; }
+    document.getElementById('consentMask').classList.add('on');
     pill.className='pill a'; pill.textContent='等确认';
     sub.textContent=CH.remote?'收到连接请求——待你答复':'通道：等待确认';
   } else if(CH && CH.status==='active'){
@@ -841,8 +845,11 @@ function pollFleet(){
 }
 function requestChannel(){
   var target = selMember ? ('member:'+selMember) : 'pwsh7·本机';
+  var isSelf = target.indexOf('member:') !== 0;
   api('/dsh-termfleet/consent/request',{type:'pty',target:target}).then(function(d){
-    if(d.ok){ CH=d.consent; CH._mine=true; renderChannel(); toast('已发起连接请求（入审计）'); }});
+    if(d.ok){ CH=d.consent; CH._mine=true;
+      if(isSelf){ decide('allow'); return; } // 本机自连自动放行（审计留痕；模拟被控方卡不再打扰）
+      renderChannel(); toast('已发起连接请求（入审计）'); }});
 }
 /* 契约 I：快捷操作（愿望机：一键「请求+信任自动允许」/一键最近动态） */
 function qview(name){
