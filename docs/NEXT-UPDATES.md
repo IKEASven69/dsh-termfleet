@@ -78,4 +78,18 @@
 
 # 顺序建议
 
-**#1 会话流镜像 ✅ → #3 通知闭环 ✅（面板弹条）→ #2 零配置接入 ✅（TF-JOIN，市场安装仍开放）→ #4 强关联 → #5 推送**——#1 是产品成立的根，#3 是使用前提，#2 是分发前提。全部做完后 TermFleet 才算"远程操控成员 dsh"的完整闭环。下一顺位：#4 任务↔会话强关联。
+**#1 会话流镜像 ✅ → #3 通知闭环 ✅（面板弹条）→ #2 零配置接入 ✅（TF-JOIN，市场安装仍开放）→ #4 强关联 ✅ → #5 推送 ✅**——P0+P1 全部收官，P2 各项侦察结论见上文。
+
+## 2026-11-05 竞品第 5 扫 → 下一轮目标（全文见 COMPETITOR-SCAN-1105.md）
+
+**P0（损伤性）**
+1. **rc.5 兼容回归 ✅（2026-11-05 实证）**：verify-xterm-key 5/5 + verify-p0 15/15 全 PASS——本机 0.2.1-rc.5 上全链存活（deps 只有 node-pty/ws，躲过 rc.5 服务包提升事故）；0.2.2-rc.1（11-04 latest）升级时照例四套件回归；peer 线建议从 `*` 收紧到实证范围
+2. **占名发布 0.1.0**：npm 名 `dsh-termfleet` 未被抢注（404 实查），但 takeover 线 `dsh-takeover` 被同日抢注的教训+三条分发渠道已就绪（awesome-dsh-plugin 目录 bot 自动认领 npm / dsh-plugin-shop-catalog 2026.1105 / 官方发现页读 index.json）——10-09「不急 npm」的决策依据已变，建议尽早占名
+
+**P1（功能增量候选，按用户时刻排序）**
+3. **「⇄ 交接给成员」**：成员卡一键把会话按 handoff:1 产卡进 ~/.handoff（协议/收件箱全是 takeover 线现成资产）——termfleet 管同步观测+插话，takeover 管异步接力，按钮接起两线；下班交接场景；顺带收口 10-27 遗留的 ~/.handoff 总线统一
+4. **superagent presence 桥**：消费官方原型（18.3k★）钦点的无消费者域事件（eval.started/ticket.created）→ 感知卡+照常镜像管道；termfleet=superagent 生态缺失的 presence 层（presence:1 查无先例）
+5. **成员主权面**：成员面板一屏看清「谁在看我/什么权限/剩多久」+ 一键结束所有被看 + 信任前置——25+ 单人遥控包全卷"看别人"，无人做"被看者的主权"（团队层天然卖点，审计数据现成，纯 UI+一个批量 end 路由）
+6. **team-memory 事件源**：总线 sess-event/progress 帧喂 dsh-team-memory L1/L2 蒸馏（自家组合协同，零新协议）
+
+**P2（观望不变）**：手机面（console/mobile 两家已做穿单人手机面，只剩"团队视图上手机"，需求弱继续观望）；挂起不变=成本价目表/回放切片/避坑库审计原生化/多成员流隔离/IM 实发/B 机录屏；better-sidebar 0.30.1 升版时 verify-coexist 重跑
