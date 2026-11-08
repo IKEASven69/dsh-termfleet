@@ -271,3 +271,38 @@
 | 晚到让位 | fab 已挂后 bs/原生面才注册的桌面冷启动场景：1.5s 间隔秒表在 flag 翻转时摘除 fab（代码路径+单测不覆盖宿主时序，以用户实测为准） |
 
 「优质打印」浮层=用户另一插件的 widget 叠影，非本插件产物。详见 decisions 2026-11-08 条目。
+
+## 0.1.0 发版验收轮（2026-11-08，用户令「准备好 0.1.0 版本，全面验收功能和界面线」）
+
+### 界面线（shoot-pages 12 张逐张挑毛病 → 9 处修复 → 重拍复核）
+
+| # | 问题（首拍证据） | 修复 | 复核 |
+|---|---|---|---|
+| 1 | none 态双 CTA 卡 460px 高内容占 1/3、dashed 边框像占位符 | `.cta` 实线边框 + `.ctxnone` align-items:center（卡高收紧内容居中） | ✅ style-remote-none |
+| 2 | chanStrip 无通道时「切只读/断开」死按钮仍显示（断开钮红色高亮） | renderChannel 单点控制：无 active/pending 通道即隐藏两钮 | ✅ style-remote-local |
+| 3 | member 态「请求会话镜像」CTA ×2（顶部+流内） | 删流内动态按钮，保留顶部单入口，403 文案指上方 | ✅ |
+| 4 | 看板卡「◻ 认领」图标 tofu | cardMeta 换 `ic('User',11)` | ✅ style-task-board |
+| 5 | toast 白底底部中央刺眼 | `.toast` 暗色壳一体（elev+border+shadow） | ✅ 同上 |
+| 6 | 待分诊/就绪(A) 灰 chip 对比度低 | `.pill` 基类提亮 label1+card2 底 | ✅ style-task-list |
+| 7 | 插话钮禁用态白底高亮 | 新增 `.btn:disabled{opacity:.45}` | ✅ style-remote |
+| 8 | IM 按钮组「已停用 · 启用」语义混乱 | 拆为「启用/停用」+title 说明 | ✅ style-settings |
+| 9 | 「呼叫 lead 协助」在 lead 机无语义 | 按角色显隐（lead 机隐藏） | ✅ 同上 |
+
+服务端两处：避坑审计行 dev-speak 白话化（`新增避坑 · 已生效 · 分类`）；status 审计行带前后态（`_flowNote` from→to）。
+
+### 功能门禁（六套件 38 项，本轮实跑）
+
+| 套件 | 结果 |
+|---|---|
+| verify-p0 | ✅ 15/15 exit 0 |
+| verify-lan | ✅ 3/3 exit 0（修：joinCode 开 settingsMask 后填——R3 重构漏随迁，10-14 后未跑未觉） |
+| verify-native-board | ✅ 6/6 exit 0 |
+| verify-native-remote | ✅ exit 0（RN4 全链含 ack） |
+| verify-coexist | ✅ 4/4 exit 0（修：C2 首挂竞态自愈路径——bs 首点「空面板」diag 实证组件未被调用，切走切回即愈，与 C4 同路径；**bs 首挂竞态记入 CHANGELOG 已知边界**） |
+| verify-xterm-key | ✅ 6/6 exit 0 |
+
+### 0.1.0 发版就绪
+
+- package.json：`private` 摘除（否则 publish 拒绝）/ version 0.1.0 / repository / keywords / engines / 描述修正（去「远程桌面」「团队记忆」错词）；LICENSE（MIT，此前只有字段无文件）；CHANGELOG 0.1.0 全量条目；README 双语重写。
+- `npm pack --dry-run`：10 文件 / 343.9kB（lib+patch+自动附件），无 scripts/docs 混入；隐私 grep 历史 0 命中；doc:seal 重封 31 文件 + linkcheck 过。
+- 发布清单：docs/release/npm-and-market.md（npm 名 11-08 实查无人注册；publish 等用户 cold777 账号 OTP，步骤已备）。
