@@ -343,6 +343,7 @@ export function apply(ctx, _config) {
             if (t.state.returns >= 5) { t.status = 'blocked'; H('打回达上限 5 次 → blocked，交人裁决') }
           }
           H(`状态 ${from} → ${to}`)
+          t._flowNote = from + ' → ' + to
         } else if (op === 'delete') {
           auditStore.add(by, '删除任务', id + ' ' + (t.title || ''))
           d.tasks = d.tasks.filter((x) => x.id !== id)
@@ -353,7 +354,8 @@ export function apply(ctx, _config) {
           save(); return t
         }
         else return t
-        auditStore.add(by, '任务操作 ' + op, id + ' ' + (t.title || ''))
+        const fnote = t._flowNote; delete t._flowNote // status 转移时带上前后态（审计行可读性 2026-11-08）
+        auditStore.add(by, '任务操作 ' + op, id + ' ' + (t.title || '') + (fnote ? '（' + fnote + '）' : ''))
         save(); return t
       },
     }
@@ -1484,7 +1486,7 @@ ctx.inject(['webServer'], (host) => {
             try {
               const body = JSON.parse((await readBody(req)) || '{}')
               const r = await memoryStore.create(body, who(req))
-              auditStore.add(who(req), '新增避坑[' + r.state + '/' + r.category + ']', String(body.title || ''))
+              auditStore.add(who(req), '新增避坑 · ' + ({ proposed: '待定', implemented: '已生效', rejected: '已否决', archived: '已归档' }[r.state] || r.state) + ' · ' + r.category, String(body.title || ''))
               json(res, 200, r)
             } catch (e) { json(res, 400, { ok: false, error: String(e).slice(0, 300) }) }
           },

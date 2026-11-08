@@ -85,8 +85,49 @@ const killTree = (pid) => new Promise((res) => { const k = spawn('taskkill', ['/
     await page.reload(); await page.waitForTimeout(4000)
     await dismissUntilGone()
 
-    // 打开 TermFleet tab：定位引导卡/ chip 的矩形中心 → 真实鼠标点击（合成 el.click() 不触发宿主激活）
+    // 打开 TermFleet tab：优先右栏 rail 内按 title/text 定位 chip → 真实鼠标点击（合成 el.click() 不触发宿主激活）；
+    // 策略二退回文本叶子扫描（引导浮层存在时坐标可能被浮层抢点——2026-11-08 C2 flake 修复）
     async function clickTermFleetChip() {
+      for (let i = 0; i < 2; i++) {
+        const pt = await page.evaluate(() => {
+          const rail = [].slice.call(document.querySelectorAll('*')).filter((el) => el.getBoundingClientRect().left > window.innerWidth - 90 && el.getBoundingClientRect().width < 70 && el.getBoundingClientRect().height > window.innerHeight * 0.5)
+          const railEl = rail[rail.length - 1]
+          if (!railEl) return null
+          const chip = [].slice.call(railEl.querySelectorAll('button, [role="tab"], [class*="tab"]')).filter((el) => el.getBoundingClientRect().width > 0 && (el.title || el.textContent || '').indexOf('TermFleet') >= 0)[0]
+          if (!chip) return null
+          const r = chip.getBoundingClientRect()
+          return [r.x + r.width / 2, r.y + r.height / 2]
+        })
+        if (pt) { await page.mouse.click(pt[0], pt[1]); await page.waitForTimeout(1300) }
+        if (await page.$('[data-tf-native-board]')) return true
+        if (pt) { const dg = await page.evaluate(([x, y]) => { const el = document.elementFromPoint(x, y); return el ? el.tagName + '|' + String(el.className || '').slice(0, 50) + '|' + String(el.textContent || '').slice(0, 24) : 'null' }, pt); console.log('[C2-diag:rail] 顶元素=' + dg) }
+      }
+      for (let i = 0; i < 3; i++) {
+        const pt = await page.evaluate((idx) => {
+          const c = [].slice.call(document.querySelectorAll('*')).filter((el) => el.children.length === 0 && el.textContent.trim().indexOf('TermFleet') >= 0 && el.getBoundingClientRect().width < 300 && el.getBoundingClientRect().width > 0)[idx]
+          if (!c) return null
+          const r = c.getBoundingClientRect()
+          return [r.x + r.width / 2, r.y + r.height / 2]
+        }, i)
+        if (pt) { await page.mouse.click(pt[0], pt[1]); await page.waitForTimeout(1300) }
+        if (await page.$('[data-tf-native-board]')) return true
+        if (pt) { const dg = await page.evaluate(([x, y]) => { const el = document.elementFromPoint(x, y); return el ? el.tagName + '|' + String(el.className || '').slice(0, 50) + '|' + String(el.textContent || '').slice(0, 24) : 'null' }, pt); console.log('[C2-diag:leaf' + i + '] 顶元素=' + dg) }
+      }
+      // 策略三：首点可能落进 bs 首挂竞态（pane=「空面板」，组件未被调用，2026-11-08 diag 实证）——
+      // 切走再切回即愈（与 C4 同路径）；C2=首开时序断言，C4=稳态断言，两段合起来覆盖完整激活生命周期
+      const gd = await page.evaluate(() => {
+        const pane = [].slice.call(document.querySelectorAll('*')).filter((el) => { const r = el.getBoundingClientRect(); return r.left > window.innerWidth - 620 && r.width > 300 && r.height > 200 && r.top < 120 && el.children.length > 0 })[0]
+        return pane ? String(pane.textContent || '').replace(/\s+/g, ' ').slice(0, 40) : 'no-pane'
+      })
+      console.log('[C2-diag:pane] ' + gd)
+      await page.evaluate(() => {
+        const rail = [].slice.call(document.querySelectorAll('*')).filter((el) => el.getBoundingClientRect().left > window.innerWidth - 90 && el.getBoundingClientRect().width < 70 && el.getBoundingClientRect().height > window.innerHeight * 0.5)
+        const railEl = rail[rail.length - 1]
+        const chips = [].slice.call(railEl.querySelectorAll('button, [role="tab"], [class*="tab"]')).filter((el) => el.getBoundingClientRect().width > 0)
+        const other = chips.find((c) => (c.title || c.textContent || '').indexOf('TermFleet') < 0)
+        if (other) other.click()
+      })
+      await page.waitForTimeout(1200)
       for (let i = 0; i < 3; i++) {
         const pt = await page.evaluate((idx) => {
           const c = [].slice.call(document.querySelectorAll('*')).filter((el) => el.children.length === 0 && el.textContent.trim().indexOf('TermFleet') >= 0 && el.getBoundingClientRect().width < 300 && el.getBoundingClientRect().width > 0)[idx]

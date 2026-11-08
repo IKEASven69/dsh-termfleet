@@ -40,7 +40,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hira
 .nav{display:flex;gap:2px;margin-left:6px}
 .nav span{padding:7px 16px;border-radius:999px;font-size:13.5px;color:var(--label3);cursor:pointer;font-weight:500;transition:background var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease)}
 .nav span.on{background:var(--brand);color:var(--brand-fg);font-weight:600}
-.pill{transition:all var(--dur-fast) var(--ease);display:inline-flex;align-items:center;justify-content:center;gap:5px;border-radius:999px;height:22px;padding:0 10px;box-sizing:border-box;font-size:11.5px;font-weight:600;color:var(--label2);border:1px solid var(--border2);white-space:nowrap}
+.pill{transition:all var(--dur-fast) var(--ease);display:inline-flex;align-items:center;justify-content:center;gap:5px;border-radius:999px;height:22px;padding:0 10px;box-sizing:border-box;font-size:11.5px;font-weight:600;color:var(--label1);background:var(--card2);border:1px solid var(--border2);white-space:nowrap}
 .pill.g{color:var(--green);background:var(--green-t);border-color:transparent}
 .pill.a{color:var(--amber);background:var(--amber-t);border-color:transparent}
 .pill.r{color:var(--red);background:var(--red-t);border-color:transparent}
@@ -67,7 +67,8 @@ button:active{opacity:.75}button:disabled{opacity:.4;cursor:not-allowed}
 .note{font-size:12px;color:var(--caption);margin-top:10px}
 .mono{font-family:'SF Mono',Consolas,monospace}
 svg.ic{display:inline-block;vertical-align:-3px}
-.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(12px);background:var(--brand);color:var(--brand-fg);padding:9px 18px;border-radius:12px;font-size:13px;font-weight:500;z-index:300;opacity:0;transition:all .22s;pointer-events:none;max-width:80vw}
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(12px);background:var(--elev);color:var(--label1);border:1px solid var(--border2);box-shadow:0 8px 30px rgba(0,0,0,.4);padding:9px 18px;border-radius:12px;font-size:13px;font-weight:500;z-index:300;opacity:0;transition:all .22s;pointer-events:none;max-width:80vw}
+.btn:disabled{opacity:.45;cursor:not-allowed}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 .mask{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;transition:opacity var(--dur) var(--ease);opacity:0}
 .mask.on{display:flex;opacity:1}
@@ -121,8 +122,8 @@ body[data-light] .term{background:var(--n1000)}
 .devfoot{display:flex;align-items:center;gap:8px;padding:10px 14px 12px;border-top:1px solid var(--border);margin-top:2px}
 .costline{font-size:11.5px;color:var(--caption);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;text-align:right}
 .costline b{color:var(--label2);font-weight:600}
-.ctxnone{display:flex;gap:14px;align-items:stretch;min-height:420px}
-.cta{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:34px 22px;border:1.5px dashed var(--border2);border-radius:16px;background:var(--card);cursor:pointer;text-align:center;transition:border-color var(--dur) var(--ease),background var(--dur-fast) var(--ease),transform var(--dur-fast) var(--ease)}
+.ctxnone{display:flex;gap:14px;align-items:center;min-height:420px}
+.cta{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:30px 22px;border:1px solid var(--border2);border-radius:16px;background:var(--card);cursor:pointer;text-align:center;transition:border-color var(--dur) var(--ease),background var(--dur-fast) var(--ease),transform var(--dur-fast) var(--ease)}
 .cta:hover{border-color:var(--label3);background:var(--elev);transform:translateY(-2px)}
 .cta .big{font-size:15px;font-weight:700;color:var(--label1)}
 .cta .sub{font-size:12.5px;color:var(--caption);max-width:300px;line-height:1.6}
@@ -369,8 +370,8 @@ details.adv .ain{display:grid;gap:7px}
           <span id="rtState" class="pill">○ 未连接</span>
           <span style="font-size:12.5px;color:var(--label3);min-width:0" id="rtMeta"></span>
           <span class="spacer"></span>
-          <button class="btn ghost sm" id="rtModeBtn" disabled>切只读</button>
-          <button class="btn danger sm" id="rtEndBtn" disabled>断开</button>
+          <button class="btn ghost sm" id="rtModeBtn" style="display:none" disabled>切只读</button>
+          <button class="btn danger sm" id="rtEndBtn" style="display:none" disabled>断开</button>
         </div>
 
         <div class="ctxnone" id="ctxNone">
@@ -776,6 +777,9 @@ function renderChannel(){
   var strip=document.getElementById('chanStrip');
   var sub=document.getElementById('devLocalSub');
   clearInterval(tick); tick=null;
+  // 无 active/pending 通道时状态条只留状态行——「切只读/断开」死按钮不再显示（2026-11-08 界面验收）
+  var stripOn=!!(CH&&(CH.status==='active'||CH.status==='pending'));
+  mb.style.display=stripOn?'':'none'; eb.style.display=stripOn?'':'none';
   var showStrip=false;
   if(CH && CH.status==='pending'){
     showStrip=true;
@@ -891,6 +895,8 @@ function pollFleet(){
   }).catch(function(){});
   api('/dsh-termfleet/pairing').then(function(d){ FLEET.role=d.pairing&&d.pairing.role||'?'; FLEET.name=d.pairing&&d.pairing.name||'';
     document.getElementById('pairRole').textContent=FLEET.role; document.getElementById('pairName').textContent=FLEET.name?('· '+FLEET.name):'';
+    // 「呼叫 lead 协助」是成员机的 SOS 入口——lead 自己的面板没有语义，隐藏（2026-11-08 界面验收）
+    var sb=document.getElementById('sosBtn'); if(sb) sb.style.display=(FLEET.role==='lead')?'none':'';
     var tt=document.getElementById('trustTgl'); if(tt) tt.checked=!!(d.pairing&&d.pairing.trust); }).catch(function(){});
   // pending 轮询：远端成员答复 / 成员页收到 lead 请求 → 采纳
   if(CH && CH.status==='pending'){
@@ -1088,10 +1094,7 @@ function sfOpen(name){
     try{ es.close() }catch(e){} if(SF.es===es)SF.es=null; });
   es.onerror=function(){ if(SF.es!==es)return;
     if(es.readyState===2){ sfSetState('无法订阅','r');
-      if(!SF.n){ sfListEl().innerHTML='<div class="ph">订阅被拒（403）——TA 尚无激活的会话同意，或服务端通道未部署；同意开放后重新点选成员即可。</div>';
-        var b=document.createElement('button'); b.className='btn sm'; b.style.marginTop='10px'; b.textContent='请求会话镜像';
-        b.onclick=function(){ document.getElementById('sfReqSess').click(); };
-        var ph=sfListEl().querySelector('.ph'); ph.appendChild(document.createElement('br')); ph.appendChild(b); }
+      if(!SF.n){ sfListEl().innerHTML='<div class="ph">订阅被拒（403）——TA 尚无激活的会话同意，或服务端通道未部署。点上方「请求会话镜像」，同意开放后重新订阅即可。</div>'; }
       sfGate(true); }
     else sfSetState('重连中…','a'); };
   sfGate(true);
@@ -1202,7 +1205,7 @@ function renderProjSeg(){
   Object.keys(projects).sort().forEach(function(n){ mk(n, n+' '+ST.tasks.filter(function(t){return (t.project||'默认')===n}).length); });
 }
 function cardMeta(t){
-  var own = t.owner ? '<span>'+esc(t.owner)+'</span>' : '<span class="claim" data-claim="'+t.id+'">◻ 认领</span>';
+  var own = t.owner ? '<span>'+esc(t.owner)+'</span>' : '<span class="claim" data-claim="'+t.id+'">'+ic('User',11)+' 认领</span>';
   var cli = t.cli ? '<span class="pill" style="border-style:dashed;padding:0 7px;height:18px">'+esc(t.cli)+'</span>' : '';
   var sl = t._linkedSessions ? '<span class="pill b" style="padding:0 7px;height:18px">↔'+t._linkedSessions+'</span>' : '';
   var sb = t.session ? '<span class="pill g" style="padding:0 7px;height:18px" title="绑定会话 '+esc(t.session.sessionId)+'">⚡会话</span>' : '';
@@ -1690,7 +1693,7 @@ document.getElementById('joinBtn').onclick=function(){
   }).catch(function(e){ st.textContent='入队失败：'+e; });
 };
 var imWeb=document.getElementById('imWebhook'), imTg=document.getElementById('imToggle');
-function loadIm(){ api('/dsh-termfleet/im').then(function(d){ imWeb.value=(d.im&&d.im.webhook)||''; imTg.textContent=(d.im&&d.im.enabled)?'已启用 · 关闭':'已停用 · 启用'; }); }
+function loadIm(){ api('/dsh-termfleet/im').then(function(d){ imWeb.value=(d.im&&d.im.webhook)||''; imTg.textContent=(d.im&&d.im.enabled)?'停用':'启用'; imTg.title=(d.im&&d.im.enabled)?'当前已启用——点击停用 webhook 推送':'当前已停用——点击启用 webhook 推送'; }); }
 loadIm();
 /* R1 设置弹层 + 右栏 context 入口 */
 function openSettings(){ document.getElementById('settingsMask').classList.add('on'); loadIm(); loadCost(); }

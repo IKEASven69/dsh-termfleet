@@ -1,10 +1,24 @@
 {
   "name": "dsh-termfleet",
-  "description": "团队驾驶舱：lead 与成员同装一个 dsh 插件，获得跨成员远程桌面围观、终端/DSH 会话接管、IM 审批、任务面板与团队记忆，全部动作过统一同意/审计总线",
-  "version": "0.0.1",
-  "private": true,
+  "description": "TermFleet —— dsh 团队驾驶舱插件：会话级远程协作（成员 dsh 会话实时镜像+插话，同意握手/限时/全程审计）、pwsh 探针终端、TF-JOIN 一句话入队、共享任务板、IM 审批卡、避坑库",
+  "version": "0.1.0",
   "type": "module",
   "main": "lib/index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IKEASven69/dsh-termfleet.git"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "team",
+    "session",
+    "remote",
+    "cockpit"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "exports": {
     ".": "./lib/index.js",
     "./client": "./lib/client.js",

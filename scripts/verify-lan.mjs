@@ -169,6 +169,9 @@ async function main() {
     await memberPage.waitForTimeout(1000)
     await memberPage.evaluate(() => document.getElementById('navRemote').click())
     await memberPage.waitForTimeout(600)
+    // R3 IA 重构随迁（2026-11-08）：joinCode 在 settingsMask 弹层内——先开弹层再填码（fill 需可见元素）
+    await memberPage.evaluate(() => { const m = document.getElementById('settingsMask'); if (m && !m.classList.contains('on')) document.getElementById('settingsBtn').click() })
+    await memberPage.waitForTimeout(300)
     await memberPage.fill('#joinCode', code)
     await memberPage.evaluate(() => document.getElementById('joinBtn').click())
     // 结果断言（不依赖 UI toast）：member 本机 pairing 变为 member 且已连接
