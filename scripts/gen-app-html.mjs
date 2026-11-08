@@ -690,7 +690,31 @@ function boardOf(s){ if(['ready-for-agent','ready-for-human'].indexOf(s)>=0)retu
 function api(path, body){
   return fetch(path, body ? { method:'POST', headers:{ 'content-type':'application/json','authorization':'Bearer '+TOK,'x-tf-user':encodeURIComponent(ME) }, body: JSON.stringify(body) }
                           : { headers:{ 'authorization':'Bearer '+TOK,'x-tf-user':encodeURIComponent(ME) } })
-    .then(function(r){ if (r.status===401){ document.body.insertAdjacentHTML('afterbegin','<div style="background:var(--red-t);color:var(--red);padding:10px 14px;border-radius:12px;margin-bottom:10px">401：需带 ?token= 打开（~/.dsh/termfleet/token.json）</div>'); throw new Error('401'); } return r.json(); });
+    .then(function(r){ if (r.status===401){ tfAuthCard(); throw new Error('401'); } return r.json(); });
+function tfAuthCard(){
+  if(document.getElementById('tfAuthCard')) return;
+  var d=document.createElement('div');
+  d.id='tfAuthCard';
+  d.style.cssText='position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:60;padding:20px';
+  d.innerHTML='<div style="max-width:440px;width:100%;padding:26px;background:var(--card);border:1px solid var(--border2);border-radius:14px">'
+    +'<div style="font-size:15px;font-weight:700;margin-bottom:10px">TermFleet 需要一次授权</div>'
+    +'<div style="font-size:12.5px;color:var(--label2);line-height:1.8;margin-bottom:14px">页面打开时没带有效访问令牌（被控端保护门拦下了数据请求）。只需设置一次，令牌存入本页后长期生效：<br>① 在<b style="color:var(--label1)">被控机</b>上打开 <span class="mono" style="color:var(--label1)">~/.dsh/termfleet/token.json</span>，复制其中 token 字段的完整值（本机被控=就是这台机器的该文件）；② 粘贴到下面，点「保存并重连」。校验通过才会保存。</div>'
+    +'<div style="display:flex;gap:8px"><input id="tfAuthTok" placeholder="粘贴 token…" spellcheck="false" style="flex:1;height:34px;background:var(--card2);border:1px solid var(--border);border-radius:9px;color:var(--label1);padding:0 12px;font-size:12px">'
+    +'<button id="tfAuthGo" style="height:34px;padding:0 16px;border:0;border-radius:9px;background:var(--brand);color:var(--brand-fg);font-weight:700;cursor:pointer;font-size:12.5px">保存并重连</button></div>'
+    +'<div id="tfAuthErr" style="font-size:11.5px;color:var(--red);margin-top:9px;display:none"></div>'
+    +'<div style="font-size:11px;color:var(--caption);margin-top:10px">提示：从带 ?token= 的完整地址打开过一次后，本页会自动记住令牌，此后经按钮/标签页打开都不再询问。</div></div>';
+  document.body.appendChild(d);
+  document.getElementById('tfAuthGo').onclick=function(){
+    var t=document.getElementById('tfAuthTok').value.trim();
+    var e=document.getElementById('tfAuthErr');
+    if(!t){ e.textContent='请先粘贴 token'; e.style.display='block'; return }
+    e.style.display='none';
+    fetch('/dsh-termfleet/ping',{headers:{authorization:'Bearer '+t}}).then(function(r){
+      if(r.status===200){ localStorage.setItem('tf_token',t); location.reload(); }
+      else { e.textContent='token 校验失败（HTTP '+r.status+'）——确认复制的是 token.json 里 token 字段的完整值'; e.style.display='block'; }
+    }).catch(function(){ e.textContent='网络错误——服务不可达'; e.style.display='block'; });
+  };
+}
 }
 function toast(m){ var t=document.getElementById('toastEl'); t.textContent=m; t.classList.add('on'); clearTimeout(t._tm); t._tm=setTimeout(function(){t.classList.remove('on')},2400); }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }

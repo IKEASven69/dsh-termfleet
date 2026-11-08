@@ -259,3 +259,15 @@
 - K2/K3/K4 键入链路回归：请求体逐键真实、完整回显、大写/空格/数字逐字保真 ✓
 - K5 断开后 UI 归位：pill=`无通道`、终端已藏、CTA 回归 ✓（rtEndBtn 真实点击路径）
 - 用户活实例（3180）页面端已生效（每请求读盘）；**服务端 TTL 分支需该实例进程重启加载新 lib/index.js 后，新建通道才不限时**——3180 是用户自己的实例（token 与 ~/.dsh/termfleet 一致），重启由用户拍板，未擅动。
+
+## fab 兜底按钮去重 + 白屏授权卡（2026-11-08，用户实测「右下角怎么有这东西/点开还是白的」）
+
+| 检查 | 结果 |
+|---|---|
+| 复现（修复前） | 隔离 rc.5 宿主 IAB 点 fab → iframe=`/dsh-termfleet/app`（localStorage 无 tf_token）→ 187 字节 `{"error":"unauthorized"}` 白页 ✓ 根因坐实 |
+| K6 无 token 打开 | ✅ 壳加载（navRemote 在场，正文 325 字节非白 JSON）+ 自助授权卡出现 |
+| K6 授权卡自愈 | ✅ 卡内粘贴 token → 保存（/ping 校验通过才入库）→ 重连后面板就绪 + `localStorage.tf_token` 已种 |
+| 双按钮去重 | ✅ rc.5 裸宿主：pane.tab 注入回调命中 → `__tfSurfaced` 置位 → fab 正确不挂；verify-native-board N1-N6 6/6 无回归 |
+| 晚到让位 | fab 已挂后 bs/原生面才注册的桌面冷启动场景：1.5s 间隔秒表在 flag 翻转时摘除 fab（代码路径+单测不覆盖宿主时序，以用户实测为准） |
+
+「优质打印」浮层=用户另一插件的 widget 叠影，非本插件产物。详见 decisions 2026-11-08 条目。

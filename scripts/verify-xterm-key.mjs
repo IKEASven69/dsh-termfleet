@@ -156,6 +156,20 @@ async function main() {
       })).then((s) => (s.pill.indexOf('无通道') >= 0 && s.xtHidden && s.ctaBack ? s : null))
     }, 8000, 300, '断开后归位').then((s) => R('K5 断开后 UI 归位', true, `pill="${s.v.pill}" 终端已藏 CTA 回归`))
 
+    // K6 无 token 打开 /app：壳加载+自助授权卡（2026-11-08 修复前=187 字节 {"error":"unauthorized"} 白页）；校验保存后自愈进面板
+    const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+    const p2 = await ctx2.newPage()
+    await p2.goto(`http://127.0.0.1:${port}/dsh-termfleet/app`)
+    await p2.waitForLoadState('domcontentloaded')
+    await p2.waitForTimeout(1500)
+    const k6a = await p2.evaluate(() => ({ card: !!document.getElementById('tfAuthCard'), nav: !!document.getElementById('navRemote'), bodyLen: document.body ? document.body.innerText.length : 0 }))
+    await p2.fill('#tfAuthTok', TOK)
+    await p2.click('#tfAuthGo')
+    await p2.waitForTimeout(2800)
+    const k6b = await p2.evaluate((tok) => ({ cardGone: !document.getElementById('tfAuthCard'), navOn: !!document.getElementById('navRemote'), stored: localStorage.getItem('tf_token') === tok }), TOK)
+    R('K6 无token打开→授权卡自愈', k6a.card && k6a.nav && k6b.cardGone && k6b.navOn && k6b.stored, `卡出现=${k6a.card} 壳加载=${k6a.nav}(正文字节${k6a.bodyLen}) 保存后卡消失=${k6b.cardGone} 面板就绪=${k6b.navOn} token已种=${k6b.stored}`)
+    await ctx2.close()
+
     // 截图存档
     await page.screenshot({ path: join(REPO, 'docs', 'audit', 'screens', `xkey-${Date.now().toString(36)}.png`), fullPage: false })
   } catch (e) {

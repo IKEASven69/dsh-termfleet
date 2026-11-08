@@ -192,3 +192,10 @@ TfTabBody 改为 flag 感知（`localStorage.tf_native_board`，默认原生）�
 - **通道 TTL 按性质分支**：`decide()` 里 `expireAt = (c.remote ‖ target 带 member:) ? +30min : null`。本机自连=同源已认证会话连自己的 shell，没有「被控方限时授权」语义，倒计时纯属仪式（与 d74823e 撤本机确认卡同一逻辑链）；跨机一律保留 30 分钟（产品前提=限时留痕授权）。判据用 `remote 标记 ‖ member: 前缀` 双条件——成员机 requestRemote 记录的 target 可能不带前缀，漏掉 remote 会把被控方记录也改成不限时。
 - **通道死亡必须 UI 归位**：ended/expired/denied 分支要关 ptyES、藏 `#ptyXterm`、放回「请连接」CTA。坑①：CTA 显示条件 `!CH` 对「存在但已死」的通道恒 false——判活要按 status（非 active/pending）。坑②：ptyXtermInit 的 `if(XT.term) return` 早退会跳过 `cont.style.display='block'`——死亡归位后重连必须重亮容器（复用时也执行 display+fit 再早退）。坑③：带活通道刷新页面后无人调 startPty（终端不出现+CTA 被 CH 存在压住的第二种僵尸态）——startPty 收敛到 renderChannel 活动分支 `!ptyES` 单一入口（decide 不再重复调，避免尾流重写两遍）。
 - **页面 vs 服务端生效边界再确认**：/app 每请求读盘（前端改=刷新即生效），但 lib/index.js 是进程启动时加载（服务端改=必须重启实例）。用户实测的 3180 是其本人实例（token 与 ~/.dsh/termfleet/ 一致），重启由用户拍板不擅动。
+
+## 2026-11-08 · fab 兜底按钮双挂去重 + /app 页面免门与自助授权卡（change-002 v1，用户实测「右下角怎么有这东西/点开还是白的」）
+
+- **白屏根因（隔离宿主 IAB 复现实证）**：fab iframe 的令牌取自 `localStorage.tf_token`——宿主页上常为空（用户一直走原生标签页，从未直接开过 app 页）→ iframe 裸开 `/dsh-termfleet/app` 被 guard 挡回 187 字节 `{"error":"unauthorized"}` 白底 JSON。修复两半：①`/app` 页面路由**免门**（静态壳不含任何秘密，全部数据路由仍各自过 guard——放行的是壳不是数据）；②api() 401 时弹**自助授权卡**（暗色壳一体）：粘贴 token → 先经 `/ping` 校验通过才 `localStorage.setItem('tf_token')` 并重连，一次设置永久生效；带 `?token=` 打开时本就会自动种入（659 行既有逻辑）。K6 E2E 锁定：无 token 打开=壳加载+卡出现（修复前=白 JSON），卡内保存后=面板就绪+token 已种。
+- **双按钮去重（10-06 欠账清偿）**：三个原生面（bs `registerTab` / `sidebar.right.pane.tab` / 0.1 utilities 槽）任一注册成功即置 `window.__tfSurfaced`，fab 延迟 4.5s 挂载时见标志即不挂；**晚到让位清扫**——桌面冷启动 bs 服务可能 4.5s 后才注册，已挂的 fab 被 1.5s 间隔秒表（2min 上限）在 flag 翻转时摘除。rc.5 裸宿主实证：pane.tab 注入回调命中 → fab 正确不挂；verify-native-board 6/6 无回归。
+- **「优质打印」浮层**=用户另一插件的 widget 叠影（隔离宿主全页无此字符串），非本插件产物，未处理。
+- **勘误（guard 认宿主 token 的全量解不做的理由）**：webServer 服务面只有路由注册器（运行时探针实证 hostKeys=[fiber]/wsKeys=[ctx,exact,prefixes,upgrades,…]），宿主浏览器会话秘密不暴露给插件；逆向 rc 派生算法=跟随上游每版重逆向，脆。v1 自助卡已消除用户可见的死墙；真正的 token 联动等上游文档化 auth seam 再做（change-002 保留）。

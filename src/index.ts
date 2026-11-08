@@ -1393,7 +1393,9 @@ ctx.inject(['webServer'], (host) => {
           kind: 'exact',
           path: '/dsh-termfleet/app',
           handler: async (req, res) => {
-            if (guard(req, res)) return
+            // 页面本身免门（change-002 v1）：静态壳无任何秘密，全部数据路由仍各自过 guard——
+            // 兜底按钮/localStorage 无 token 时 iframe 至少能加载出壳并弹自助授权卡，
+            // 而不是 187 字节的 {"error":"unauthorized"} 白页（2026-11-08 用户实测白屏根因）。
             try {
               const fsx = await import('node:fs')
               const here = new URL('.', import.meta.url) // lib/
