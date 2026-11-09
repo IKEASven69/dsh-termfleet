@@ -1954,8 +1954,15 @@ ctx.inject(['webServer'], (host) => {
       // 任务板同步 v1：任务 id 追加舰队名标签——同步注册（不等 boot 异步段，/tasks/create 早期调用也有标签；cfg 名由路由内 loadCfg 保证）
       taskStore.setIdTag(() => {
         const c = busLink.cfg
-        const n = String((c && c.name) || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 6)
-        return n ? '-' + n.toUpperCase() : ''
+        const raw = String((c && c.name) || '')
+        const n = raw.replace(/[^A-Za-z0-9]/g, '').slice(0, 6)
+        if (n) return '-' + n.toUpperCase()
+        // 纯中文名等无 ASCII 场景：确定性哈希兜底（跨重启稳定，[A-Za-z0-9]{1,8} 格式内）——
+        // 否则成员侧 id 无标签，上行 create 的 id 过不了保留格式校验，lead 再发一个带标签的新 id
+        // = 同一任务两机两 id（双胞胎任务，0.1.0 演示录屏实证：成员「演示成员-风格预览」→ 裸 T-001）
+        let h = 5381
+        for (let i = 0; i < raw.length; i++) { h = ((h * 33) ^ raw.charCodeAt(i)) >>> 0 }
+        return '-' + (h % 1679616).toString(36).toUpperCase().padStart(4, '0').slice(-4)
       })
       ;(async () => {
         await busLink.loadCfg()
